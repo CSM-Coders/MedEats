@@ -1,0 +1,31 @@
+import { View, Text, StyleSheet } from "react-native";
+import { useLocalSearchParams } from "expo-router";
+
+export default function RestaurantScreen() {
+  const { id } = useLocalSearchParams();
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Restaurante</Text>
+      <Text style={styles.subtitle}>ID: {id}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#000",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  title: {
+    color: "#fff",
+    fontSize: 28,
+    fontWeight: "700",
+  },
+  subtitle: {
+    color: "#aaa",
+    marginTop: 12,
+  },
+});
