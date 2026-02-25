@@ -1,5 +1,6 @@
+import { forwardRef } from "react";
 import { StyleSheet } from "react-native";
-import MapViewComponent, { Marker, Region } from "react-native-maps";
+import MapViewComponent, { Marker } from "react-native-maps";
 import { MEDELLIN_REGION, Restaurant } from "../mocks";
 
 // ============================================================
@@ -13,37 +14,52 @@ type Props = {
   onMarkerPress: (restaurant: Restaurant) => void;
 };
 
-export default function MapView({ restaurants, onMarkerPress }: Props) {
-  return (
-    <MapViewComponent
-      style={styles.map}
-      // Región inicial: centrada en Medellín
-      initialRegion={MEDELLIN_REGION}
-      // Muestra el botón "Mi Ubicación" (requiere permisos)
-      showsUserLocation
-      showsMyLocationButton={false}
-    >
-      {/* Recorremos cada restaurante y creamos un marcador en el mapa */}
-      {restaurants.map((restaurant) => (
-        <Marker
-          key={restaurant.id}
-          // Coordenadas donde se coloca el marcador
-          coordinate={{
-            latitude: restaurant.latitude,
-            longitude: restaurant.longitude,
-          }}
-          // Texto que aparece al tocar el marcador (tooltip)
-          title={restaurant.name}
-          description={restaurant.category}
-          // Color naranja para el marcador (como en el mockup)
-          pinColor="#FF6B35"
-          // Al tocar el marcador, llamamos a la función del padre
-          onPress={() => onMarkerPress(restaurant)}
-        />
-      ))}
-    </MapViewComponent>
-  );
-}
+// ============================================================
+// forwardRef: permite que el componente padre tenga acceso
+// directo al MapViewComponent para controlarlo (ej: animarlo)
+//
+// Sin forwardRef: el padre solo puede enviar datos (props)
+// Con forwardRef: el padre tiene un "control remoto" del mapa
+//
+// Lo usamos así desde el padre:
+//   const mapRef = useRef(null);
+//   mapRef.current.animateToRegion(nuevaRegion);
+// ============================================================
+const MapView = forwardRef<MapViewComponent, Props>(
+  ({ restaurants, onMarkerPress }, ref) => {
+    return (
+      <MapViewComponent
+        ref={ref}
+        style={styles.map}
+        // Región inicial: centrada en Medellín
+        initialRegion={MEDELLIN_REGION}
+        // Muestra el botón "Mi Ubicación" (requiere permisos)
+        showsUserLocation
+        showsMyLocationButton={false}
+      >
+        {/* Recorremos cada restaurante y creamos un marcador en el mapa */}
+        {restaurants.map((restaurant) => (
+          <Marker
+            key={restaurant.id}
+            coordinate={{
+              latitude: restaurant.latitude,
+              longitude: restaurant.longitude,
+            }}
+            title={restaurant.name}
+            description={restaurant.category}
+            pinColor="#FF6B35"
+            onPress={() => onMarkerPress(restaurant)}
+          />
+        ))}
+      </MapViewComponent>
+    );
+  }
+);
+
+// Nombre para debugging — cuando inspeccionas componentes en React DevTools
+MapView.displayName = "MapView";
+
+export default MapView;
 
 const styles = StyleSheet.create({
   map: {

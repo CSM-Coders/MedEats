@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useMemo } from "react";
 import {
   View,
   Text,
@@ -9,52 +9,149 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import MapViewComponent from "react-native-maps";
 import MapView from "./components/mapView";
 import RestaurantCard from "./components/restaurantCard";
-import { restaurants, Restaurant } from "./mocks";
+import { restaurants, Restaurant, MEDELLIN_REGION } from "./mocks";
 
 export default function HomeScreen() {
   // ============================================================
   // Estado (state) del componente
   // ============================================================
-  // selectedRestaurant: guarda el restaurante seleccionado al tocar un marcador
-  // null = ninguno seleccionado, la tarjeta no se muestra
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
-
-  // searchQuery: texto que el usuario escribe en la barra de búsqueda
   const [searchQuery, setSearchQuery] = useState("");
 
-  // useSafeAreaInsets: nos da los márgenes del notch/isla dinámica del teléfono
-  // para que nada quede tapado por la barra de estado
+  // useRef: crea una referencia al componente del mapa
+  // Es como guardar un "control remoto" del mapa para poder
+  // decirle "muévete aquí" más adelante
+  const mapRef = useRef<MapViewComponent>(null);
+
   const insets = useSafeAreaInsets();
+
+  // ============================================================
+  // useMemo: filtra los restaurantes cada vez que searchQuery cambia
+  // ============================================================
+  // Devuelve solo los restaurantes que coinciden con la búsqueda.
+  // Se usa para el zoom del mapa y el contador de resultados.
+  const filteredRestaurants = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return restaurants;
+    }
+
+    const query = searchQuery.toLowerCase().trim();
+
+    return restaurants.filter(
+      (r) =>
+        r.name.toLowerCase().includes(query) ||
+        r.category.toLowerCase().includes(query)
+    );
+  }, [searchQuery]);
 
   // ============================================================
   // Funciones
   // ============================================================
+
+  // Cuando el usuario ESCRIBE en la barra de búsqueda
+  const handleSearchChange = (text: string) => {
+    setSelectedRestaurant(null);
+
+    const wasSearching = searchQuery.trim().length > 0;
+    const isNowEmpty = !text.trim();
+
+    setSearchQuery(text);
+
+    // Si el usuario borró todo el texto, animamos el mapa de vuelta a Medellín
+    if (wasSearching && isNowEmpty) {
+      try {
+        mapRef.current?.animateToRegion(MEDELLIN_REGION, 500);
+      } catch {}
+    }
+  };
+
+  // Cuando el usuario da ENTER en el teclado
+  // Aquí sí movemos el mapa hacia los resultados
+  const handleSearchSubmit = () => {
+    Keyboard.dismiss();
+
+    if (!searchQuery.trim()) {
+      try {
+        mapRef.current?.animateToRegion(MEDELLIN_REGION, 800);
+      } catch {}
+      return;
+    }
+
+    // Usamos filteredRestaurants que ya fue calculado por useMemo
+    if (filteredRestaurants.length === 0) return;
+
+    // setTimeout: esperamos un momento para que React termine de
+    // actualizar los marcadores en el mapa antes de animarlo.
+    // Sin esto, el mapa puede crashear si intenta animar mientras
+    // los marcadores están cambiando.
+    setTimeout(() => {
+      try {
+        if (filteredRestaurants.length === 1) {
+          mapRef.current?.animateToRegion(
+            {
+              latitude: filteredRestaurants[0].latitude,
+              longitude: filteredRestaurants[0].longitude,
+              latitudeDelta: 0.01,
+              longitudeDelta: 0.01,
+            },
+            800
+          );
+        } else {
+          mapRef.current?.fitToCoordinates(
+            filteredRestaurants.map((r) => ({
+              latitude: r.latitude,
+              longitude: r.longitude,
+            })),
+            {
+              edgePadding: { top: 150, right: 50, bottom: 50, left: 50 },
+              animated: true,
+            }
+          );
+        }
+      } catch {
+        // Silenciamos errores de animación del mapa nativo
+      }
+    }, 100);
+  };
+
+  // Cuando el usuario toca la X para limpiar la búsqueda
+  const handleClearSearch = () => {
+    setSelectedRestaurant(null);
+    Keyboard.dismiss();
+    setSearchQuery("");
+
+    try {
+      mapRef.current?.animateToRegion(MEDELLIN_REGION, 500);
+    } catch {}
+  };
 
   // Cuando el usuario toca un marcador en el mapa
   const handleMarkerPress = (restaurant: Restaurant) => {
     setSelectedRestaurant(restaurant);
   };
 
-  // Cuando el usuario toca el mapa (fuera de un marcador), cerramos la tarjeta
+  // Cuando el usuario toca el mapa (fuera de un marcador)
   const handleMapPress = () => {
     setSelectedRestaurant(null);
-    Keyboard.dismiss(); // También cerramos el teclado si está abierto
+    Keyboard.dismiss();
   };
 
   return (
     <View style={styles.container}>
       {/* ====== CAPA 1: El mapa (ocupa toda la pantalla) ====== */}
+      {/* Siempre mostramos todos los restaurantes en el mapa */}
       <Pressable style={styles.container} onPress={handleMapPress}>
         <MapView
+          ref={mapRef}
           restaurants={restaurants}
           onMarkerPress={handleMarkerPress}
         />
       </Pressable>
 
-      {/* ====== CAPA 2: Barra de búsqueda (encima del mapa) ====== */}
-      {/* Usamos position: absolute para ponerlo encima del mapa */}
+      {/* ====== CAPA 2: Barra de búsqueda ====== */}
       <View style={[styles.searchContainer, { top: insets.top + 8 }]}>
         <View style={styles.searchBar}>
           <Ionicons name="search" size={20} color="#636E72" />
@@ -63,9 +160,30 @@ export default function HomeScreen() {
             placeholder="Search restaurants or food (e.g. burgers, su..."
             placeholderTextColor="#B2BEC3"
             value={searchQuery}
-            onChangeText={setSearchQuery}
+            onChangeText={handleSearchChange}
+            // onSubmitEditing: se ejecuta cuando el usuario presiona Enter/Search
+            onSubmitEditing={handleSearchSubmit}
+            // returnKeyType: cambia el botón del teclado de "return" a "search"
+            returnKeyType="search"
           />
+          {/* Botón X para limpiar — solo aparece si hay texto escrito */}
+          {searchQuery.length > 0 && (
+            <Pressable onPress={handleClearSearch} hitSlop={8}>
+              <Ionicons name="close-circle" size={20} color="#B2BEC3" />
+            </Pressable>
+          )}
         </View>
+
+        {/* Contador de resultados — solo aparece durante una búsqueda */}
+        {searchQuery.length > 0 && (
+          <View style={styles.resultsCount}>
+            <Text style={styles.resultsText}>
+              {filteredRestaurants.length === 0
+                ? "No se encontraron restaurantes"
+                : `${filteredRestaurants.length} restaurante${filteredRestaurants.length !== 1 ? "s" : ""} encontrado${filteredRestaurants.length !== 1 ? "s" : ""}`}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* ====== CAPA 3: Etiqueta "Restaurante" ====== */}
@@ -76,12 +194,19 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* ====== CAPA 4: Botón de ubicación (esquina inferior derecha) ====== */}
-      <Pressable style={styles.locationButton}>
+      {/* ====== CAPA 4: Botón de ubicación ====== */}
+      <Pressable
+        style={styles.locationButton}
+        onPress={() => {
+          try {
+            mapRef.current?.animateToRegion(MEDELLIN_REGION, 800);
+          } catch {}
+        }}
+      >
         <Ionicons name="navigate" size={22} color="#FF6B35" />
       </Pressable>
 
-      {/* ====== CAPA 5: Tarjeta del restaurante (solo si hay uno seleccionado) ====== */}
+      {/* ====== CAPA 5: Tarjeta del restaurante ====== */}
       {selectedRestaurant && (
         <View style={styles.cardContainer}>
           <RestaurantCard
@@ -125,6 +250,19 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     fontSize: 15,
     color: "#2D3436",
+  },
+  resultsCount: {
+    marginTop: 8,
+    backgroundColor: "#2D3436",
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+    alignSelf: "flex-start",     // Solo tan ancho como el texto
+  },
+  resultsText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "500",
   },
 
   // ---------- Etiqueta "Restaurante" ----------
