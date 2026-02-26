@@ -13,6 +13,7 @@ import MapViewComponent from "react-native-maps";
 import MapView from "./components/mapView";
 import RestaurantCard from "./components/restaurantCard";
 import { restaurants, Restaurant, MEDELLIN_REGION } from "./mocks";
+import { useUserLocation } from "@/src/hooks/useUserLocation";
 
 export default function HomeScreen() {
   // ============================================================
@@ -27,6 +28,11 @@ export default function HomeScreen() {
   const mapRef = useRef<MapViewComponent>(null);
 
   const insets = useSafeAreaInsets();
+
+  // ============================================================
+  // Ubicación del usuario: pide permisos y obtiene coordenadas GPS
+  // ============================================================
+  const { location: userLocation } = useUserLocation();
 
   // ============================================================
   // useMemo: filtra los restaurantes cada vez que searchQuery cambia
@@ -195,11 +201,26 @@ export default function HomeScreen() {
       </View>
 
       {/* ====== CAPA 4: Botón de ubicación ====== */}
+      {/* Al tocar, centra el mapa en la ubicación actual del usuario */}
       <Pressable
         style={styles.locationButton}
         onPress={() => {
           try {
-            mapRef.current?.animateToRegion(MEDELLIN_REGION, 800);
+            if (userLocation) {
+              // Si tenemos ubicación del usuario, centramos en él
+              mapRef.current?.animateToRegion(
+                {
+                  latitude: userLocation.latitude,
+                  longitude: userLocation.longitude,
+                  latitudeDelta: 0.01,   // Zoom cercano para ver alrededores
+                  longitudeDelta: 0.01,
+                },
+                800
+              );
+            } else {
+              // Si no hay ubicación (permisos denegados), vamos a Medellín
+              mapRef.current?.animateToRegion(MEDELLIN_REGION, 800);
+            }
           } catch {}
         }}
       >
