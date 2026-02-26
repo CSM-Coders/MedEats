@@ -1,11 +1,12 @@
 # 🍽️ MedEats
 
-**MedEats** es una aplicación móvil construida con **React Native** y **Expo** que permite a los usuarios descubrir restaurantes de comida saludable cercanos, explorar sus menús y realizar pedidos. La app cuenta con un mapa interactivo, un feed de contenido, creación de publicaciones y un perfil de usuario.
+**MedEats** es una aplicación móvil que combina un **mapa interactivo de Medellín** con una **red social gastronómica**. Permite descubrir restaurantes, ver su ubicación en el mapa, compartir experiencias con fotos y reseñas, y seguir a otros amantes de la comida.
 
 ---
 
 ## 📋 Tabla de Contenidos
 
+- [Arquitectura del Proyecto](#-arquitectura-del-proyecto)
 - [Requisitos Previos](#-requisitos-previos)
 - [Instalación Paso a Paso](#-instalación-paso-a-paso)
 - [Cómo Correr el Programa](#-cómo-correr-el-programa)
@@ -17,82 +18,109 @@
 
 ---
 
+## 🏗 Arquitectura del Proyecto
+
+MedEats tiene dos partes principales:
+
+| Componente | Tecnología | Descripción |
+|---|---|---|
+| **med-eats-mobile/** | React Native + Expo | App móvil (iOS/Android) |
+| **med-eats-backend/** | Django + DRF | API REST + Base de datos |
+
+```
+┌─────────────────┐       HTTP/JSON       ┌─────────────────┐
+│                 │  ◄──────────────────►  │                 │
+│   App Móvil     │                        │   Backend API   │
+│  (React Native) │                        │   (Django DRF)  │
+│                 │                        │                 │
+└────────┬────────┘                        └────────┬────────┘
+         │                                          │
+         ▼                                          ▼
+   Apple Maps /                               PostgreSQL
+   Google Maps API                            (Base de datos)
+```
+
+---
+
 ## 🛠 Requisitos Previos
 
-Antes de empezar, asegúrate de tener instalado lo siguiente en tu computadora:
+Antes de empezar, asegúrate de tener instalado:
 
-### 1. Node.js (v18 o superior)
+### Para la App Móvil
 
-Node.js es el entorno de ejecución necesario para correr el proyecto.
+#### 1. Node.js (v18 o superior)
 
 - **macOS** (con Homebrew):
   ```bash
   brew install node
   ```
-- **Windows / Linux**: Descárgalo desde [https://nodejs.org](https://nodejs.org) (versión LTS recomendada).
-- Verificar instalación:
+- **Windows / Linux**: Descárgalo desde [https://nodejs.org](https://nodejs.org) (versión LTS).
+- Verificar:
   ```bash
   node --version
   npm --version
   ```
 
-### 2. Git
+#### 2. Expo Go (para dispositivo físico)
 
-Necesario para clonar el repositorio.
+Para probar la app en tu teléfono:
+
+- **iOS**: Descarga [Expo Go](https://apps.apple.com/app/expo-go/id982107779) desde la App Store.
+- **Android**: Descarga [Expo Go](https://play.google.com/store/apps/details?id=host.exp.exponent) desde Google Play.
+
+#### 3. (Opcional) Simuladores / Emuladores
+
+- **iOS Simulator** (solo macOS):
+  - Instala [Xcode](https://apps.apple.com/app/xcode/id497799835) desde la App Store.
+  - Abre Xcode → Settings → Platforms → descarga el simulador de iOS.
+
+- **Android Emulator**:
+  - Instala [Android Studio](https://developer.android.com/studio).
+  - Crea un dispositivo virtual en: More Actions → Virtual Device Manager.
+
+#### 4. Watchman (recomendado en macOS)
+
+Mejora el hot-reloading:
+```bash
+brew install watchman
+```
+
+### Para el Backend
+
+#### 5. Python (v3.10 o superior)
+
+- **macOS**:
+  ```bash
+  brew install python
+  ```
+- **Windows / Linux**: Descárgalo desde [https://python.org](https://python.org)
+- Verificar:
+  ```bash
+  python3 --version
+  ```
+
+#### 6. PostgreSQL
+
+MedEats usa PostgreSQL como base de datos.
+
+- **macOS** (con Homebrew):
+  ```bash
+  brew install postgresql@16
+  brew services start postgresql@16
+  ```
+- **Windows**: Descárgalo desde [https://postgresql.org/download](https://www.postgresql.org/download/)
+- Verificar:
+  ```bash
+  psql --version
+  ```
+
+#### 7. Git
 
 - **macOS**:
   ```bash
   brew install git
   ```
 - **Windows**: Descárgalo desde [https://git-scm.com](https://git-scm.com)
-- Verificar instalación:
-  ```bash
-  git --version
-  ```
-
-### 3. Expo CLI
-
-Expo es el framework que usamos para construir y correr la app.
-
-```bash
-npm install -g expo-cli
-```
-
-> **Nota:** Con versiones recientes de Expo, no es obligatorio instalar `expo-cli` globalmente. Puedes usar `npx expo` directamente.
-
-### 4. Expo Go (para dispositivo físico)
-
-Si quieres probar la app en tu teléfono:
-
-- **iOS**: Descarga [Expo Go](https://apps.apple.com/app/expo-go/id982107779) desde la App Store.
-- **Android**: Descarga [Expo Go](https://play.google.com/store/apps/details?id=host.exp.exponent) desde Google Play.
-
-### 5. (Opcional) Emuladores / Simuladores
-
-Si prefieres correr la app en un emulador en vez de un dispositivo físico:
-
-- **iOS Simulator** (solo macOS):
-  - Instala [Xcode](https://apps.apple.com/app/xcode/id497799835) desde la App Store.
-  - Abre Xcode → Settings → Platforms → descarga el simulador de iOS.
-  - Abre el simulador: `open -a Simulator`
-
-- **Android Emulator**:
-  - Instala [Android Studio](https://developer.android.com/studio).
-  - Abre Android Studio → More Actions → Virtual Device Manager → Crea un dispositivo virtual.
-  - Asegúrate de tener las variables de entorno configuradas:
-    ```bash
-    export ANDROID_HOME=$HOME/Library/Android/sdk
-    export PATH=$PATH:$ANDROID_HOME/emulator
-    export PATH=$PATH:$ANDROID_HOME/platform-tools
-    ```
-
-### 6. Watchman (recomendado para macOS)
-
-Mejora el rendimiento del hot-reloading:
-
-```bash
-brew install watchman
-```
 
 ---
 
@@ -105,47 +133,100 @@ git clone <URL_DEL_REPOSITORIO>
 cd MedEats
 ```
 
-### Paso 2: Navegar a la carpeta del proyecto móvil
+### Paso 2: Configurar la App Móvil
 
 ```bash
 cd med-eats-mobile
-```
-
-### Paso 3: Instalar las dependencias
-
-```bash
 npm install
 ```
 
-Esto instalará todas las dependencias listadas en el `package.json`, incluyendo:
+Esto instala todas las dependencias incluyendo:
 
-| Dependencia | Descripción |
+| Dependencia | Uso |
 |---|---|
-| `expo` (~54.0.33) | Framework principal para la app |
-| `react` (19.1.0) | Librería de UI |
-| `react-native` (0.81.5) | Framework para apps nativas |
-| `expo-router` (~6.0.23) | Enrutamiento basado en archivos |
-| `react-native-reanimated` (~4.1.1) | Animaciones de alto rendimiento |
-| `react-native-gesture-handler` (~2.28.0) | Manejo de gestos táctiles |
-| `react-native-screens` (~4.16.0) | Navegación nativa optimizada |
-| `react-native-safe-area-context` (~5.6.0) | Manejo de áreas seguras |
-| `@expo/vector-icons` (^15.0.3) | Iconos vectoriales (Ionicons, etc.) |
-| `@react-navigation/native` (^7.1.28) | Navegación entre pantallas |
-| `@react-navigation/bottom-tabs` (^7.4.0) | Navegación con tabs inferiores |
+| `expo` (~54.0.33) | Framework principal |
+| `react-native-maps` (1.20.1) | Mapa interactivo (Apple Maps / Google Maps) |
+| `expo-location` (~19.0.8) | Acceso al GPS del dispositivo |
+| `expo-router` (~6.0.23) | Navegación basada en archivos |
+| `@react-navigation/bottom-tabs` (^7.4.0) | Tabs inferiores (Home, Feed, Create, Profile) |
+| `@expo/vector-icons` (^15.0.3) | Iconos (Ionicons) |
+
+### Paso 3: Configurar el Backend
+
+```bash
+cd ../med-eats-backend
+```
+
+#### 3a. Crear un entorno virtual de Python
+
+```bash
+python3 -m venv venv
+source venv/bin/activate    # macOS/Linux
+# En Windows: venv\Scripts\activate
+```
+
+#### 3b. Instalar dependencias de Python
+
+```bash
+pip install -r requirements.txt
+```
+
+Las dependencias del backend son:
+
+| Dependencia | Uso |
+|---|---|
+| `Django` (6.0.2) | Framework web |
+| `djangorestframework` (3.16.1) | API REST (endpoints JSON) |
+| `django-cors-headers` (4.9.0) | Permitir peticiones desde la app móvil |
+| `psycopg2-binary` (2.9.11) | Conector de PostgreSQL |
+| `pillow` (12.1.1) | Manejo de imágenes |
+
+#### 3c. Crear la base de datos
+
+```bash
+createdb medeats
+```
+
+> Si estás en macOS con Homebrew, tu usuario de PostgreSQL ya existe automáticamente. La configuración en `settings.py` usa tu usuario de macOS.
+
+#### 3d. Ejecutar las migraciones
+
+```bash
+python manage.py migrate
+```
+
+#### 3e. (Opcional) Crear un superusuario para el admin
+
+```bash
+python manage.py createsuperuser
+```
 
 ---
 
 ## 🚀 Cómo Correr el Programa
 
-### Opción 1: Iniciar el servidor de desarrollo (recomendado)
+Necesitas **2 terminales** abiertas simultáneamente:
 
-Desde la carpeta `med-eats-mobile/`:
+### Terminal 1 — Backend (API)
 
 ```bash
+cd med-eats-backend
+source venv/bin/activate
+python manage.py runserver
+```
+
+El backend correrá en: `http://localhost:8000`
+
+Panel de administración: `http://localhost:8000/admin/`
+
+### Terminal 2 — App Móvil
+
+```bash
+cd med-eats-mobile
 npx expo start
 ```
 
-Esto abrirá una terminal interactiva con un **código QR** y las siguientes opciones:
+Esto abrirá una terminal interactiva con un **código QR** y opciones:
 
 | Tecla | Acción |
 |---|---|
@@ -154,65 +235,41 @@ Esto abrirá una terminal interactiva con un **código QR** y las siguientes opc
 | `w` | Abrir en el **navegador web** |
 | `r` | Recargar la app |
 | `j` | Abrir el debugger |
-| `?` | Ver todos los comandos |
 
-### Opción 2: Abrir directamente en iOS Simulator
+### Para probar en tu teléfono:
 
-```bash
-npx expo start --ios
-```
+1. Asegúrate de que tu teléfono y computadora estén en la **misma red Wi-Fi**.
+2. Abre **Expo Go** en tu teléfono.
+3. Escanea el **código QR** que aparece en la terminal.
 
-o con el script de npm:
+### Permisos importantes
 
-```bash
-npm run ios
-```
-
-### Opción 3: Abrir directamente en Android Emulator
-
-```bash
-npx expo start --android
-```
-
-o con el script de npm:
-
-```bash
-npm run android
-```
-
-### Opción 4: Abrir en el navegador web
-
-```bash
-npx expo start --web
-```
-
-o con el script de npm:
-
-```bash
-npm run web
-```
-
-### Opción 5: Abrir en tu dispositivo físico
-
-1. Ejecuta `npx expo start`
-2. Asegúrate de que tu teléfono y tu computadora estén en la **misma red Wi-Fi**
-3. Abre la app **Expo Go** en tu teléfono
-4. Escanea el **código QR** que aparece en la terminal
+Al abrir la app por primera vez, se pedirá permiso de **ubicación**. Esto es necesario para:
+- Mostrar tu posición actual en el mapa (punto azul).
+- Centrar el mapa en tu ubicación al tocar el botón de navegación (🧭).
 
 ---
 
 ## 📜 Scripts Disponibles
 
-Ejecuta estos comandos desde la carpeta `med-eats-mobile/`:
+### App Móvil (desde `med-eats-mobile/`)
 
 | Comando | Descripción |
 |---|---|
 | `npm start` | Inicia el servidor de desarrollo de Expo |
-| `npm run ios` | Inicia la app en el simulador de iOS |
-| `npm run android` | Inicia la app en el emulador de Android |
-| `npm run web` | Inicia la app en el navegador web |
+| `npm run ios` | Abre la app en el iOS Simulator |
+| `npm run android` | Abre la app en el Android Emulator |
+| `npm run web` | Abre la app en el navegador |
 | `npm run lint` | Ejecuta ESLint para verificar el código |
-| `npm run reset-project` | Reinicia el proyecto a su estado inicial |
+
+### Backend (desde `med-eats-backend/` con el venv activado)
+
+| Comando | Descripción |
+|---|---|
+| `python manage.py runserver` | Inicia el servidor API en puerto 8000 |
+| `python manage.py migrate` | Aplica las migraciones a la base de datos |
+| `python manage.py createsuperuser` | Crea un usuario administrador |
+| `python manage.py makemigrations` | Genera migraciones cuando cambias modelos |
 
 ---
 
@@ -220,130 +277,190 @@ Ejecuta estos comandos desde la carpeta `med-eats-mobile/`:
 
 ```
 MedEats/
-├── README.md                         # Este archivo
-├── images/                           # Imágenes del proyecto
-└── med-eats-mobile/                  # Aplicación móvil principal
-    ├── app/                          # Rutas de la app (file-based routing)
-    │   ├── _layout.tsx               # Layout raíz (ThemeProvider + Stack)
-    │   ├── modal.tsx                 # Pantalla modal
-    │   ├── (tabs)/                   # Navegación por tabs
-    │   │   ├── _layout.tsx           # Configuración de los tabs
-    │   │   ├── index.tsx             # Redirect a /home
-    │   │   ├── home/index.tsx        # Tab Home
-    │   │   ├── feed/index.tsx        # Tab Feed
-    │   │   ├── create/index.tsx      # Tab Crear Publicación
-    │   │   └── profile/index.tsx     # Tab Perfil
-    │   └── restaurant/
-    │       └── [id].tsx              # Detalle de restaurante (ruta dinámica)
-    ├── src/
-    │   ├── screens/
-    │   │   └── home/
-    │   │       ├── homeScreen.tsx    # Pantalla principal con mapa y tarjetas
-    │   │       ├── mocks.ts          # Datos mock de restaurantes
-    │   │       └── components/
-    │   │           ├── mapView.tsx       # Componente del mapa (placeholder)
-    │   │           └── restaurantCard.tsx # Tarjeta de restaurante
-    │   ├── components/               # Componentes reutilizables
-    │   ├── context/                  # Context providers
-    │   ├── hooks/                    # Custom hooks
-    │   ├── models/                   # Modelos de datos
-    │   ├── services/                 # Servicios y API calls
-    │   └── utils/                    # Utilidades
-    ├── components/                   # Componentes compartidos de Expo
-    ├── constants/
-    │   └── theme.ts                  # Colores y tipografía (light/dark mode)
-    ├── hooks/                        # Hooks del tema y color scheme
-    ├── assets/images/                # Íconos, splash screen, favicon
-    ├── package.json                  # Dependencias y scripts
-    ├── tsconfig.json                 # Configuración de TypeScript
-    ├── app.json                      # Configuración de Expo
-    └── eslint.config.js              # Configuración de ESLint
+├── README.md                              # Este archivo
+├── images/                                # Imágenes de documentación
+│
+├── med-eats-mobile/                       # 📱 APP MÓVIL
+│   ├── app/                               # Rutas (file-based routing)
+│   │   ├── _layout.tsx                    #   Layout raíz (ThemeProvider + Stack)
+│   │   ├── modal.tsx                      #   Pantalla modal
+│   │   ├── (tabs)/                        #   Navegación por tabs
+│   │   │   ├── _layout.tsx                #     Configuración de los 4 tabs
+│   │   │   ├── index.tsx                  #     Redirect → /home
+│   │   │   ├── home/index.tsx             #     Tab Home (importa HomeScreen)
+│   │   │   ├── feed/index.tsx             #     Tab Feed
+│   │   │   ├── create/index.tsx           #     Tab Crear Publicación
+│   │   │   └── profile/index.tsx          #     Tab Perfil
+│   │   └── restaurant/
+│   │       └── [id].tsx                   #   Detalle de restaurante (ruta dinámica)
+│   │
+│   ├── src/                               # Código fuente organizado
+│   │   ├── screens/
+│   │   │   └── home/
+│   │   │       ├── homeScreen.tsx         #     Pantalla principal (mapa + búsqueda)
+│   │   │       ├── mocks.ts              #     Datos mock de 5 restaurantes
+│   │   │       └── components/
+│   │   │           ├── mapView.tsx        #       Componente del mapa con marcadores
+│   │   │           └── restaurantCard.tsx #       Card popup del restaurante
+│   │   ├── hooks/
+│   │   │   └── useUserLocation.ts        #     Hook para GPS y permisos de ubicación
+│   │   ├── components/                    #     Componentes reutilizables
+│   │   ├── context/                       #     Context providers
+│   │   ├── models/                        #     Modelos/tipos TypeScript
+│   │   ├── services/                      #     Servicios y API calls
+│   │   ├── theme/                         #     Tema visual
+│   │   └── utils/                         #     Utilidades
+│   │
+│   ├── constants/
+│   │   └── theme.ts                       # Colores y tipografía (light/dark)
+│   ├── hooks/                             # Hooks de Expo (color scheme)
+│   ├── components/                        # Componentes base de Expo
+│   ├── assets/images/                     # Íconos, splash screen
+│   ├── package.json                       # Dependencias y scripts
+│   ├── tsconfig.json                      # Configuración TypeScript
+│   └── app.json                           # Configuración de Expo
+│
+└── med-eats-backend/                      # 🖥️ BACKEND API
+    ├── manage.py                          # CLI de Django
+    ├── requirements.txt                   # Dependencias Python
+    ├── config/                            # Configuración del proyecto
+    │   ├── settings.py                    #   Settings (DB, CORS, DRF, etc.)
+    │   ├── urls.py                        #   URLs raíz
+    │   ├── wsgi.py                        #   Servidor WSGI
+    │   └── asgi.py                        #   Servidor ASGI
+    └── restaurants/                       # App de restaurantes
+        ├── models.py                      #   Modelos de datos
+        ├── views.py                       #   Vistas/endpoints API
+        ├── admin.py                       #   Configuración del admin
+        ├── apps.py                        #   Configuración de la app
+        ├── tests.py                       #   Tests
+        └── migrations/                    #   Migraciones de DB
 ```
 
 ---
 
 ## 🧰 Tecnologías Utilizadas
 
+### App Móvil
+
 | Tecnología | Versión | Uso |
 |---|---|---|
 | **React Native** | 0.81.5 | Framework para apps móviles nativas |
 | **Expo** | ~54.0.33 | Plataforma de desarrollo y build |
-| **Expo Router** | ~6.0.23 | Navegación basada en archivos |
-| **React Navigation** | 7.x | Navegación entre pantallas y tabs |
 | **TypeScript** | ~5.9.2 | Tipado estático |
-| **React** | 19.1.0 | Librería de UI |
-| **React Native Reanimated** | ~4.1.1 | Animaciones fluidas |
-| **ESLint** | ^9.25.0 | Linting del código |
+| **Expo Router** | ~6.0.23 | Navegación basada en archivos |
+| **React Navigation** | 7.x | Tabs y navegación entre pantallas |
+| **react-native-maps** | 1.20.1 | Mapa interactivo con marcadores |
+| **expo-location** | ~19.0.8 | GPS y permisos de ubicación |
 | **Ionicons** | (via @expo/vector-icons) | Iconos de la interfaz |
+
+### Backend
+
+| Tecnología | Versión | Uso |
+|---|---|---|
+| **Python** | 3.10+ | Lenguaje del backend |
+| **Django** | 6.0.2 | Framework web |
+| **Django REST Framework** | 3.16.1 | API REST (endpoints JSON) |
+| **PostgreSQL** | 16.x | Base de datos relacional |
+| **django-cors-headers** | 4.9.0 | Permitir peticiones cross-origin |
+| **Pillow** | 12.1.1 | Procesamiento de imágenes |
 
 ---
 
 ## 📱 Pantallas de la App
 
-La app cuenta con **4 tabs principales** y pantallas adicionales:
+| Pantalla | Tab | Estado | Descripción |
+|----------|-----|--------|-------------|
+| **Home** | 🏠 Home | ✅ Funcional | Mapa interactivo con marcadores, búsqueda, ubicación GPS |
+| **Feed** | 📋 Feed | 🔲 Pendiente | Feed social con posts de usuarios |
+| **Create** | ➕ Create | 🔲 Pendiente | Crear publicaciones con fotos y reseñas |
+| **Profile** | 👤 Profile | 🔲 Pendiente | Perfil del usuario |
+| **Restaurant Detail** | — | 🔲 Pendiente | Detalle completo de un restaurante |
 
-1. **🏠 Home** — Mapa interactivo con tarjetas de restaurantes saludables cercanos.
-2. **📋 Feed** — Feed de contenido y publicaciones.
-3. **➕ Create** — Crear nuevas publicaciones.
-4. **👤 Profile** — Perfil del usuario.
-5. **🍴 Restaurant Detail** — Vista de detalle al tocar un restaurante (ruta dinámica `/restaurant/[id]`).
-6. **📦 Modal** — Pantalla modal accesible desde la navegación.
+### Funcionalidades implementadas en Home:
+
+- ✅ Mapa centrado en Medellín con 5 restaurantes mock
+- ✅ Marcadores naranjas en las ubicaciones de los restaurantes
+- ✅ Barra de búsqueda con filtrado por nombre y categoría
+- ✅ Zoom animado a los resultados al presionar Enter
+- ✅ Card popup al tocar un marcador (imagen, rating, categoría, botón "Ver Detalles")
+- ✅ Solicitud de permisos de ubicación GPS
+- ✅ Punto azul mostrando la ubicación actual del usuario
+- ✅ Botón de navegación que centra el mapa en la ubicación del usuario
+- ✅ Tag "Restaurante" como indicador visual
 
 ---
 
 ## 🔧 Solución de Problemas
 
-### Error: "expo: command not found"
-```bash
-npm install -g expo-cli
-# o usa npx:
-npx expo start
-```
+### App Móvil
 
-### Error: "Unable to resolve module"
-Borra la caché y reinstala dependencias:
+#### Error: "Unable to resolve module"
 ```bash
+cd med-eats-mobile
 rm -rf node_modules
 npm install
 npx expo start --clear
 ```
 
-### La app no se conecta al dispositivo físico
+#### La app no se conecta desde el teléfono
 - Verifica que ambos dispositivos estén en la **misma red Wi-Fi**.
-- Intenta usar modo **tunnel**:
+- Usa modo tunnel:
   ```bash
   npx expo start --tunnel
   ```
-  > Esto puede requerir instalar `@expo/ngrok`:
-  > ```bash
-  > npm install -g @expo/ngrok
-  > ```
 
-### El simulador de iOS no abre
+#### El mapa no muestra la ubicación del usuario
+- Asegúrate de aceptar el permiso de ubicación cuando la app lo solicite.
+- En iOS Simulator: Features → Location → Custom Location (coordenadas de Medellín: `6.2442`, `-75.5812`).
+- En dispositivo físico: el GPS debe estar activado.
+
+#### El simulador de iOS no abre
 - Verifica que Xcode esté instalado y actualizado.
 - Abre el simulador manualmente: `open -a Simulator`
 
-### El emulador de Android no abre
-- Verifica que Android Studio esté instalado.
-- Verifica que tengas un dispositivo virtual creado en el AVD Manager.
-- Verifica las variables de entorno `ANDROID_HOME`.
+### Backend
 
-### Errores de TypeScript
+#### Error: "role does not exist" al hacer migrate
+Tu usuario de PostgreSQL no existe. Créalo:
 ```bash
-npx tsc --noEmit
+createuser -s $(whoami)
 ```
 
-### Limpiar caché de Metro Bundler
+#### Error: "database medeats does not exist"
+Crea la base de datos:
 ```bash
-npx expo start --clear
+createdb medeats
 ```
+
+#### Error: "No module named 'django'"
+Asegúrate de activar el entorno virtual:
+```bash
+source venv/bin/activate
+```
+
+#### Puerto 8000 ya en uso
+```bash
+lsof -i :8000
+kill -9 <PID>
+```
+
+---
+
+## 👥 Equipo
+
+| Nombre | Rol | Email |
+|--------|-----|-------|
+| Camilo Alvarez | Developer | calvarezv1@eafit.edu.co |
+| Matias Monsalve | Developer | mmonsalvr1@eafit.edu.co |
+| Samuel Calderon | Developer | sscalderod@eafit.edu.co |
 
 ---
 
 ## 📄 Licencia
 
-Este proyecto es privado y de uso interno.
+Este proyecto es académico y de uso interno — Universidad EAFIT.
 
 ---
 
-> **Tip:** Para una experiencia de desarrollo óptima, se recomienda usar [VS Code](https://code.visualstudio.com/) con las extensiones **ES7+ React/Redux/React-Native Snippets** y **Expo Tools**.
+> **Tip:** Para una experiencia de desarrollo óptima, se recomienda usar [VS Code](https://code.visualstudio.com/) con las extensiones **ES7+ React/Redux/React-Native Snippets**, **Expo Tools** y **Python**.
