@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+import getpass
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -38,16 +39,16 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # ----- Librerías de terceros -----
-    "rest_framework",          # Para crear APIs REST (endpoints JSON)
-    "corsheaders",             # Para permitir peticiones desde React Native
+    "rest_framework",  # Para crear APIs REST (endpoints JSON)
+    "corsheaders",  # Para permitir peticiones desde React Native
     # ----- Nuestras apps -----
-    "restaurants",             # App de restaurantes
+    "restaurants",  # App de restaurantes
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
-    "corsheaders.middleware.CorsMiddleware",   # <-- CORS debe ir ANTES de CommonMiddleware
+    "corsheaders.middleware.CorsMiddleware",  # <-- CORS debe ir ANTES de CommonMiddleware
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -83,14 +84,14 @@ WSGI_APPLICATION = "config.wsgi.application"
 # USER: tu usuario de macOS (PostgreSQL lo crea automáticamente)
 # HOST: localhost porque corre en tu máquina
 # PORT: 5432 es el puerto por defecto de PostgreSQL
-import getpass
+
 
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": "medeats",
-        "USER": getpass.getuser(),   # Usa tu usuario de macOS automáticamente
-        "PASSWORD": "",              # En local no necesita contraseña
+        "USER": getpass.getuser(),  # Usa tu usuario de macOS automáticamente
+        "PASSWORD": "",  # En local no necesita contraseña
         "HOST": "localhost",
         "PORT": "5432",
     }
@@ -150,5 +151,3 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.AllowAny",  # En desarrollo, sin auth requerida
     ],
 }
-
-
