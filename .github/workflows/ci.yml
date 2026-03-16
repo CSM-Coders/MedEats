@@ -1,0 +1,64 @@
+name: MedEats CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+
+  frontend:
+    name: Frontend Lint & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        working-directory: med-eats-mobile
+        run: npm install
+
+      - name: Run ESLint
+        working-directory: med-eats-mobile
+        run: npx eslint .
+
+      - name: Check TypeScript
+        working-directory: med-eats-mobile
+        run: npx tsc --noEmit
+
+  backend:
+    name: Backend Lint & Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+
+      - name: Install backend dependencies
+        working-directory: med-eats-backend
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run Black (format check)
+        working-directory: med-eats-backend
+        run: black --check .
+
+      - name: Run Ruff
+        working-directory: med-eats-backend
+        run: ruff .
+
+      - name: Django system check
+        working-directory: med-eats-backend
+        run: python manage.py check
