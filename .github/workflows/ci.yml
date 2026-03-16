@@ -57,7 +57,7 @@ jobs:
 
       - name: Run Ruff
         working-directory: med-eats-backend
-        run: ruff .
+        run: ruff check .
 
       - name: Django system check
         working-directory: med-eats-backend
