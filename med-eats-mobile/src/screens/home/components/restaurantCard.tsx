@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet, Pressable, Image } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { Restaurant } from "../mocks";
+import { Restaurant } from "@/src/models/domain";
 
 // ============================================================
 // Props: recibe un restaurante completo y una función para cerrar

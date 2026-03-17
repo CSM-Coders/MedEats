@@ -65,7 +65,7 @@ export function useUserLocation() {
           });
           setLoading(false);
         }
-      } catch (err) {
+      } catch {
         if (isMounted) {
           setError("No se pudo obtener la ubicación");
           setLoading(false);

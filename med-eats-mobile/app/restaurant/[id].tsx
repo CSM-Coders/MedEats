@@ -1,12 +1,19 @@
 import { View, Text, StyleSheet } from "react-native";
 import { useLocalSearchParams } from "expo-router";
+import RestaurantDetailScreen from "@/src/screens/restaurant/restaurantDetailScreen";
+import { getRestaurantById } from "@/src/services/mockData";
 
 export default function RestaurantScreen() {
   const { id } = useLocalSearchParams();
+  const restaurant = getRestaurantById(String(id));
+
+  if (restaurant) {
+    return <RestaurantDetailScreen restaurant={restaurant} />;
+  }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Restaurante</Text>
+      <Text style={styles.title}>Restaurante no encontrado</Text>
       <Text style={styles.subtitle}>ID: {id}</Text>
     </View>
   );

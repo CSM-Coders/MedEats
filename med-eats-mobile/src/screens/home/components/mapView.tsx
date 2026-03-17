@@ -1,7 +1,8 @@
 import { forwardRef } from "react";
 import { StyleSheet } from "react-native";
 import MapViewComponent, { Marker } from "react-native-maps";
-import { MEDELLIN_REGION, Restaurant } from "../mocks";
+import { Restaurant } from "@/src/models/domain";
+import { MEDELLIN_REGION } from "@/src/services/mockData";
 
 // ============================================================
 // Props: datos que este componente recibe desde su padre

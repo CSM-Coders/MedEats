@@ -1,233 +1,281 @@
-import { useState, useRef, useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
-  View,
+  Keyboard,
+  Pressable,
+  ScrollView,
+  StyleSheet,
   Text,
   TextInput,
-  StyleSheet,
-  Pressable,
-  Keyboard,
+  View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import MapViewComponent from "react-native-maps";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { HomeFilters, Restaurant } from "@/src/models/domain";
+import { useUserLocation } from "@/src/hooks/useUserLocation";
+import {
+  getDistanceKm,
+  MEDELLIN_REGION,
+  restaurants,
+  semanticCategoryMatches,
+} from "@/src/services/mockData";
 import MapView from "./components/mapView";
 import RestaurantCard from "./components/restaurantCard";
-import { restaurants, Restaurant, MEDELLIN_REGION } from "./mocks";
-import { useUserLocation } from "@/src/hooks/useUserLocation";
+
+const initialFilters: HomeFilters = {
+  category: null,
+  minRating: null,
+  maxDistanceKm: null,
+};
 
 export default function HomeScreen() {
-  // ============================================================
-  // Estado (state) del componente
-  // ============================================================
-  const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<HomeFilters>(initialFilters);
 
-  // useRef: crea una referencia al componente del mapa
-  // Es como guardar un "control remoto" del mapa para poder
-  // decirle "muévete aquí" más adelante
   const mapRef = useRef<MapViewComponent>(null);
-
   const insets = useSafeAreaInsets();
-
-  // ============================================================
-  // Ubicación del usuario: pide permisos y obtiene coordenadas GPS
-  // ============================================================
   const { location: userLocation } = useUserLocation();
 
-  // ============================================================
-  // useMemo: filtra los restaurantes cada vez que searchQuery cambia
-  // ============================================================
-  // Devuelve solo los restaurantes que coinciden con la búsqueda.
-  // Se usa para el zoom del mapa y el contador de resultados.
-  const filteredRestaurants = useMemo(() => {
+  const categories = useMemo(
+    () => [...new Set(restaurants.map((restaurant) => restaurant.category))],
+    []
+  );
+
+  const isAiSearch = useMemo(() => {
     if (!searchQuery.trim()) {
-      return restaurants;
+      return false;
     }
 
-    const query = searchQuery.toLowerCase().trim();
-
-    return restaurants.filter(
-      (r) =>
-        r.name.toLowerCase().includes(query) ||
-        r.category.toLowerCase().includes(query)
+    return restaurants.some((restaurant) =>
+      semanticCategoryMatches(searchQuery, restaurant.category)
     );
   }, [searchQuery]);
 
-  // ============================================================
-  // Funciones
-  // ============================================================
+  const filteredRestaurants = useMemo(() => {
+    const query = searchQuery.toLowerCase().trim();
 
-  // Cuando el usuario ESCRIBE en la barra de búsqueda
-  const handleSearchChange = (text: string) => {
-    setSelectedRestaurant(null);
+    return restaurants.filter((restaurant) => {
+      const directMatch =
+        !query ||
+        restaurant.name.toLowerCase().includes(query) ||
+        restaurant.category.toLowerCase().includes(query);
 
-    const wasSearching = searchQuery.trim().length > 0;
-    const isNowEmpty = !text.trim();
+      const semanticMatch = query
+        ? semanticCategoryMatches(query, restaurant.category)
+        : false;
 
-    setSearchQuery(text);
+      const searchMatch = directMatch || semanticMatch;
 
-    // Si el usuario borró todo el texto, animamos el mapa de vuelta a Medellín
-    if (wasSearching && isNowEmpty) {
-      try {
-        mapRef.current?.animateToRegion(MEDELLIN_REGION, 500);
-      } catch {}
-    }
-  };
+      const categoryMatch =
+        !filters.category || restaurant.category === filters.category;
 
-  // Cuando el usuario da ENTER en el teclado
-  // Aquí sí movemos el mapa hacia los resultados
+      const ratingMatch =
+        !filters.minRating || restaurant.rating >= filters.minRating;
+
+      const originLat = userLocation?.latitude ?? MEDELLIN_REGION.latitude;
+      const originLon = userLocation?.longitude ?? MEDELLIN_REGION.longitude;
+      const distance = getDistanceKm(
+        originLat,
+        originLon,
+        restaurant.latitude,
+        restaurant.longitude
+      );
+      const distanceMatch =
+        !filters.maxDistanceKm || distance <= filters.maxDistanceKm;
+
+      return searchMatch && categoryMatch && ratingMatch && distanceMatch;
+    });
+  }, [filters, searchQuery, userLocation]);
+
   const handleSearchSubmit = () => {
     Keyboard.dismiss();
 
-    if (!searchQuery.trim()) {
-      try {
-        mapRef.current?.animateToRegion(MEDELLIN_REGION, 800);
-      } catch {}
+    if (filteredRestaurants.length === 0) {
       return;
     }
 
-    // Usamos filteredRestaurants que ya fue calculado por useMemo
-    if (filteredRestaurants.length === 0) return;
+    if (filteredRestaurants.length === 1) {
+      const restaurant = filteredRestaurants[0];
+      mapRef.current?.animateToRegion(
+        {
+          latitude: restaurant.latitude,
+          longitude: restaurant.longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        },
+        700
+      );
+      return;
+    }
 
-    // setTimeout: esperamos un momento para que React termine de
-    // actualizar los marcadores en el mapa antes de animarlo.
-    // Sin esto, el mapa puede crashear si intenta animar mientras
-    // los marcadores están cambiando.
-    setTimeout(() => {
-      try {
-        if (filteredRestaurants.length === 1) {
-          mapRef.current?.animateToRegion(
-            {
-              latitude: filteredRestaurants[0].latitude,
-              longitude: filteredRestaurants[0].longitude,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
-            },
-            800
-          );
-        } else {
-          mapRef.current?.fitToCoordinates(
-            filteredRestaurants.map((r) => ({
-              latitude: r.latitude,
-              longitude: r.longitude,
-            })),
-            {
-              edgePadding: { top: 150, right: 50, bottom: 50, left: 50 },
-              animated: true,
-            }
-          );
-        }
-      } catch {
-        // Silenciamos errores de animación del mapa nativo
+    mapRef.current?.fitToCoordinates(
+      filteredRestaurants.map((restaurant) => ({
+        latitude: restaurant.latitude,
+        longitude: restaurant.longitude,
+      })),
+      {
+        edgePadding: { top: 160, right: 50, bottom: 60, left: 50 },
+        animated: true,
       }
-    }, 100);
+    );
   };
 
-  // Cuando el usuario toca la X para limpiar la búsqueda
-  const handleClearSearch = () => {
+  const clearSearchAndFilters = () => {
     setSelectedRestaurant(null);
     Keyboard.dismiss();
     setSearchQuery("");
+    setFilters(initialFilters);
+    setShowFilters(false);
 
-    try {
-      mapRef.current?.animateToRegion(MEDELLIN_REGION, 500);
-    } catch {}
-  };
-
-  // Cuando el usuario toca un marcador en el mapa
-  const handleMarkerPress = (restaurant: Restaurant) => {
-    setSelectedRestaurant(restaurant);
-  };
-
-  // Cuando el usuario toca el mapa (fuera de un marcador)
-  const handleMapPress = () => {
-    setSelectedRestaurant(null);
-    Keyboard.dismiss();
+    mapRef.current?.animateToRegion(MEDELLIN_REGION, 700);
   };
 
   return (
     <View style={styles.container}>
-      {/* ====== CAPA 1: El mapa (ocupa toda la pantalla) ====== */}
-      {/* Siempre mostramos todos los restaurantes en el mapa */}
-      <Pressable style={styles.container} onPress={handleMapPress}>
+      <Pressable style={styles.container} onPress={() => setSelectedRestaurant(null)}>
         <MapView
           ref={mapRef}
-          restaurants={restaurants}
-          onMarkerPress={handleMarkerPress}
+          restaurants={filteredRestaurants}
+          onMarkerPress={setSelectedRestaurant}
         />
       </Pressable>
 
-      {/* ====== CAPA 2: Barra de búsqueda ====== */}
       <View style={[styles.searchContainer, { top: insets.top + 8 }]}>
         <View style={styles.searchBar}>
           <Ionicons name="search" size={20} color="#636E72" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search restaurants or food (e.g. burgers, su..."
+            placeholder="Search by name or food type"
             placeholderTextColor="#B2BEC3"
             value={searchQuery}
-            onChangeText={handleSearchChange}
-            // onSubmitEditing: se ejecuta cuando el usuario presiona Enter/Search
+            onChangeText={setSearchQuery}
             onSubmitEditing={handleSearchSubmit}
-            // returnKeyType: cambia el botón del teclado de "return" a "search"
             returnKeyType="search"
           />
-          {/* Botón X para limpiar — solo aparece si hay texto escrito */}
-          {searchQuery.length > 0 && (
-            <Pressable onPress={handleClearSearch} hitSlop={8}>
+
+          <Pressable
+            onPress={() => setShowFilters((value) => !value)}
+            hitSlop={8}
+            style={styles.iconButton}
+          >
+            <Ionicons name="options-outline" size={20} color="#636E72" />
+          </Pressable>
+
+          {(searchQuery.length > 0 || filters.category || filters.minRating || filters.maxDistanceKm) && (
+            <Pressable onPress={clearSearchAndFilters} hitSlop={8}>
               <Ionicons name="close-circle" size={20} color="#B2BEC3" />
             </Pressable>
           )}
         </View>
 
-        {/* Contador de resultados — solo aparece durante una búsqueda */}
-        {searchQuery.length > 0 && (
-          <View style={styles.resultsCount}>
-            <Text style={styles.resultsText}>
-              {filteredRestaurants.length === 0
-                ? "No se encontraron restaurantes"
-                : `${filteredRestaurants.length} restaurante${filteredRestaurants.length !== 1 ? "s" : ""} encontrado${filteredRestaurants.length !== 1 ? "s" : ""}`}
-            </Text>
+        <View style={styles.resultsCount}>
+          <Text style={styles.resultsText}>
+            {filteredRestaurants.length} resultado{filteredRestaurants.length === 1 ? "" : "s"}
+          </Text>
+          {isAiSearch && <Text style={styles.aiBadge}>AI</Text>}
+        </View>
+
+        {showFilters && (
+          <View style={styles.filterPanel}>
+            <Text style={styles.filterTitle}>Filtros</Text>
+
+            <Text style={styles.filterLabel}>Categoría</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow}>
+              <Pressable
+                style={[styles.chip, !filters.category && styles.chipActive]}
+                onPress={() => setFilters((prev) => ({ ...prev, category: null }))}
+              >
+                <Text style={[styles.chipText, !filters.category && styles.chipTextActive]}>Todas</Text>
+              </Pressable>
+
+              {categories.map((category) => (
+                <Pressable
+                  key={category}
+                  style={[styles.chip, filters.category === category && styles.chipActive]}
+                  onPress={() =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      category: prev.category === category ? null : category,
+                    }))
+                  }
+                >
+                  <Text style={[styles.chipText, filters.category === category && styles.chipTextActive]}>
+                    {category}
+                  </Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+
+            <Text style={styles.filterLabel}>Rating mínimo</Text>
+            <View style={styles.inlineRow}>
+              {[4, 4.5].map((value) => (
+                <Pressable
+                  key={value}
+                  style={[styles.chip, filters.minRating === value && styles.chipActive]}
+                  onPress={() =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      minRating: prev.minRating === value ? null : value,
+                    }))
+                  }
+                >
+                  <Text style={[styles.chipText, filters.minRating === value && styles.chipTextActive]}>
+                    {value}+
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text style={styles.filterLabel}>Distancia</Text>
+            <View style={styles.inlineRow}>
+              {[2, 5].map((value) => (
+                <Pressable
+                  key={value}
+                  style={[styles.chip, filters.maxDistanceKm === value && styles.chipActive]}
+                  onPress={() =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      maxDistanceKm: prev.maxDistanceKm === value ? null : value,
+                    }))
+                  }
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      filters.maxDistanceKm === value && styles.chipTextActive,
+                    ]}
+                  >
+                    {value} km
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
           </View>
         )}
       </View>
 
-      {/* ====== CAPA 3: Etiqueta "Restaurante" ====== */}
-      <View style={[styles.tagContainer, { top: insets.top + 64 }]}>
-        <View style={styles.tag}>
-          <View style={styles.tagDot} />
-          <Text style={styles.tagText}>Restaurante</Text>
-        </View>
-      </View>
-
-      {/* ====== CAPA 4: Botón de ubicación ====== */}
-      {/* Al tocar, centra el mapa en la ubicación actual del usuario */}
       <Pressable
         style={styles.locationButton}
         onPress={() => {
-          try {
-            if (userLocation) {
-              // Si tenemos ubicación del usuario, centramos en él
-              mapRef.current?.animateToRegion(
-                {
-                  latitude: userLocation.latitude,
-                  longitude: userLocation.longitude,
-                  latitudeDelta: 0.01,   // Zoom cercano para ver alrededores
-                  longitudeDelta: 0.01,
-                },
-                800
-              );
-            } else {
-              // Si no hay ubicación (permisos denegados), vamos a Medellín
-              mapRef.current?.animateToRegion(MEDELLIN_REGION, 800);
-            }
-          } catch {}
+          const latitude = userLocation?.latitude ?? MEDELLIN_REGION.latitude;
+          const longitude = userLocation?.longitude ?? MEDELLIN_REGION.longitude;
+
+          mapRef.current?.animateToRegion(
+            {
+              latitude,
+              longitude,
+              latitudeDelta: 0.015,
+              longitudeDelta: 0.015,
+            },
+            700
+          );
         }}
       >
         <Ionicons name="navigate" size={22} color="#FF6B35" />
       </Pressable>
 
-      {/* ====== CAPA 5: Tarjeta del restaurante ====== */}
       {selectedRestaurant && (
         <View style={styles.cardContainer}>
           <RestaurantCard
@@ -244,82 +292,109 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-
-  // ---------- Barra de búsqueda ----------
   searchContainer: {
-    position: "absolute",       // Flota sobre el mapa
+    position: "absolute",
     left: 16,
     right: 16,
-    zIndex: 10,                 // Se asegura de estar encima del mapa
+    zIndex: 10,
   },
   searchBar: {
-    flexDirection: "row",       // Icono y texto en fila
+    flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#fff",
     borderRadius: 28,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    // Sombra
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
+    gap: 8,
   },
   searchInput: {
     flex: 1,
-    marginLeft: 10,
     fontSize: 15,
     color: "#2D3436",
+  },
+  iconButton: {
+    paddingHorizontal: 4,
   },
   resultsCount: {
     marginTop: 8,
     backgroundColor: "#2D3436",
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-    alignSelf: "flex-start",     // Solo tan ancho como el texto
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   resultsText: {
     color: "#fff",
     fontSize: 13,
     fontWeight: "500",
   },
-
-  // ---------- Etiqueta "Restaurante" ----------
-  tagContainer: {
-    position: "absolute",
-    left: 16,
-    zIndex: 10,
-  },
-  tag: {
-    flexDirection: "row",
-    alignItems: "center",
+  aiBadge: {
+    color: "#FF6B35",
+    fontSize: 12,
+    fontWeight: "700",
     backgroundColor: "#fff",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    // Sombra
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  filterPanel: {
+    marginTop: 10,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  tagDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,            // Círculo perfecto
-    backgroundColor: "#FF6B35",
+  filterTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#2D3436",
+    marginBottom: 8,
+  },
+  filterLabel: {
+    fontSize: 13,
+    color: "#636E72",
+    marginBottom: 8,
+    marginTop: 8,
+  },
+  chipsRow: {
+    flexGrow: 0,
+  },
+  inlineRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  chip: {
+    borderWidth: 1,
+    borderColor: "#DFE6E9",
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     marginRight: 8,
   },
-  tagText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#2D3436",
+  chipActive: {
+    borderColor: "#FF6B35",
+    backgroundColor: "#FFF1EC",
   },
-
-  // ---------- Botón de ubicación ----------
+  chipText: {
+    fontSize: 12,
+    color: "#636E72",
+  },
+  chipTextActive: {
+    color: "#FF6B35",
+    fontWeight: "600",
+  },
   locationButton: {
     position: "absolute",
     bottom: 32,
@@ -327,10 +402,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     width: 48,
     height: 48,
-    borderRadius: 24,           // Círculo
+    borderRadius: 24,
     alignItems: "center",
     justifyContent: "center",
-    // Sombra
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
@@ -338,7 +412,6 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
 
-  // ---------- Tarjeta de restaurante ----------
   cardContainer: {
     position: "absolute",
     bottom: 32,
