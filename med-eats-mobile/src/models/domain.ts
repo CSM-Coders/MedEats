@@ -1,3 +1,11 @@
+// ============================================================
+// MODELOS DE DOMINIO (Frontend)
+// ------------------------------------------------------------
+// Este archivo define las "formas" de datos que usa la app.
+// Ventaja: cualquier pantalla que use `Restaurant`, `Post`, etc.
+// tendrá consistencia y menos errores de tipos.
+// ============================================================
+
 export type Restaurant = {
   id: string;
   name: string;

@@ -1,3 +1,14 @@
+// ============================================================
+// RESTAURANT DETAIL SCREEN
+// ------------------------------------------------------------
+// Vista completa de un restaurante seleccionado:
+// - imagen principal
+// - información general
+// - highlights del menú
+// - reseñas
+// - contacto por WhatsApp
+// ============================================================
+
 import { Ionicons } from "@expo/vector-icons";
 import * as Linking from "expo-linking";
 import { router } from "expo-router";

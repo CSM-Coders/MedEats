@@ -1,3 +1,12 @@
+// ============================================================
+// FEED SCREEN
+// ------------------------------------------------------------
+// Muestra publicaciones sociales y permite interacción básica:
+// - ver posts
+// - dar/quitar like
+// - abrir detalle del restaurante relacionado
+// ============================================================
+
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";

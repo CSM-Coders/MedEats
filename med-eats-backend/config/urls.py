@@ -18,6 +18,13 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 
+# ============================================================
+# RUTAS BACKEND (estado actual)
+# ------------------------------------------------------------
+# Por ahora solo está expuesto el admin de Django.
+# Próximo paso: incluir rutas API de restaurantes/posts/reviews.
+# ============================================================
+
 urlpatterns = [
     path("admin/", admin.site.urls),
 ]

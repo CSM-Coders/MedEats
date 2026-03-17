@@ -1,3 +1,12 @@
+// ============================================================
+// PROFILE SCREEN
+// ------------------------------------------------------------
+// Resume la actividad del usuario:
+// - estadísticas
+// - grid de posts propios
+// - restaurantes visitados
+// ============================================================
+
 import { useMemo, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";

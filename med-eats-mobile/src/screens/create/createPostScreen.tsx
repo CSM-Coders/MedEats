@@ -1,3 +1,14 @@
+// ============================================================
+// CREATE POST SCREEN
+// ------------------------------------------------------------
+// Flujo de publicación:
+// 1) elegir imagen
+// 2) seleccionar restaurante
+// 3) calificar
+// 4) escribir caption
+// 5) publicar en el feed (estado global)
+// ============================================================
+
 import { useMemo, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";

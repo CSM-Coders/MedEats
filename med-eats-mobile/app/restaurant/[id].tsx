@@ -1,3 +1,10 @@
+// ============================================================
+// RUTA DINÁMICA /restaurant/[id]
+// ------------------------------------------------------------
+// Esta ruta recibe el id del restaurante desde el mapa/feed,
+// busca el restaurante en datos mock y renderiza el detalle.
+// ============================================================
+
 import { View, Text, StyleSheet } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import RestaurantDetailScreen from "@/src/screens/restaurant/restaurantDetailScreen";

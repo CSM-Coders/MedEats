@@ -1,3 +1,10 @@
+// ============================================================
+// ROOT LAYOUT (Expo Router)
+// ------------------------------------------------------------
+// Este archivo envuelve toda la app con providers globales y
+// define el stack de navegación principal.
+// ============================================================
+
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';

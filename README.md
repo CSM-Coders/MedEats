@@ -2,6 +2,15 @@
 
 **MedEats** es una aplicación móvil que combina un **mapa interactivo de Medellín** con una **red social gastronómica**. Permite descubrir restaurantes, ver su ubicación en el mapa, compartir experiencias con fotos y reseñas, y seguir a otros amantes de la comida.
 
+📘 **Guía explicada archivo por archivo (lectura recomendada):** [docs/GUIA_COMPLETA_PROYECTO.md](docs/GUIA_COMPLETA_PROYECTO.md)
+
+## 📚 Documentación técnica profesional
+
+- Decisiones técnicas (ADR): [docs/ADR_DECISIONES_TECNICAS.md](docs/ADR_DECISIONES_TECNICAS.md)
+- Contrato de API: [docs/API_CONTRACT.md](docs/API_CONTRACT.md)
+- Runbook operativo: [docs/RUNBOOK_OPERATIVO.md](docs/RUNBOOK_OPERATIVO.md)
+- Arquitectura y flujos: [docs/ARQUITECTURA_Y_FLUJOS.md](docs/ARQUITECTURA_Y_FLUJOS.md)
+
 ---
 
 ## 📋 Tabla de Contenidos

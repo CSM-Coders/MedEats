@@ -1,3 +1,12 @@
+// ============================================================
+// CONTEXTO GLOBAL DEL FEED
+// ------------------------------------------------------------
+// Permite compartir posts entre varias pantallas:
+// - Feed (leer y dar like)
+// - Create (publicar)
+// - Profile (ver posts propios)
+// ============================================================
+
 import { createContext, ReactNode, useContext, useMemo, useState } from "react";
 import { Post } from "@/src/models/domain";
 import { currentUser, getRestaurantById, initialPosts } from "@/src/services/mockData";

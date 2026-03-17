@@ -1,3 +1,14 @@
+// ============================================================
+// DATOS MOCK + UTILIDADES
+// ------------------------------------------------------------
+// Este archivo simula la respuesta de un backend real.
+// Aquí centralizamos:
+// - restaurantes
+// - usuario actual
+// - posts y reviews
+// - helpers de búsqueda semántica y distancia
+// ============================================================
+
 import { AppUser, Post, Restaurant, Review, VisitedRestaurant } from "@/src/models/domain";
 
 export const MEDELLIN_REGION = {

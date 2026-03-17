@@ -1,3 +1,13 @@
+// ============================================================
+// HOME SCREEN
+// ------------------------------------------------------------
+// Pantalla principal de descubrimiento:
+// - mapa con marcadores
+// - búsqueda por texto
+// - búsqueda semántica básica (AI-like)
+// - filtros por categoría, rating y distancia
+// ============================================================
+
 import { useMemo, useRef, useState } from "react";
 import {
   Keyboard,

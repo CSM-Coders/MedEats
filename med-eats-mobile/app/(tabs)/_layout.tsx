@@ -1,3 +1,10 @@
+// ============================================================
+// TABS LAYOUT
+// ------------------------------------------------------------
+// Define las 4 secciones principales de la app para el usuario:
+// Home, Feed, Create y Profile.
+// ============================================================
+
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
