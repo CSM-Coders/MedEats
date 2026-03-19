@@ -1,16 +1,24 @@
 # API Contract – MedEats
 
 ## Estado
-Este contrato define el objetivo de integración frontend-backend para reemplazar mocks del mobile.
 
-Actualmente en backend solo está activo `admin/`; estos endpoints son el plan de implementación inmediato.
+### ✅ Implementados (Sprint 1)
+- `GET /api/restaurants/` — Lista de restaurantes
+- `GET /api/restaurants/{id}/` — Detalle de restaurante
+- `GET /api/categories/` — Lista de categorías
+
+### 🔲 Planificados (Sprint 2+)
+- Autenticación (JWT)
+- Feed / Posts
+- Reviews
+- Profile
 
 ---
 
 ## Convenciones
 
 - Base URL local: `http://localhost:8000`
-- Prefijo API propuesto: `/api/v1`
+- Prefijo API: `/api/`
 - Formato: JSON
 - Fechas: ISO 8601 (`YYYY-MM-DDTHH:mm:ssZ`)
 - Errores estándar:
@@ -26,10 +34,10 @@ Actualmente en backend solo está activo `admin/`; estos endpoints son el plan d
 
 ---
 
-## 1) Restaurants
+## 1) Restaurants ✅ LIVE
 
-### GET /api/v1/restaurants
-Lista restaurantes con filtros.
+### GET /api/restaurants/
+Lista todos los restaurantes.
 
 #### Query params
 - `q` (string, opcional): búsqueda por nombre/categoría
@@ -54,8 +62,8 @@ Lista restaurantes con filtros.
 ]
 ```
 
-### GET /api/v1/restaurants/{id}
-Detalle completo restaurante.
+### GET /api/restaurants/{id}/
+Detalle completo restaurante. **✅ LIVE**
 
 #### Response 200
 ```json
@@ -74,9 +82,9 @@ Detalle completo restaurante.
 
 ---
 
-## 2) Reviews
+## 2) Reviews 🔲 PLANNED
 
-### GET /api/v1/restaurants/{id}/reviews
+### GET /api/restaurants/{id}/reviews/
 Reseñas por restaurante.
 
 #### Response 200
@@ -95,9 +103,9 @@ Reseñas por restaurante.
 
 ---
 
-## 3) Feed / Posts
+## 3) Feed / Posts 🔲 PLANNED
 
-### GET /api/v1/feed
+### GET /api/feed/
 Feed de publicaciones.
 
 #### Response 200
@@ -156,32 +164,33 @@ Alternar like del usuario autenticado.
 
 ---
 
-## 4) Profile
+## 4) Profile 🔲 PLANNED
 
-### GET /api/v1/me
+### GET /api/me/
 Perfil del usuario autenticado.
 
-### GET /api/v1/me/posts
+### GET /api/me/posts/
 Posts del usuario autenticado.
 
-### GET /api/v1/me/visited
+### GET /api/me/visited/
 Restaurantes visitados y rating dado.
 
 ---
 
-## 5) Auth (fase siguiente)
+## 5) Auth 🔲 PLANNED (Sprint 2)
 
-### POST /api/v1/auth/register
-### POST /api/v1/auth/login
-### POST /api/v1/auth/refresh
-### POST /api/v1/auth/logout
+### POST /api/auth/register/
+### POST /api/auth/login/
+### POST /api/auth/refresh/
+### POST /api/auth/logout/
 
 ---
 
 ## Mapeo con frontend actual
 
 Frontend consume estructuras definidas en:
-- `src/models/domain.ts`
-- `src/services/mockData.ts`
+- `src/models/domain.ts` — Tipos TypeScript
+- `app/restaurant/[id].tsx` — Fetch directo a `/api/restaurants/{id}/`
+- `src/screens/home/homeScreen.tsx` — Fetch directo a `/api/restaurants/`
 
-La migración a API real debe conservar campos equivalentes para minimizar refactors.
+La transformación snake_case → camelCase se realiza automáticamente en el frontend.

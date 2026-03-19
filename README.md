@@ -292,7 +292,7 @@ MedEats/
 ├── med-eats-mobile/                       # 📱 APP MÓVIL
 │   ├── app/                               # Rutas (file-based routing)
 │   │   ├── _layout.tsx                    #   Layout raíz (ThemeProvider + Stack)
-│   │   ├── modal.tsx                      #   Pantalla modal
+│   │   ├── index.tsx                      #   Welcome Screen (FR01)
 │   │   ├── (tabs)/                        #   Navegación por tabs
 │   │   │   ├── _layout.tsx                #     Configuración de los 4 tabs
 │   │   │   ├── index.tsx                  #     Redirect → /home
@@ -301,16 +301,17 @@ MedEats/
 │   │   │   ├── create/index.tsx           #     Tab Crear Publicación
 │   │   │   └── profile/index.tsx          #     Tab Perfil
 │   │   └── restaurant/
-│   │       └── [id].tsx                   #   Detalle de restaurante (ruta dinámica)
+│   │       └── [id].tsx                   #   Detalle de restaurante (API fetch)
 │   │
 │   ├── src/                               # Código fuente organizado
 │   │   ├── screens/
-│   │   │   └── home/
-│   │   │       ├── homeScreen.tsx         #     Pantalla principal (mapa + búsqueda)
-│   │   │       ├── mocks.ts              #     Datos mock de 5 restaurantes
-│   │   │       └── components/
-│   │   │           ├── mapView.tsx        #       Componente del mapa con marcadores
-│   │   │           └── restaurantCard.tsx #       Card popup del restaurante
+│   │   │   ├── home/
+│   │   │   │   ├── homeScreen.tsx         #     Pantalla principal (mapa + búsqueda + filtros)
+│   │   │   │   └── components/
+│   │   │   │       ├── mapView.tsx        #       Componente del mapa con marcadores
+│   │   │   │       └── restaurantCard.tsx #       Card popup del restaurante
+│   │   │   └── restaurant/
+│   │   │       └── restaurantDetailScreen.tsx #  Pantalla de detalle del restaurante
 │   │   ├── hooks/
 │   │   │   └── useUserLocation.ts        #     Hook para GPS y permisos de ubicación
 │   │   ├── components/                    #     Componentes reutilizables
@@ -324,7 +325,7 @@ MedEats/
 │   │   └── theme.ts                       # Colores y tipografía (light/dark)
 │   ├── hooks/                             # Hooks de Expo (color scheme)
 │   ├── components/                        # Componentes base de Expo
-│   ├── assets/images/                     # Íconos, splash screen
+│   ├── assets/images/                     # Íconos, logo, splash screen
 │   ├── package.json                       # Dependencias y scripts
 │   ├── tsconfig.json                      # Configuración TypeScript
 │   └── app.json                           # Configuración de Expo
@@ -380,23 +381,44 @@ MedEats/
 
 | Pantalla | Tab | Estado | Descripción |
 |----------|-----|--------|-------------|
-| **Home** | 🏠 Home | ✅ Funcional | Mapa interactivo con marcadores, búsqueda, ubicación GPS |
-| **Feed** | 📋 Feed | 🔲 Pendiente | Feed social con posts de usuarios |
-| **Create** | ➕ Create | 🔲 Pendiente | Crear publicaciones con fotos y reseñas |
-| **Profile** | 👤 Profile | 🔲 Pendiente | Perfil del usuario |
-| **Restaurant Detail** | — | 🔲 Pendiente | Detalle completo de un restaurante |
+| **Welcome** | — | ✅ Funcional | Pantalla de bienvenida con logo animado, botones Iniciar Sesión y Crear Cuenta |
+| **Home** | 🏠 Home | ✅ Funcional | Mapa interactivo con marcadores, búsqueda con autocomplete, filtros avanzados |
+| **Restaurant Detail** | — | ✅ Funcional | Detalle completo del restaurante con datos reales de PostgreSQL |
+| **Feed** | 📋 Feed | 🔲 Sprint 3 | Feed social con posts de usuarios |
+| **Create** | ➕ Create | 🔲 Sprint 3 | Crear publicaciones con fotos y reseñas |
+| **Profile** | 👤 Profile | 🔲 Sprint 3 | Perfil del usuario |
 
-### Funcionalidades implementadas en Home:
+### Funcionalidades implementadas en Sprint 1:
 
-- ✅ Mapa centrado en Medellín con 5 restaurantes mock
+#### Welcome Screen (FR01)
+- ✅ Logo animado de MedEats con efecto spring/zoom
+- ✅ Botón "Iniciar Sesión" (navegación directa al Home)
+- ✅ Botón "Crear Cuenta" (placeholder para Sprint 2)
+
+#### Home — Mapa Interactivo (FR05, FR06, FR07, FR09, FR10)
+- ✅ Mapa centrado en Medellín con restaurantes reales de PostgreSQL
 - ✅ Marcadores naranjas en las ubicaciones de los restaurantes
-- ✅ Barra de búsqueda con filtrado por nombre y categoría
-- ✅ Zoom animado a los resultados al presionar Enter
+- ✅ Barra de búsqueda con autocomplete dropdown (máx. 5 sugerencias)
+- ✅ Búsqueda semántica AI por categoría de comida
+- ✅ Zoom animado al seleccionar una sugerencia del autocomplete
+- ✅ Panel de filtros con categoría, rating mínimo y distancia
+- ✅ Botones "Buscar" y "Limpiar" en el panel de filtros
+- ✅ Los filtros controlan qué marcadores aparecen en el mapa
 - ✅ Card popup al tocar un marcador (imagen, rating, categoría, botón "Ver Detalles")
 - ✅ Solicitud de permisos de ubicación GPS
 - ✅ Punto azul mostrando la ubicación actual del usuario
 - ✅ Botón de navegación que centra el mapa en la ubicación del usuario
-- ✅ Tag "Restaurante" como indicador visual
+
+#### Restaurant Detail (FR08, FR16)
+- ✅ Detalle completo con imagen, rating con estrellas dinámicas
+- ✅ Datos reales de PostgreSQL (no mock data)
+- ✅ Categoría, ubicación y descripción del restaurante
+- ✅ Botón "View Menu"
+
+#### Backend & Admin (FR19)
+- ✅ Django Admin para gestionar restaurantes y categorías
+- ✅ API REST con endpoints list y detail
+- ✅ Transformación automática snake_case → camelCase
 
 ---
 
