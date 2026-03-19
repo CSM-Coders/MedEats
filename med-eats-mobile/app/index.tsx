@@ -1,0 +1,197 @@
+// ============================================================
+// WELCOME SCREEN (FR01)
+// ------------------------------------------------------------
+// Primera pantalla de MedEats. Muestra el branding de la app
+// y botones para Iniciar Sesión o Registrarse.
+// Por ahora "Iniciar Sesión" entra directamente al Home
+// sin autenticación real (eso se implementará en Sprint 2).
+// ============================================================
+
+import { useRef, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  Animated,
+  Dimensions,
+  Pressable,
+} from "react-native";
+import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+
+const { width } = Dimensions.get("window");
+
+export default function WelcomeScreen() {
+  const router = useRouter();
+
+  // Animaciones de entrada
+  const logoScale = useRef(new Animated.Value(0.3)).current;
+  const logoOpacity = useRef(new Animated.Value(0)).current;
+  const textOpacity = useRef(new Animated.Value(0)).current;
+  const buttonsOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      // 1. Logo aparece con zoom suave
+      Animated.parallel([
+        Animated.spring(logoScale, {
+          toValue: 1,
+          tension: 10,
+          friction: 3,
+          useNativeDriver: true,
+        }),
+        Animated.timing(logoOpacity, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ]),
+      // 2. Textos aparecen
+      Animated.timing(textOpacity, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      // 3. Botones aparecen
+      Animated.timing(buttonsOpacity, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
+  return (
+    <View style={styles.container}>
+      <StatusBar style="light" />
+
+      <View style={styles.background}>
+        {/* Logo animado */}
+        <Animated.View
+          style={[
+            styles.logoContainer,
+            {
+              transform: [{ scale: logoScale }],
+              opacity: logoOpacity,
+            },
+          ]}
+        >
+          <Image
+            source={require("../assets/images/medeats-logo.png")}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        </Animated.View>
+
+        {/* Nombre y descripción */}
+        <Animated.View style={{ opacity: textOpacity, alignItems: "center" }}>
+          <Text style={styles.title}>MedEats</Text>
+          <Text style={styles.subtitle}>
+            Discover the best food in Medellín
+          </Text>
+        </Animated.View>
+
+        {/* Botones de acción */}
+        <Animated.View style={[styles.buttonsContainer, { opacity: buttonsOpacity }]}>
+          {/* Botón Iniciar Sesión — por ahora entra directo al Home */}
+          <Pressable
+            style={styles.loginButton}
+            onPress={() => router.replace("/(tabs)/home")}
+          >
+            <Text style={styles.loginButtonText}>Iniciar Sesión</Text>
+          </Pressable>
+
+          {/* Botón Registrarse — placeholder para Sprint 2 */}
+          <Pressable
+            style={styles.registerButton}
+            onPress={() => {
+              // TODO: Sprint 2 — Navegar a pantalla de registro
+            }}
+          >
+            <Text style={styles.registerButtonText}>Crear Cuenta</Text>
+          </Pressable>
+        </Animated.View>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  background: {
+    flex: 1,
+    backgroundColor: "#FF6B35",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 32,
+  },
+  logoContainer: {
+    width: width * 0.38,
+    height: width * 0.38,
+    backgroundColor: "#fff",
+    borderRadius: width * 0.19,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
+    marginBottom: 24,
+  },
+  logo: {
+    width: width * 0.22,
+    height: width * 0.22,
+  },
+  title: {
+    fontSize: 42,
+    fontWeight: "800",
+    color: "#fff",
+    letterSpacing: 1.5,
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: "rgba(255, 255, 255, 0.85)",
+    fontWeight: "500",
+    textAlign: "center",
+    letterSpacing: 0.5,
+  },
+  buttonsContainer: {
+    width: "100%",
+    marginTop: 48,
+    gap: 14,
+  },
+  loginButton: {
+    backgroundColor: "#fff",
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  loginButtonText: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#FF6B35",
+  },
+  registerButton: {
+    backgroundColor: "transparent",
+    paddingVertical: 16,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.6)",
+    alignItems: "center",
+  },
+  registerButtonText: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#fff",
+  },
+});

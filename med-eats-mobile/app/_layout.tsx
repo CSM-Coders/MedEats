@@ -24,6 +24,7 @@ export default function RootLayout() {
     <FeedProvider>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
         <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="index" />
           <Stack.Screen name="(tabs)" />
         </Stack>
         <StatusBar style="auto" />
