@@ -39,9 +39,11 @@ const MapView = forwardRef<MapViewComponent, Props>(
         showsMyLocationButton={false}
       >
         {/* Recorremos cada restaurante y creamos un marcador en el mapa */}
+        {/* La key incluye restaurants.length para forzar a iOS a redibujar
+            los marcadores cuando cambia la lista (fix de bug de react-native-maps) */}
         {restaurants.map((restaurant) => (
           <Marker
-            key={restaurant.id}
+            key={`${restaurant.id}-${restaurants.length}`}
             coordinate={{
               latitude: restaurant.latitude,
               longitude: restaurant.longitude,

@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import RestaurantListAPIView, CategoryListAPIView
+from .views import RestaurantListAPIView, CategoryListAPIView, RestaurantDetailAPIView
 
 # ============================================================
 # RUTAS DE LA APP RESTAURANTES
@@ -15,4 +15,10 @@ urlpatterns = [
     path("restaurants/", RestaurantListAPIView.as_view(), name="restaurant-list"),
     # Si se hace a /api/categories/, enviará las categorías separadas.
     path("categories/", CategoryListAPIView.as_view(), name="category-list"),
+    # Vista de detalle pasándole el ID primary key (<int:pk>) en la URL base.
+    path(
+        "restaurants/<int:pk>/",
+        RestaurantDetailAPIView.as_view(),
+        name="restaurant-detail",
+    ),
 ]
