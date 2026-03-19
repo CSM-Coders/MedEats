@@ -16,5 +16,9 @@ urlpatterns = [
     # Si se hace a /api/categories/, enviará las categorías separadas.
     path("categories/", CategoryListAPIView.as_view(), name="category-list"),
     # Vista de detalle pasándole el ID primary key (<int:pk>) en la URL base.
-    path("restaurants/<int:pk>/", RestaurantDetailAPIView.as_view(), name="restaurant-detail"),
+    path(
+        "restaurants/<int:pk>/",
+        RestaurantDetailAPIView.as_view(),
+        name="restaurant-detail",
+    ),
 ]
