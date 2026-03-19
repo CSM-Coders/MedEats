@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   Keyboard,
   Pressable,
   ScrollView,
@@ -58,15 +59,36 @@ export default function HomeScreen() {
       try {
         // Al estar probando en tu iPhone físico con Expo, "localhost" no funciona
         // porque apuntaría al teléfono mismo. Usamos la IP de red Wi-Fi de tu Mac:
-        const response = await fetch("http://10.10.66.176:8000/api/restaurants/");
+        // NOTA DE RED: Tu router asignó un nuevo IP a tu Mac (192.168.1.2).
+        // Si vuelves a cambiar de Wi-Fi, deberás actualizar este IP.
+        const response = await fetch("http://192.168.1.2:8000/api/restaurants/");
         
         if (!response.ok) {
           throw new Error("Respuesta de red incorrecta");
         }
         
         const data = await response.json();
-        // Guardamos los restaurantes que vinieron de la base de datos de PostgreSQL en la memoria de la pantalla.
-        setRestaurants(data);
+        // ============================================================
+        // TRANSFORMACIÓN DE DATOS (API snake_case → Frontend camelCase)
+        // ------------------------------------------------------------
+        // Django envía los campos en snake_case (menu_highlights, created_at)
+        // pero nuestro TypeScript espera camelCase (menuHighlights).
+        // También el rating viene como string "4.8" y lo necesitamos como número.
+        // ============================================================
+        const transformed: Restaurant[] = data.map((item: any) => ({
+          id: String(item.id),
+          name: item.name,
+          category: item.category,
+          rating: parseFloat(item.rating) || 0,
+          image: item.image,
+          latitude: item.latitude,
+          longitude: item.longitude,
+          location: item.location,
+          description: item.description,
+          menuHighlights: item.menu_highlights || [],
+          whatsapp: item.whatsapp || "",
+        }));
+        setRestaurants(transformed);
       } catch (error) {
         console.error("Error conectando con Django:", error);
       } finally {
@@ -77,6 +99,23 @@ export default function HomeScreen() {
 
     fetchRestaurants();
   }, []);
+
+  // ============================================================
+  // FIX: Cuando el usuario borra el texto de búsqueda MANUALMENTE,
+  // devolvemos la cámara del mapa a la vista completa de Medellín.
+  // Usamos un flag (skipResetRef) para NO resetear cuando se borra
+  // por haber tocado una sugerencia (que tiene su propio zoom).
+  // ============================================================
+  const skipResetRef = useRef(false);
+  useEffect(() => {
+    if (searchQuery === "") {
+      if (skipResetRef.current) {
+        skipResetRef.current = false; // Consumimos el flag
+      } else {
+        mapRef.current?.animateToRegion(MEDELLIN_REGION, 500);
+      }
+    }
+  }, [searchQuery]);
 
   const mapRef = useRef<MapViewComponent>(null);
   const insets = useSafeAreaInsets();
@@ -131,11 +170,43 @@ export default function HomeScreen() {
 
       return searchMatch && categoryMatch && ratingMatch && distanceMatch;
     });
-  }, [filters, searchQuery, userLocation, restaurants]); // <-- ¡Actualizado!
+  }, [filters, searchQuery, userLocation, restaurants]);
+
+  // ============================================================
+  // SUGERENCIAS DE BÚSQUEDA (Autocomplete)
+  // Filtra restaurantes cuyo nombre contenga lo que el usuario escribe.
+  // Solo aparece si hay texto y hay coincidencias.
+  // ============================================================
+  const searchSuggestions = useMemo(() => {
+    const query = searchQuery.toLowerCase().trim();
+    if (!query || query.length < 2) return [];
+    return restaurants.filter((r) =>
+      r.name.toLowerCase().includes(query)
+    ).slice(0, 5); // Máximo 5 sugerencias
+  }, [searchQuery, restaurants]);
+
+  // Al tocar una sugerencia, hacemos zoom al restaurante y abrimos su tarjeta
+  const handleSuggestionPress = (restaurant: Restaurant) => {
+    Keyboard.dismiss();
+    skipResetRef.current = true; // Evita que el useEffect resetee el mapa
+    setSearchQuery("");
+    setSelectedRestaurant(restaurant);
+    mapRef.current?.animateToRegion(
+      {
+        latitude: restaurant.latitude,
+        longitude: restaurant.longitude,
+        latitudeDelta: 0.008,
+        longitudeDelta: 0.008,
+      },
+      700
+    );
+  };
 
   const handleSearchSubmit = () => {
     Keyboard.dismiss();
 
+    // Protección: Si no hay resultados, no intentamos mover la cámara
+    // (fitToCoordinates con array vacío causa un crash en iOS).
     if (filteredRestaurants.length === 0) {
       return;
     }
@@ -154,16 +225,19 @@ export default function HomeScreen() {
       return;
     }
 
-    mapRef.current?.fitToCoordinates(
-      filteredRestaurants.map((restaurant) => ({
-        latitude: restaurant.latitude,
-        longitude: restaurant.longitude,
-      })),
-      {
-        edgePadding: { top: 160, right: 50, bottom: 60, left: 50 },
-        animated: true,
-      }
-    );
+    // Solo animamos si hay 2 o más resultados válidos
+    if (filteredRestaurants.length >= 2) {
+      mapRef.current?.fitToCoordinates(
+        filteredRestaurants.map((restaurant) => ({
+          latitude: restaurant.latitude,
+          longitude: restaurant.longitude,
+        })),
+        {
+          edgePadding: { top: 160, right: 50, bottom: 60, left: 50 },
+          animated: true,
+        }
+      );
+    }
   };
 
   const clearSearchAndFilters = () => {
@@ -188,9 +262,12 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <Pressable style={styles.container} onPress={() => setSelectedRestaurant(null)}>
+        {/* IMPORTANTE: Siempre pasamos TODOS los restaurantes al mapa.
+            La búsqueda solo mueve la cámara, nunca elimina marcadores.
+            Esto evita un bug de iOS donde los markers eliminados no reaparecen. */}
         <MapView
           ref={mapRef}
-          restaurants={filteredRestaurants}
+          restaurants={restaurants}
           onMarkerPress={setSelectedRestaurant}
         />
       </Pressable>
@@ -222,6 +299,25 @@ export default function HomeScreen() {
             </Pressable>
           )}
         </View>
+
+        {/* ===== DROPDOWN DE SUGERENCIAS ===== */}
+        {searchSuggestions.length > 0 && (
+          <View style={styles.suggestionsContainer}>
+            {searchSuggestions.map((restaurant) => (
+              <Pressable
+                key={restaurant.id}
+                style={styles.suggestionItem}
+                onPress={() => handleSuggestionPress(restaurant)}
+              >
+                <Ionicons name="location-outline" size={16} color="#FF6B35" />
+                <View style={styles.suggestionTextContainer}>
+                  <Text style={styles.suggestionName}>{restaurant.name}</Text>
+                  <Text style={styles.suggestionCategory}>{restaurant.category} · {restaurant.location}</Text>
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        )}
 
         <View style={styles.resultsCount}>
           <Text style={styles.resultsText}>
@@ -471,5 +567,39 @@ const styles = StyleSheet.create({
     left: 24,
     right: 24,
     zIndex: 20,
+  },
+  // ===== Estilos del Dropdown de Sugerencias =====
+  suggestionsContainer: {
+    marginTop: 6,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    paddingVertical: 6,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  suggestionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#F0F0F0",
+  },
+  suggestionTextContainer: {
+    flex: 1,
+  },
+  suggestionName: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#2D3436",
+  },
+  suggestionCategory: {
+    fontSize: 12,
+    color: "#636E72",
+    marginTop: 2,
   },
 });

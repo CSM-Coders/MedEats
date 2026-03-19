@@ -45,3 +45,14 @@ class CategoryListAPIView(generics.ListAPIView):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
     permission_classes = [AllowAny]
+
+
+class RestaurantDetailAPIView(generics.RetrieveAPIView):
+    """
+    Ruta para ver los detalles de un solo restaurante usando su ID.
+    Permitirá que la App móvil consulte y muestre los datos reales en su pantalla RestaurantDetailScreen.
+    """
+
+    queryset = Restaurant.objects.all()
+    serializer_class = RestaurantSerializer
+    permission_classes = [AllowAny]

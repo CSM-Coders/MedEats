@@ -1,16 +1,4 @@
-// ============================================================
-// RESTAURANT DETAIL SCREEN
-// ------------------------------------------------------------
-// Vista completa de un restaurante seleccionado:
-// - imagen principal
-// - información general
-// - highlights del menú
-// - reseñas
-// - contacto por WhatsApp
-// ============================================================
-
 import { Ionicons } from "@expo/vector-icons";
-import * as Linking from "expo-linking";
 import { router } from "expo-router";
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -21,79 +9,151 @@ type Props = {
   restaurant: Restaurant;
 };
 
+// Función helper para dibujar las estrellas doradas dinámicamente
+function RatingStars({ rating, size = 16 }: { rating: number; size?: number }) {
+  const fullStars = Math.floor(rating);
+  const hasHalf = rating - fullStars >= 0.5;
+
+  return (
+    <View style={styles.starsContainer}>
+      {[1, 2, 3, 4, 5].map((i) => (
+        <Ionicons
+          key={i}
+          name={
+            i <= fullStars
+              ? "star"
+              : i === fullStars + 1 && hasHalf
+              ? "star-half"
+              : "star-outline"
+          }
+          size={size}
+          color="#FFB300" // Amarillo dorado exacto del mockup para estrellas
+        />
+      ))}
+    </View>
+  );
+}
+
 export default function RestaurantDetailScreen({ restaurant }: Props) {
   const insets = useSafeAreaInsets();
   const reviews = getReviewsByRestaurantId(restaurant.id);
 
-  const openWhatsapp = () => {
-    const url = `https://wa.me/${restaurant.whatsapp}`;
-    Linking.openURL(url);
-  };
-
   return (
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 30 }}>
-      <View style={[styles.headerRow, { top: insets.top + 8 }]}> 
-        <Pressable style={styles.roundButton} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={20} color="#2D3436" />
-        </Pressable>
-      </View>
-
-      <Image source={{ uri: restaurant.image }} style={styles.hero} />
-
-      <View style={styles.content}>
-        <Text style={styles.title}>{restaurant.name}</Text>
-        <Text style={styles.subtitle}>{restaurant.category}</Text>
-
-        <View style={styles.metaRow}>
-          <Text style={styles.metaText}>⭐ {restaurant.rating}</Text>
-          <Text style={styles.metaText}>📍 {restaurant.location}</Text>
+    <View style={styles.container}>
+      {/* Scrollable container that ignores the top notch for the full bleed hero image */}
+      <ScrollView bounces={false} contentContainerStyle={{ paddingBottom: 40 }}>
+        
+        {/* ================= HERO IMAGE & HEADER STRIP ================= */}
+        <View style={styles.heroContainer}>
+          <Image source={{ uri: restaurant.image }} style={styles.heroImage} />
+          
+          {/* Top Actions: Back, Favorite, Share OVERLAY */}
+          <View style={[styles.headerActions, { top: insets.top + 8 }]}>
+            <Pressable style={styles.iconCircle} onPress={() => router.back()}>
+              <Ionicons name="arrow-back" size={20} color="#2D3436" />
+            </Pressable>
+            
+            <View style={styles.rightActions}>
+              <Pressable style={styles.iconCircle}>
+                <Ionicons name="heart-outline" size={20} color="#2D3436" />
+              </Pressable>
+              <Pressable style={styles.iconCircle}>
+                <Ionicons name="share-social-outline" size={20} color="#2D3436" />
+              </Pressable>
+            </View>
+          </View>
         </View>
 
-        <Text style={styles.description}>{restaurant.description}</Text>
+        {/* ================= MAIN RESTAURANT INFO ================= */}
+        <View style={styles.content}>
+          <Text style={styles.title}>{restaurant.name}</Text>
+          
+          {/* Rating and Category Row */}
+          <View style={styles.ratingCategoryRow}>
+            <RatingStars rating={restaurant.rating} size={15} />
+            <Text style={styles.ratingNumber}>{restaurant.rating}</Text>
+            <Text style={styles.dotSeparator}>·</Text>
+            <Text style={styles.categoryText}>{restaurant.category}</Text>
+          </View>
 
-        <Text style={styles.sectionTitle}>Menu highlights</Text>
-        {restaurant.menuHighlights.map((item) => (
-          <Text key={item} style={styles.menuItem}>• {item}</Text>
-        ))}
+          {/* Location Row */}
+          <View style={styles.locationRow}>
+            <Ionicons name="location-outline" size={18} color="#FF6B35" />
+            <Text style={styles.locationText}>{restaurant.location}</Text>
+          </View>
 
-        <Pressable style={styles.whatsappButton} onPress={openWhatsapp}>
-          <Ionicons name="logo-whatsapp" size={18} color="#FFFFFF" />
-          <Text style={styles.whatsappText}>Contact by WhatsApp</Text>
-        </Pressable>
+          <Text style={styles.description}>{restaurant.description}</Text>
 
-        <Text style={[styles.sectionTitle, { marginTop: 16 }]}>Reviews</Text>
-        {reviews.length === 0 ? (
-          <Text style={styles.emptyReview}>No reviews yet.</Text>
-        ) : (
-          reviews.map((review) => (
-            <View key={review.id} style={styles.reviewCard}>
-              <View style={styles.reviewHeader}>
-                <Image source={{ uri: review.avatar }} style={styles.reviewAvatar} />
-                <View>
-                  <Text style={styles.reviewUser}>{review.username}</Text>
-                  <Text style={styles.reviewMeta}>⭐ {review.rating} · {review.date}</Text>
+          {/* View Menu Button */}
+          <Pressable style={styles.viewMenuButton}>
+            <Ionicons name="list" size={22} color="#FFFFFF" />
+            <Text style={styles.viewMenuText}>View Menu</Text>
+          </Pressable>
+
+          {/* ================= REVIEWS SECTION ================= */}
+          <View style={styles.reviewsSection}>
+            <Text style={styles.sectionTitle}>Reviews & Ratings</Text>
+
+            {reviews.length === 0 ? (
+              <Text style={styles.emptyReview}>No reviews yet.</Text>
+            ) : (
+              reviews.map((review) => (
+                <View key={review.id} style={styles.reviewCard}>
+                  <View style={styles.reviewHeader}>
+                    <Image source={{ uri: review.avatar }} style={styles.reviewAvatar} />
+                    <View style={styles.reviewMetaContainer}>
+                      <Text style={styles.reviewUser}>{review.username}</Text>
+                      <View style={styles.reviewStarsDate}>
+                        <RatingStars rating={review.rating} size={13} />
+                        <Text style={styles.reviewDate}>{review.date}</Text>
+                      </View>
+                    </View>
+                  </View>
+                  <Text style={styles.reviewComment}>{review.comment}</Text>
                 </View>
-              </View>
-              <Text style={styles.reviewComment}>{review.comment}</Text>
-            </View>
-          ))
-        )}
-      </View>
-    </ScrollView>
+              ))
+            )}
+          </View>
+
+        </View>
+      </ScrollView>
+    </View>
   );
 }
 
+// ================= STYLES =================
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFFFFF" },
-  headerRow: {
+  container: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+  },
+  heroContainer: {
+    position: "relative",
+    width: "100%",
+    height: 320, // Altura prominente como en el mockup
+  },
+  heroImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  headerActions: {
     position: "absolute",
     left: 16,
+    right: 16,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     zIndex: 10,
   },
-  roundButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  rightActions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  iconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
@@ -103,37 +163,123 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
   },
-  hero: { width: "100%", height: 250 },
-  content: { padding: 16 },
-  title: { fontSize: 28, fontWeight: "700", color: "#2D3436" },
-  subtitle: { color: "#636E72", marginTop: 4 },
-  metaRow: { flexDirection: "row", gap: 12, marginTop: 10 },
-  metaText: { color: "#2D3436", fontWeight: "500" },
-  description: { marginTop: 12, color: "#2D3436", lineHeight: 21 },
-  sectionTitle: { marginTop: 14, fontSize: 17, fontWeight: "700", color: "#2D3436" },
-  menuItem: { color: "#2D3436", marginTop: 6 },
-  whatsappButton: {
-    marginTop: 14,
-    backgroundColor: "#25D366",
-    borderRadius: 12,
-    height: 46,
+  content: {
+    paddingHorizontal: 24,
+    paddingTop: 24,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#2D3436",
+    marginBottom: 10,
+  },
+  ratingCategoryRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+  starsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  ratingNumber: {
+    marginLeft: 8,
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#2D3436",
+  },
+  dotSeparator: {
+    marginHorizontal: 8,
+    color: "#B2BEC3",
+    fontWeight: "800",
+  },
+  categoryText: {
+    fontSize: 14,
+    color: "#636E72",
+  },
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 18,
+  },
+  locationText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: "#636E72",
+  },
+  description: {
+    fontSize: 15,
+    lineHeight: 24,
+    color: "#636E72",
+    marginBottom: 28,
+  },
+  viewMenuButton: {
+    backgroundColor: "#FF6B35", // Naranja vibrante
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    flexDirection: "row",
-    gap: 8,
-  },
-  whatsappText: { color: "#FFFFFF", fontWeight: "700" },
-  emptyReview: { marginTop: 8, color: "#636E72" },
-  reviewCard: {
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: "#ECEFF1",
+    height: 54,
     borderRadius: 12,
-    padding: 10,
+    gap: 10,
+    marginBottom: 36,
   },
-  reviewHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
-  reviewAvatar: { width: 36, height: 36, borderRadius: 18 },
-  reviewUser: { fontWeight: "700", color: "#2D3436" },
-  reviewMeta: { color: "#636E72", fontSize: 12 },
-  reviewComment: { marginTop: 8, color: "#2D3436" },
+  viewMenuText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  reviewsSection: {
+    paddingBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#2D3436",
+    marginBottom: 18,
+  },
+  emptyReview: {
+    color: "#636E72",
+    fontStyle: "italic",
+  },
+  reviewCard: {
+    backgroundColor: "#F8F9FA", // Fondo gris super claro sin bordes
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 16,
+  },
+  reviewHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  reviewAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    marginRight: 14,
+  },
+  reviewMetaContainer: {
+    flex: 1,
+    gap: 4,
+  },
+  reviewUser: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#2D3436",
+  },
+  reviewStarsDate: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  reviewDate: {
+    fontSize: 13,
+    color: "#B2BEC3",
+  },
+  reviewComment: {
+    fontSize: 14,
+    lineHeight: 22,
+    color: "#636E72",
+  },
 });
