@@ -20,9 +20,10 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 # - CORS
 # - configuración DRF
 # ============================================================
-
+import os
 from pathlib import Path
 import getpass
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -96,15 +97,19 @@ WSGI_APPLICATION = "config.wsgi.application"
 # HOST: localhost porque corre en tu máquina
 # PORT: 5432 es el puerto por defecto de PostgreSQL
 
+# Load environment variables from .env file
+load_dotenv()
 
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "medeats",
-        "USER": getpass.getuser(),  # Usa tu usuario de macOS automáticamente
-        "PASSWORD": "",  # En local no necesita contraseña
-        "HOST": "localhost",
-        "PORT": "5432",
+        "NAME": os.getenv("DB_NAME", "medeats"),
+        "USER": os.getenv("DB_USER", "postgres"),
+        "PASSWORD": os.getenv(
+            "DB_PASSWORD", ""
+        ),  # Si no hay .env, usa vacío (como en Mac)
+        "HOST": os.getenv("DB_HOST", "localhost"),
+        "PORT": os.getenv("DB_PORT", "5432"),
     }
 }
 

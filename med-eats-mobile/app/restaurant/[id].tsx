@@ -19,7 +19,7 @@ export default function RestaurantScreen() {
   useEffect(() => {
     const fetchRestaurantDetail = async () => {
       try {
-        const response = await fetch(`http://192.168.1.2:8000/api/restaurants/${id}/`);
+        const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/restaurants/${id}/`);
         if (!response.ok) {
           throw new Error("No se pudo cargar el restaurante");
         }

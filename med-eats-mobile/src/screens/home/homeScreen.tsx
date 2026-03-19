@@ -64,7 +64,7 @@ export default function HomeScreen() {
         // porque apuntaría al teléfono mismo. Usamos la IP de red Wi-Fi de tu Mac:
         // NOTA DE RED: Tu router asignó un nuevo IP a tu Mac (192.168.1.2).
         // Si vuelves a cambiar de Wi-Fi, deberás actualizar este IP.
-        const response = await fetch("http://192.168.1.2:8000/api/restaurants/");
+        const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/restaurants/`);
         
         if (!response.ok) {
           throw new Error("Respuesta de red incorrecta");
