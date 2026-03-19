@@ -32,6 +32,7 @@ import {
 } from "@/src/services/mockData";
 import MapView from "./components/mapView";
 import RestaurantCard from "./components/restaurantCard";
+import { API_BASE_URL } from "@/src/config/api";
 
 const initialFilters: HomeFilters = {
   category: null,
@@ -60,11 +61,8 @@ export default function HomeScreen() {
   useEffect(() => {
     const fetchRestaurants = async () => {
       try {
-        // Al estar probando en tu iPhone físico con Expo, "localhost" no funciona
-        // porque apuntaría al teléfono mismo. Usamos la IP de red Wi-Fi de tu Mac:
-        // NOTA DE RED: Tu router asignó un nuevo IP a tu Mac (192.168.1.2).
-        // Si vuelves a cambiar de Wi-Fi, deberás actualizar este IP.
-        const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/restaurants/`);
+        // La IP de tu Mac se detecta automáticamente vía API_BASE_URL
+        const response = await fetch(`${API_BASE_URL}/api/restaurants/`);
         
         if (!response.ok) {
           throw new Error("Respuesta de red incorrecta");

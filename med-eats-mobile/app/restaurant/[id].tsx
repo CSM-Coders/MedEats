@@ -10,6 +10,7 @@ import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import RestaurantDetailScreen from "@/src/screens/restaurant/restaurantDetailScreen";
 import { Restaurant } from "@/src/models/domain";
+import { API_BASE_URL } from "@/src/config/api";
 
 export default function RestaurantScreen() {
   const { id } = useLocalSearchParams();
@@ -19,7 +20,7 @@ export default function RestaurantScreen() {
   useEffect(() => {
     const fetchRestaurantDetail = async () => {
       try {
-        const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/restaurants/${id}/`);
+        const response = await fetch(`${API_BASE_URL}/api/restaurants/${id}/`);
         if (!response.ok) {
           throw new Error("No se pudo cargar el restaurante");
         }
