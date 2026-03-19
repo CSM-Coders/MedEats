@@ -30,8 +30,7 @@ from django.urls import path, include
 urlpatterns = [
     # El Panel Administrativo privado que nos dio Django
     path("admin/", admin.site.urls),
-    
-    # "Cualquier petición que empiece con la palabra 'api/', 
+    # "Cualquier petición que empiece con la palabra 'api/',
     # vete al archivo restaurants/urls.py y fíjate hacia dónde sigue el camino allá".
     path("api/", include("restaurants.urls")),
 ]

@@ -12,21 +12,23 @@ from .models import Category, Restaurant
 # sin tener que escribir código ni saber usar PostgreSQL.
 # ============================================================
 
+
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
     # list_display: Le dice al panel qué columnas mostrar en la lista general.
     list_display = ("id", "name")
-    
+
     # search_fields: Añade una barra de búsqueda inteligente en la parte superior.
     search_fields = ("name",)
+
 
 @admin.register(Restaurant)
 class RestaurantAdmin(admin.ModelAdmin):
     # En un restaurante nos interesa ver un resumen rápido antes de entrar al detalle.
     list_display = ("name", "category", "rating", "location")
-    
+
     # list_filter: Crea un panel lateral que te permite filtrar (ej: "Mostrar solo comida italiana").
     list_filter = ("category",)
-    
+
     # search_fields: Permite buscar restaurantes escribiendo su nombre o ubicación.
     search_fields = ("name", "location")
