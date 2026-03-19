@@ -7,7 +7,7 @@ sys.path.append("/Users/camiloalvarez/Documents/MedEats/med-eats-backend")
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 django.setup()
 
-from restaurants.models import Category, Restaurant
+from restaurants.models import Category, Restaurant  # noqa: E402
 
 
 def seed_data():
