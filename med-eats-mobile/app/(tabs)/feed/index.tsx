@@ -1,9 +1,3 @@
-import { View, Text } from "react-native";
+import FeedScreen from "@/src/screens/feed/feedScreen";
 
-export default function FeedScreen() {
-  return (
-    <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-      <Text>Feed Screen</Text>
-    </View>
-  );
-}
+export default FeedScreen;

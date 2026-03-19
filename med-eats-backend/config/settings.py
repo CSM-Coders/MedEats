@@ -10,6 +10,17 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+# ============================================================
+# SETTINGS PRINCIPALES DEL BACKEND
+# ------------------------------------------------------------
+# Aquí viven las decisiones de infraestructura de Django:
+# - apps instaladas
+# - middleware
+# - base de datos
+# - CORS
+# - configuración DRF
+# ============================================================
+
 from pathlib import Path
 import getpass
 

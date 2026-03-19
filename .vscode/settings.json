@@ -1,0 +1,6 @@
+{
+    "python.analysis.extraPaths": [
+        "./med-eats-backend"
+    ],
+    "python.defaultInterpreterPath": "./med-eats-backend/venv/bin/python"
+}

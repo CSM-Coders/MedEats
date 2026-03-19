@@ -1,9 +1,3 @@
-import { View, Text } from "react-native";
+import CreatePostScreen from "@/src/screens/create/createPostScreen";
 
-export default function CreateScreen() {
-  return (
-    <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-      <Text>Create Post Screen</Text>
-    </View>
-  );
-}
+export default CreatePostScreen;
