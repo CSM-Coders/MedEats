@@ -16,15 +16,22 @@ Including another URLconf
 """
 
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 
 # ============================================================
-# RUTAS BACKEND (estado actual)
+# RUTAS BACKEND PRINCIPALES (El índice base)
 # ------------------------------------------------------------
-# Por ahora solo está expuesto el admin de Django.
-# Próximo paso: incluir rutas API de restaurantes/posts/reviews.
+# Este es el archivo "Enrutador Maestro" de todo el proyecto Django.
+# Aquí simplemente interceptamos las peticiones y las dividimos según su propósito.
+# En lugar de escribir todas aquí para siempre (lo que crearía un archivo gigante e inmantenible),
+# inyectamos los caminos de cada mini-aplicación separada leyendo su propio archivo routes.
 # ============================================================
 
 urlpatterns = [
+    # El Panel Administrativo privado que nos dio Django
     path("admin/", admin.site.urls),
+    
+    # "Cualquier petición que empiece con la palabra 'api/', 
+    # vete al archivo restaurants/urls.py y fíjate hacia dónde sigue el camino allá".
+    path("api/", include("restaurants.urls")),
 ]

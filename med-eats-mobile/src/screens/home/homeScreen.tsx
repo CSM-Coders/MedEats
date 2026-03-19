@@ -8,8 +8,9 @@
 // - filtros por categoría, rating y distancia
 // ============================================================
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ActivityIndicator,
   Keyboard,
   Pressable,
   ScrollView,
@@ -26,7 +27,6 @@ import { useUserLocation } from "@/src/hooks/useUserLocation";
 import {
   getDistanceKm,
   MEDELLIN_REGION,
-  restaurants,
   semanticCategoryMatches,
 } from "@/src/services/mockData";
 import MapView from "./components/mapView";
@@ -43,6 +43,40 @@ export default function HomeScreen() {
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<HomeFilters>(initialFilters);
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // ============================================================
+  // CONEXIÓN CON EL BACKEND APENAS CARGA LA APP (Sprint 1)
+  // ------------------------------------------------------------
+  // Usamos un "useEffect": Es una función de React que ejecuta nuestro
+  // código exactamente una vez cuando la pantalla se muestra por primera vez.
+  // En lugar de usar los fijos de mockData.ts, pedimos a Django la lista por internet.
+  // ============================================================
+  useEffect(() => {
+    const fetchRestaurants = async () => {
+      try {
+        // Al estar probando en tu iPhone físico con Expo, "localhost" no funciona
+        // porque apuntaría al teléfono mismo. Usamos la IP de red Wi-Fi de tu Mac:
+        const response = await fetch("http://10.10.66.176:8000/api/restaurants/");
+        
+        if (!response.ok) {
+          throw new Error("Respuesta de red incorrecta");
+        }
+        
+        const data = await response.json();
+        // Guardamos los restaurantes que vinieron de la base de datos de PostgreSQL en la memoria de la pantalla.
+        setRestaurants(data);
+      } catch (error) {
+        console.error("Error conectando con Django:", error);
+      } finally {
+        // Apagamos el circulito de carga de la pantalla, haya funcionado o fallado.
+        setLoading(false);
+      }
+    };
+
+    fetchRestaurants();
+  }, []);
 
   const mapRef = useRef<MapViewComponent>(null);
   const insets = useSafeAreaInsets();
@@ -50,7 +84,7 @@ export default function HomeScreen() {
 
   const categories = useMemo(
     () => [...new Set(restaurants.map((restaurant) => restaurant.category))],
-    []
+    [restaurants] // <-- ¡Actualizado! Ahora depende de los restaurantes que vienen de BD
   );
 
   const isAiSearch = useMemo(() => {
@@ -61,7 +95,7 @@ export default function HomeScreen() {
     return restaurants.some((restaurant) =>
       semanticCategoryMatches(searchQuery, restaurant.category)
     );
-  }, [searchQuery]);
+  }, [searchQuery, restaurants]); // <-- ¡Actualizado! Funciona en tiempo real
 
   const filteredRestaurants = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
@@ -97,7 +131,7 @@ export default function HomeScreen() {
 
       return searchMatch && categoryMatch && ratingMatch && distanceMatch;
     });
-  }, [filters, searchQuery, userLocation]);
+  }, [filters, searchQuery, userLocation, restaurants]); // <-- ¡Actualizado!
 
   const handleSearchSubmit = () => {
     Keyboard.dismiss();
@@ -141,6 +175,15 @@ export default function HomeScreen() {
 
     mapRef.current?.animateToRegion(MEDELLIN_REGION, 700);
   };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+        <ActivityIndicator size="large" color="#FF6B35" />
+        <Text style={{ marginTop: 12, color: "#636E72" }}>Cargando restaurantes desde PostgreSQL...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
