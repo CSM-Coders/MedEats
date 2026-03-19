@@ -43,7 +43,10 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  // `filters` = filtros APLICADOS al mapa (solo cambian al presionar "Buscar")
+  // `stagedFilters` = filtros SELECCIONADOS en el panel (pueden cambiar sin afectar el mapa)
   const [filters, setFilters] = useState<HomeFilters>(initialFilters);
+  const [stagedFilters, setStagedFilters] = useState<HomeFilters>(initialFilters);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -110,7 +113,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (searchQuery === "") {
       if (skipResetRef.current) {
-        skipResetRef.current = false; // Consumimos el flag
+        skipResetRef.current = false;
       } else {
         mapRef.current?.animateToRegion(MEDELLIN_REGION, 500);
       }
@@ -171,6 +174,7 @@ export default function HomeScreen() {
       return searchMatch && categoryMatch && ratingMatch && distanceMatch;
     });
   }, [filters, searchQuery, userLocation, restaurants]);
+
 
   // ============================================================
   // SUGERENCIAS DE BÚSQUEDA (Autocomplete)
@@ -245,6 +249,7 @@ export default function HomeScreen() {
     Keyboard.dismiss();
     setSearchQuery("");
     setFilters(initialFilters);
+    setStagedFilters(initialFilters);
     setShowFilters(false);
 
     mapRef.current?.animateToRegion(MEDELLIN_REGION, 700);
@@ -262,12 +267,15 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <Pressable style={styles.container} onPress={() => setSelectedRestaurant(null)}>
-        {/* IMPORTANTE: Siempre pasamos TODOS los restaurantes al mapa.
-            La búsqueda solo mueve la cámara, nunca elimina marcadores.
-            Esto evita un bug de iOS donde los markers eliminados no reaparecen. */}
+        {/* Cuando hay filtros activos, mostramos solo los restaurantes que coincidan.
+            Cuando no hay filtros, mostramos TODOS para que ninún pin desaparezca. */}
         <MapView
           ref={mapRef}
-          restaurants={restaurants}
+          restaurants={
+            filters.category || filters.minRating || filters.maxDistanceKm
+              ? filteredRestaurants
+              : restaurants
+          }
           onMarkerPress={setSelectedRestaurant}
         />
       </Pressable>
@@ -333,24 +341,24 @@ export default function HomeScreen() {
             <Text style={styles.filterLabel}>Categoría</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow}>
               <Pressable
-                style={[styles.chip, !filters.category && styles.chipActive]}
-                onPress={() => setFilters((prev) => ({ ...prev, category: null }))}
+                style={[styles.chip, !stagedFilters.category && styles.chipActive]}
+                onPress={() => setStagedFilters((prev) => ({ ...prev, category: null }))}
               >
-                <Text style={[styles.chipText, !filters.category && styles.chipTextActive]}>Todas</Text>
+                <Text style={[styles.chipText, !stagedFilters.category && styles.chipTextActive]}>Todas</Text>
               </Pressable>
 
               {categories.map((category) => (
                 <Pressable
                   key={category}
-                  style={[styles.chip, filters.category === category && styles.chipActive]}
+                  style={[styles.chip, stagedFilters.category === category && styles.chipActive]}
                   onPress={() =>
-                    setFilters((prev) => ({
+                    setStagedFilters((prev) => ({
                       ...prev,
                       category: prev.category === category ? null : category,
                     }))
                   }
                 >
-                  <Text style={[styles.chipText, filters.category === category && styles.chipTextActive]}>
+                  <Text style={[styles.chipText, stagedFilters.category === category && styles.chipTextActive]}>
                     {category}
                   </Text>
                 </Pressable>
@@ -362,15 +370,15 @@ export default function HomeScreen() {
               {[4, 4.5].map((value) => (
                 <Pressable
                   key={value}
-                  style={[styles.chip, filters.minRating === value && styles.chipActive]}
+                  style={[styles.chip, stagedFilters.minRating === value && styles.chipActive]}
                   onPress={() =>
-                    setFilters((prev) => ({
+                    setStagedFilters((prev) => ({
                       ...prev,
                       minRating: prev.minRating === value ? null : value,
                     }))
                   }
                 >
-                  <Text style={[styles.chipText, filters.minRating === value && styles.chipTextActive]}>
+                  <Text style={[styles.chipText, stagedFilters.minRating === value && styles.chipTextActive]}>
                     {value}+
                   </Text>
                 </Pressable>
@@ -382,9 +390,9 @@ export default function HomeScreen() {
               {[2, 5].map((value) => (
                 <Pressable
                   key={value}
-                  style={[styles.chip, filters.maxDistanceKm === value && styles.chipActive]}
+                  style={[styles.chip, stagedFilters.maxDistanceKm === value && styles.chipActive]}
                   onPress={() =>
-                    setFilters((prev) => ({
+                    setStagedFilters((prev) => ({
                       ...prev,
                       maxDistanceKm: prev.maxDistanceKm === value ? null : value,
                     }))
@@ -393,13 +401,42 @@ export default function HomeScreen() {
                   <Text
                     style={[
                       styles.chipText,
-                      filters.maxDistanceKm === value && styles.chipTextActive,
+                      stagedFilters.maxDistanceKm === value && styles.chipTextActive,
                     ]}
                   >
                     {value} km
                   </Text>
                 </Pressable>
               ))}
+            </View>
+
+            {/* BOTONES DE ACCIÓN DEL FILTRO */}
+            <View style={styles.filterActions}>
+              <Pressable
+                style={styles.filterClearBtn}
+                onPress={() => {
+                  setStagedFilters(initialFilters);
+                  setFilters(initialFilters);
+                  setShowFilters(false);
+                  mapRef.current?.animateToRegion(MEDELLIN_REGION, 600);
+                }}
+              >
+                <Text style={styles.filterClearText}>Limpiar</Text>
+              </Pressable>
+              <Pressable
+                style={styles.filterApplyBtn}
+                onPress={() => {
+                  setFilters(stagedFilters);
+                  setShowFilters(false);
+                  // Si no hay filtros activos, recentrar el mapa
+                  const noFilters = !stagedFilters.category && !stagedFilters.minRating && !stagedFilters.maxDistanceKm;
+                  if (noFilters) {
+                    mapRef.current?.animateToRegion(MEDELLIN_REGION, 600);
+                  }
+                }}
+              >
+                <Text style={styles.filterApplyText}>Buscar</Text>
+              </Pressable>
             </View>
           </View>
         )}
@@ -567,6 +604,37 @@ const styles = StyleSheet.create({
     left: 24,
     right: 24,
     zIndex: 20,
+  },
+  filterActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
+    marginTop: 16,
+  },
+  filterClearBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: "#DFE6E9",
+    alignItems: "center",
+  },
+  filterClearText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#636E72",
+  },
+  filterApplyBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: "#FF6B35",
+    alignItems: "center",
+  },
+  filterApplyText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#fff",
   },
   // ===== Estilos del Dropdown de Sugerencias =====
   suggestionsContainer: {
