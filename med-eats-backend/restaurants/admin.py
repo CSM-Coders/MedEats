@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Category, Restaurant, Review
+from .models import Category, Post, PostComment, PostLike, Restaurant, Review
 
 # ============================================================
 # PANEL DE ADMINISTRACIÓN (Django Admin)
@@ -39,3 +39,22 @@ class ReviewAdmin(admin.ModelAdmin):
     list_display = ("restaurant", "username", "rating", "date")
     list_filter = ("restaurant",)
     search_fields = ("username", "comment")
+
+
+@admin.register(Post)
+class PostAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "restaurant", "rating", "created_at")
+    list_filter = ("restaurant",)
+    search_fields = ("user__username", "restaurant__name", "caption")
+
+
+@admin.register(PostLike)
+class PostLikeAdmin(admin.ModelAdmin):
+    list_display = ("id", "post", "user", "created_at")
+    search_fields = ("user__username",)
+
+
+@admin.register(PostComment)
+class PostCommentAdmin(admin.ModelAdmin):
+    list_display = ("id", "post", "user", "created_at")
+    search_fields = ("user__username", "content")

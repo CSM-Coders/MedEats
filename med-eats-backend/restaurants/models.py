@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 
 # ============================================================
 # MODELOS DE DOMINIO BACKEND (Sprint 1)
@@ -125,3 +126,74 @@ class Review(models.Model):
 
     def __str__(self):
         return f"{self.username} - {self.restaurant.name}"
+
+
+class Post(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="posts",
+        verbose_name="Usuario",
+    )
+    restaurant = models.ForeignKey(
+        Restaurant,
+        on_delete=models.CASCADE,
+        related_name="posts",
+        verbose_name="Restaurante",
+    )
+    image = models.URLField(max_length=500, verbose_name="Imagen")
+    rating = models.PositiveSmallIntegerField(verbose_name="Calificación")
+    caption = models.TextField(blank=True, verbose_name="Caption")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.restaurant.name}"
+
+
+class PostLike(models.Model):
+    post = models.ForeignKey(
+        Post,
+        on_delete=models.CASCADE,
+        related_name="likes",
+        verbose_name="Post",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="post_likes",
+        verbose_name="Usuario",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["post", "user"],
+                name="unique_post_like",
+            )
+        ]
+
+
+class PostComment(models.Model):
+    post = models.ForeignKey(
+        Post,
+        on_delete=models.CASCADE,
+        related_name="comments",
+        verbose_name="Post",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="post_comments",
+        verbose_name="Usuario",
+    )
+    content = models.TextField(verbose_name="Comentario")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]

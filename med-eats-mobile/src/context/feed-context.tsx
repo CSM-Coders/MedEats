@@ -1,16 +1,16 @@
 // ============================================================
 // CONTEXTO GLOBAL DEL FEED
 // ------------------------------------------------------------
-// Permite compartir posts entre varias pantallas:
+// Permite compartir posts reales entre varias pantallas:
 // - Feed (leer y dar like)
 // - Create (publicar)
 // - Profile (ver posts propios)
 // ============================================================
 
-import { createContext, ReactNode, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { Post } from "@/src/models/domain";
 import { useAuth } from "@/src/context/auth-context";
-import { getRestaurantById, initialPosts } from "@/src/services/mockData";
+import { createPostApi, fetchPosts, likePost, unlikePost } from "@/src/services/postApi";
 
 type NewPostInput = {
   restaurantId: string;
@@ -22,58 +22,100 @@ type NewPostInput = {
 type FeedContextValue = {
   posts: Post[];
   userPosts: Post[];
-  toggleLike: (postId: string) => void;
-  createPost: (input: NewPostInput) => void;
+  isLoadingPosts: boolean;
+  feedError: string | null;
+  refreshPosts: () => Promise<void>;
+  toggleLike: (postId: string) => Promise<void>;
+  createPost: (input: NewPostInput) => Promise<void>;
 };
 
 const FeedContext = createContext<FeedContextValue | undefined>(undefined);
 
 export function FeedProvider({ children }: { children: ReactNode }) {
-  const [posts, setPosts] = useState<Post[]>(initialPosts);
-  const { user } = useAuth();
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [isLoadingPosts, setIsLoadingPosts] = useState(false);
+  const [feedError, setFeedError] = useState<string | null>(null);
+  const { user, getAccessToken } = useAuth();
 
-  const toggleLike = useCallback((postId: string) => {
-    setPosts((currentPosts) =>
-      currentPosts.map((post) =>
-        post.id !== postId
-          ? post
-          : {
-              ...post,
-              isLiked: !post.isLiked,
-              likes: post.isLiked ? post.likes - 1 : post.likes + 1,
-            }
-      )
-    );
-  }, []);
+  const refreshPosts = useCallback(async () => {
+    const accessToken = await getAccessToken();
+    if (!accessToken) {
+      setPosts([]);
+      setFeedError("Your session expired. Please log in again.");
+      return;
+    }
 
-  const createPost = useCallback(
-    ({ restaurantId, rating, caption, image }: NewPostInput) => {
-      const restaurant = getRestaurantById(restaurantId);
+    setIsLoadingPosts(true);
+    try {
+      const data = await fetchPosts(accessToken);
+      setPosts(data);
+      setFeedError(null);
+    } catch {
+      setFeedError("Unable to load feed right now.");
+    } finally {
+      setIsLoadingPosts(false);
+    }
+  }, [getAccessToken]);
 
-      if (!restaurant || !user) {
+  useEffect(() => {
+    if (!user) {
+      setPosts([]);
+      return;
+    }
+
+    refreshPosts().catch(() => undefined);
+  }, [user, refreshPosts]);
+
+  const toggleLike = useCallback(
+    async (postId: string) => {
+      const accessToken = await getAccessToken();
+      if (!accessToken) {
+        setFeedError("Your session expired. Please log in again.");
         return;
       }
 
-      const newPost: Post = {
-        id: `p-${Date.now()}`,
-        userId: user.id,
-        username: user.username,
-        userAvatar:
-          user.avatarUrl || "https://images.unsplash.com/photo-1614436201459-156d322d38c6?w=200",
-        restaurantId,
-        restaurantName: restaurant.name,
-        image,
-        rating,
-        caption,
-        likes: 0,
-        comments: 0,
-        date: new Date().toISOString().slice(0, 10),
-        isLiked: false,
-      };
+      const targetPost = posts.find((post) => post.id === postId);
+      if (!targetPost) {
+        return;
+      }
 
-      setPosts((currentPosts) => [newPost, ...currentPosts]);
+      try {
+        const updatedPost = targetPost.isLiked
+          ? await unlikePost(accessToken, postId)
+          : await likePost(accessToken, postId);
+
+        setPosts((currentPosts) =>
+          currentPosts.map((post) => (post.id === postId ? updatedPost : post))
+        );
+      } catch {
+        setFeedError("Unable to update like.");
+      }
     },
-    [user]
+    [getAccessToken, posts]
+  );
+
+  const createPost = useCallback(
+    async ({ restaurantId, rating, caption, image }: NewPostInput) => {
+      const accessToken = await getAccessToken();
+      if (!accessToken || !user) {
+        setFeedError("Your session expired. Please log in again.");
+        return;
+      }
+
+      try {
+        const newPost = await createPostApi(accessToken, {
+          restaurantId,
+          rating,
+          caption,
+          image,
+        });
+        setPosts((currentPosts) => [newPost, ...currentPosts]);
+      } catch {
+        setFeedError("Unable to publish your post.");
+        throw new Error("Unable to publish your post.");
+      }
+    },
+    [getAccessToken, user]
   );
 
   const userPosts = useMemo(
@@ -82,8 +124,16 @@ export function FeedProvider({ children }: { children: ReactNode }) {
   );
 
   const value = useMemo(
-    () => ({ posts, userPosts, toggleLike, createPost }),
-    [posts, userPosts, toggleLike, createPost]
+    () => ({
+      posts,
+      userPosts,
+      isLoadingPosts,
+      feedError,
+      refreshPosts,
+      toggleLike,
+      createPost,
+    }),
+    [posts, userPosts, isLoadingPosts, feedError, refreshPosts, toggleLike, createPost]
   );
 
   return <FeedContext.Provider value={value}>{children}</FeedContext.Provider>;

@@ -1,7 +1,17 @@
 from rest_framework import generics
-from .models import Restaurant, Category, Review
-from .serializers import RestaurantSerializer, CategorySerializer, ReviewSerializer
-from rest_framework.permissions import AllowAny
+from rest_framework import status
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .models import Category, Post, PostLike, Restaurant, Review
+from .serializers import (
+    CategorySerializer,
+    PostCreateSerializer,
+    PostSerializer,
+    RestaurantSerializer,
+    ReviewSerializer,
+)
 
 # ============================================================
 # VISTAS DE LA API (Endponits REST)
@@ -75,3 +85,47 @@ class ReviewListAPIView(generics.ListAPIView):
             queryset = queryset.filter(restaurant_id=restaurant_id)
 
         return queryset
+
+
+class PostListCreateAPIView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Post.objects.select_related("user", "restaurant", "user__profile").prefetch_related(
+            "likes", "comments"
+        )
+
+    def get_serializer_class(self):
+        if self.request.method == "POST":
+            return PostCreateSerializer
+
+        return PostSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        post = serializer.save(user=request.user)
+
+        output = PostSerializer(post, context={"request": request})
+        return Response(output.data, status=status.HTTP_201_CREATED)
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = PostSerializer(queryset, many=True, context={"request": request})
+        return Response(serializer.data)
+
+
+class PostLikeAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, post_id):
+        post = generics.get_object_or_404(Post, id=post_id)
+        PostLike.objects.get_or_create(post=post, user=request.user)
+        serializer = PostSerializer(post, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def delete(self, request, post_id):
+        post = generics.get_object_or_404(Post, id=post_id)
+        PostLike.objects.filter(post=post, user=request.user).delete()
+        serializer = PostSerializer(post, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_200_OK)

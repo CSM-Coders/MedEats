@@ -9,6 +9,8 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { useCallback } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFeed } from "@/src/context/feed-context";
@@ -26,7 +28,33 @@ function stars(rating: number) {
 
 export default function FeedScreen() {
   const insets = useSafeAreaInsets();
-  const { posts, toggleLike } = useFeed();
+  const { posts, toggleLike, isLoadingPosts, feedError, refreshPosts } = useFeed();
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshPosts().catch(() => undefined);
+    }, [refreshPosts])
+  );
+
+  if (isLoadingPosts) {
+    return (
+      <View style={[styles.container, { alignItems: "center", justifyContent: "center" }]}>
+        <Text style={styles.subtitle}>Loading feed...</Text>
+      </View>
+    );
+  }
+
+  if (feedError) {
+    return (
+      <View style={[styles.container, { alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }]}> 
+        <Text style={styles.title}>Feed unavailable</Text>
+        <Text style={[styles.subtitle, { textAlign: "center", marginTop: 8 }]}>{feedError}</Text>
+        <Pressable style={[styles.restaurantBox, { marginTop: 14 }]} onPress={() => refreshPosts()}>
+          <Text style={styles.restaurantName}>Retry</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>

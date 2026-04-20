@@ -4,6 +4,8 @@ from .views import (
     CategoryListAPIView,
     RestaurantDetailAPIView,
     ReviewListAPIView,
+    PostListCreateAPIView,
+    PostLikeAPIView,
 )
 
 # ============================================================
@@ -27,4 +29,6 @@ urlpatterns = [
         name="restaurant-detail",
     ),
     path("reviews/", ReviewListAPIView.as_view(), name="review-list"),
+    path("posts/", PostListCreateAPIView.as_view(), name="post-list-create"),
+    path("posts/<int:post_id>/like/", PostLikeAPIView.as_view(), name="post-like"),
 ]

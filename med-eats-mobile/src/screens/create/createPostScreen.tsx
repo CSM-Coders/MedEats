@@ -9,7 +9,7 @@
 // 5) publicar en el feed (estado global)
 // ============================================================
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import {
@@ -23,8 +23,9 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Restaurant } from "@/src/models/domain";
 import { useFeed } from "@/src/context/feed-context";
-import { restaurants } from "@/src/services/mockData";
+import { fetchRestaurants } from "@/src/services/restaurantApi";
 
 const sampleImages = [
   "https://images.unsplash.com/photo-1702827496422-edff3a844c9c?w=600",
@@ -35,6 +36,8 @@ const sampleImages = [
 export default function CreatePostScreen() {
   const insets = useSafeAreaInsets();
   const { createPost } = useFeed();
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [isLoadingRestaurants, setIsLoadingRestaurants] = useState(true);
 
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [restaurantId, setRestaurantId] = useState<string>("");
@@ -44,26 +47,45 @@ export default function CreatePostScreen() {
 
   const selectedRestaurant = useMemo(
     () => restaurants.find((restaurant) => restaurant.id === restaurantId),
-    [restaurantId]
+    [restaurants, restaurantId]
   );
+
+  useEffect(() => {
+    const loadRestaurants = async () => {
+      try {
+        const data = await fetchRestaurants();
+        setRestaurants(data);
+      } catch {
+        Alert.alert("Error", "Unable to load restaurants.");
+      } finally {
+        setIsLoadingRestaurants(false);
+      }
+    };
+
+    loadRestaurants();
+  }, []);
 
   const canPublish = Boolean(selectedImage && restaurantId && rating > 0 && caption.trim());
 
-  const handlePublish = () => {
+  const handlePublish = async () => {
     if (!canPublish || !selectedImage) {
       Alert.alert("Campos incompletos", "Completa todos los campos antes de publicar.");
       return;
     }
 
-    createPost({
-      restaurantId,
-      rating,
-      caption: caption.trim(),
-      image: selectedImage,
-    });
+    try {
+      await createPost({
+        restaurantId,
+        rating,
+        caption: caption.trim(),
+        image: selectedImage,
+      });
 
-    Alert.alert("Post publicado", "Tu experiencia ya aparece en el feed.");
-    router.replace("/feed");
+      Alert.alert("Post publicado", "Tu experiencia ya aparece en el feed.");
+      router.replace("/feed");
+    } catch {
+      Alert.alert("Error", "No se pudo publicar tu post.");
+    }
   };
 
   return (
@@ -96,10 +118,15 @@ export default function CreatePostScreen() {
       <Text style={styles.label}>Restaurant</Text>
       <Pressable
         style={styles.selectorButton}
+        disabled={isLoadingRestaurants}
         onPress={() => setShowRestaurantSelector((value) => !value)}
       >
         <Text style={styles.selectorText}>
-          {selectedRestaurant ? selectedRestaurant.name : "Choose a restaurant"}
+          {selectedRestaurant
+            ? selectedRestaurant.name
+            : isLoadingRestaurants
+            ? "Loading restaurants..."
+            : "Choose a restaurant"}
         </Text>
         <Ionicons name="chevron-down" size={18} color="#636E72" />
       </Pressable>

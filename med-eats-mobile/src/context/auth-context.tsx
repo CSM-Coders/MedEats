@@ -27,6 +27,7 @@ type AuthContextValue = {
   isLoggingIn: boolean;
   isRegistering: boolean;
   refreshProfile: () => Promise<void>;
+  getAccessToken: () => Promise<string | null>;
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (credentials: RegisterCredentials) => Promise<void>;
   logout: () => Promise<void>;
@@ -152,6 +153,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const getAccessToken = useCallback(async () => {
+    const session = await readSession();
+    if (!session) {
+      return null;
+    }
+
+    try {
+      const currentUser = await fetchUserProfile(session.accessToken);
+      setUser(currentUser);
+
+      const updatedSession: AuthSession = {
+        ...session,
+        user: currentUser,
+      };
+      await saveSession(updatedSession);
+
+      return session.accessToken;
+    } catch {
+      try {
+        const newAccessToken = await refreshAccessToken(session.refreshToken);
+        const currentUser = await fetchUserProfile(newAccessToken);
+        const updatedSession: AuthSession = {
+          accessToken: newAccessToken,
+          refreshToken: session.refreshToken,
+          user: currentUser,
+        };
+
+        setUser(currentUser);
+        await saveSession(updatedSession);
+        return newAccessToken;
+      } catch {
+        await clearSession();
+        setUser(null);
+        return null;
+      }
+    }
+  }, []);
+
   const logout = useCallback(async () => {
     setUser(null);
     await clearSession();
@@ -165,6 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoggingIn,
       isRegistering,
       refreshProfile,
+      getAccessToken,
       login,
       register,
       logout,
@@ -175,6 +215,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoggingIn,
       isRegistering,
       refreshProfile,
+      getAccessToken,
       login,
       register,
       logout,
