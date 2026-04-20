@@ -159,36 +159,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return null;
     }
 
-    try {
-      const currentUser = await fetchUserProfile(session.accessToken);
-      setUser(currentUser);
-
-      const updatedSession: AuthSession = {
-        ...session,
-        user: currentUser,
-      };
-      await saveSession(updatedSession);
-
-      return session.accessToken;
-    } catch {
-      try {
-        const newAccessToken = await refreshAccessToken(session.refreshToken);
-        const currentUser = await fetchUserProfile(newAccessToken);
-        const updatedSession: AuthSession = {
-          accessToken: newAccessToken,
-          refreshToken: session.refreshToken,
-          user: currentUser,
-        };
-
-        setUser(currentUser);
-        await saveSession(updatedSession);
-        return newAccessToken;
-      } catch {
-        await clearSession();
-        setUser(null);
-        return null;
-      }
-    }
+    // IMPORTANTE:
+    // Este método debe ser "read-only" para evitar loops de render en pantallas
+    // que dependen del usuario autenticado (por ejemplo, Feed).
+    // Si aquí hacemos setUser() en cada request del feed, se vuelve a disparar
+    // el efecto de carga y se crea un ciclo de "Loading..." infinito.
+    return session.accessToken;
   }, []);
 
   const logout = useCallback(async () => {

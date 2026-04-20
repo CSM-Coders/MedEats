@@ -102,14 +102,19 @@ class PostListCreateAPIView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        following_ids = self.request.user.following_relationships.values_list(
-            "following_id", flat=True
+        base_queryset = Post.objects.select_related(
+            "user", "restaurant", "user__profile"
+        ).prefetch_related("likes", "comments")
+
+        following_ids = list(
+            self.request.user.following_relationships.values_list("following_id", flat=True)
         )
-        return (
-            Post.objects.select_related("user", "restaurant", "user__profile")
-            .prefetch_related("likes", "comments")
-            .filter(Q(user=self.request.user) | Q(user_id__in=following_ids))
-        )
+
+        # Si el usuario todavía no sigue a nadie, devolvemos feed global como recomendaciones.
+        if not following_ids:
+            return base_queryset
+
+        return base_queryset.filter(Q(user=self.request.user) | Q(user_id__in=following_ids))
 
     def get_serializer_class(self):
         if self.request.method == "POST":
