@@ -3,8 +3,7 @@
 // ------------------------------------------------------------
 // Primera pantalla de MedEats. Muestra el branding de la app
 // y botones para Iniciar Sesión o Registrarse.
-// Por ahora "Iniciar Sesión" entra directamente al Home
-// sin autenticación real (eso se implementará en Sprint 2).
+// "Iniciar Sesión" abre la pantalla de login (FR03).
 // ============================================================
 
 import { useRef, useEffect } from "react";
@@ -60,7 +59,7 @@ export default function WelcomeScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [buttonsOpacity, logoOpacity, logoScale, textOpacity]);
 
   return (
     <View style={styles.container}>
@@ -94,10 +93,10 @@ export default function WelcomeScreen() {
 
         {/* Botones de acción */}
         <Animated.View style={[styles.buttonsContainer, { opacity: buttonsOpacity }]}>
-          {/* Botón Iniciar Sesión — por ahora entra directo al Home */}
+          {/* Botón Iniciar Sesión */}
           <Pressable
             style={styles.loginButton}
-            onPress={() => router.replace("/(tabs)/home")}
+            onPress={() => router.push("/login" as never)}
           >
             <Text style={styles.loginButtonText}>Iniciar Sesión</Text>
           </Pressable>
