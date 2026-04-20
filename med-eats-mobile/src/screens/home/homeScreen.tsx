@@ -24,15 +24,10 @@ import MapViewComponent from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HomeFilters, Restaurant } from "@/src/models/domain";
 import { useUserLocation } from "@/src/hooks/useUserLocation";
-import {
-  getDistanceKm,
-  MEDELLIN_REGION,
-  restaurants as mockRestaurants,
-  semanticCategoryMatches,
-} from "@/src/services/mockData";
+import { getDistanceKm, MEDELLIN_REGION, semanticCategoryMatches } from "@/src/services/mockData";
 import MapView from "./components/mapView";
 import RestaurantCard from "./components/restaurantCard";
-import { API_BASE_URL } from "@/src/config/api";
+import { fetchRestaurants } from "@/src/services/restaurantApi";
 
 const initialFilters: HomeFilters = {
   category: null,
@@ -50,6 +45,7 @@ export default function HomeScreen() {
   const [stagedFilters, setStagedFilters] = useState<HomeFilters>(initialFilters);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // ============================================================
   // CONEXIÓN CON EL BACKEND APENAS CARGA LA APP (Sprint 1)
@@ -59,46 +55,26 @@ export default function HomeScreen() {
   // En lugar de usar los fijos de mockData.ts, pedimos a Django la lista por internet.
   // ============================================================
   useEffect(() => {
-    const fetchRestaurants = async () => {
+    const loadRestaurants = async () => {
       try {
-        // La IP de tu Mac se detecta automáticamente vía API_BASE_URL
-        const response = await fetch(`${API_BASE_URL}/api/restaurants/`);
-        
-        if (!response.ok) {
-          throw new Error("Respuesta de red incorrecta");
-        }
-        
-        const data = await response.json();
+        const data = await fetchRestaurants();
         // TRANSFORMACIÓN DE DATOS (API snake_case → Frontend camelCase)
         // ------------------------------------------------------------
         // Django envía los campos en snake_case (menu_highlights, created_at)
         // pero nuestro TypeScript espera camelCase (menuHighlights).
         // También el rating viene como string "4.8" y lo necesitamos como número.
-        // ============================================================
-        const transformed: Restaurant[] = data.map((item: any) => ({
-          id: String(item.id),
-          name: item.name,
-          category: item.category,
-          rating: parseFloat(item.rating) || 0,
-          image: item.image,
-          latitude: item.latitude,
-          longitude: item.longitude,
-          location: item.location,
-          description: item.description,
-          menuHighlights: item.menu_highlights || [],
-          whatsapp: item.whatsapp || "",
-        }));
-        setRestaurants(transformed);
+        setRestaurants(data);
+        setErrorMessage(null);
       } catch (error) {
-        console.warn("Backend no disponible, usando datos mock:", error);
-        setRestaurants(mockRestaurants);
+        console.error("Error conectando con Django:", error);
+        setErrorMessage("No se pudieron cargar los restaurantes desde el backend.");
       } finally {
         // Apagamos el circulito de carga de la pantalla, haya funcionado o fallado.
         setLoading(false);
       }
     };
 
-    fetchRestaurants();
+    loadRestaurants();
   }, []);
 
   // ============================================================
@@ -258,6 +234,19 @@ export default function HomeScreen() {
       <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
         <ActivityIndicator size="large" color="#FF6B35" />
         <Text style={{ marginTop: 12, color: "#636E72" }}>Cargando restaurantes desde PostgreSQL...</Text>
+      </View>
+    );
+  }
+
+  if (errorMessage) {
+    return (
+      <View style={[styles.container, { justifyContent: "center", alignItems: "center", paddingHorizontal: 24 }]}> 
+        <Text style={{ fontSize: 18, fontWeight: "700", color: "#2D3436", textAlign: "center" }}>
+          {errorMessage}
+        </Text>
+        <Text style={{ marginTop: 8, color: "#636E72", textAlign: "center" }}>
+          Verifica que Django esté corriendo y que el backend tenga datos cargados.
+        </Text>
       </View>
     );
   }

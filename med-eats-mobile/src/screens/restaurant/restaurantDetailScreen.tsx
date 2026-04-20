@@ -2,8 +2,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Restaurant } from "@/src/models/domain";
-import { getReviewsByRestaurantId } from "@/src/services/mockData";
+import { useEffect, useState } from "react";
+import { Restaurant, Review } from "@/src/models/domain";
+import { fetchReviewsByRestaurantId } from "@/src/services/reviewApi";
 
 type Props = {
   restaurant: Restaurant;
@@ -36,7 +37,24 @@ function RatingStars({ rating, size = 16 }: { rating: number; size?: number }) {
 
 export default function RestaurantDetailScreen({ restaurant }: Props) {
   const insets = useSafeAreaInsets();
-  const reviews = getReviewsByRestaurantId(restaurant.id);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadReviews = async () => {
+      try {
+        const data = await fetchReviewsByRestaurantId(restaurant.id);
+        setReviews(data);
+      } catch (error) {
+        console.error("Error fetching reviews:", error);
+        setReviews([]);
+      } finally {
+        setReviewsLoading(false);
+      }
+    };
+
+    loadReviews();
+  }, [restaurant.id]);
 
   return (
     <View style={styles.container}>
@@ -94,7 +112,9 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
           <View style={styles.reviewsSection}>
             <Text style={styles.sectionTitle}>Reviews & Ratings</Text>
 
-            {reviews.length === 0 ? (
+            {reviewsLoading ? (
+              <Text style={styles.emptyReview}>Loading reviews...</Text>
+            ) : reviews.length === 0 ? (
               <Text style={styles.emptyReview}>No reviews yet.</Text>
             ) : (
               reviews.map((review) => (

@@ -1,6 +1,6 @@
 from rest_framework import generics
-from .models import Restaurant, Category
-from .serializers import RestaurantSerializer, CategorySerializer
+from .models import Restaurant, Category, Review
+from .serializers import RestaurantSerializer, CategorySerializer, ReviewSerializer
 from rest_framework.permissions import AllowAny
 
 # ============================================================
@@ -56,3 +56,22 @@ class RestaurantDetailAPIView(generics.RetrieveAPIView):
     queryset = Restaurant.objects.all()
     serializer_class = RestaurantSerializer
     permission_classes = [AllowAny]
+
+
+class ReviewListAPIView(generics.ListAPIView):
+    """
+    Devuelve las reseñas de un restaurante específico.
+    Se filtra por query param: ?restaurant=<id>
+    """
+
+    serializer_class = ReviewSerializer
+    permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        queryset = Review.objects.select_related("restaurant").order_by("-date", "-id")
+        restaurant_id = self.request.query_params.get("restaurant")
+
+        if restaurant_id:
+            queryset = queryset.filter(restaurant_id=restaurant_id)
+
+        return queryset

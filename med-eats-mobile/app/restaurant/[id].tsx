@@ -10,7 +10,7 @@ import { useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import RestaurantDetailScreen from "@/src/screens/restaurant/restaurantDetailScreen";
 import { Restaurant } from "@/src/models/domain";
-import { API_BASE_URL } from "@/src/config/api";
+import { fetchRestaurantById } from "@/src/services/restaurantApi";
 
 export default function RestaurantScreen() {
   const { id } = useLocalSearchParams();
@@ -20,25 +20,7 @@ export default function RestaurantScreen() {
   useEffect(() => {
     const fetchRestaurantDetail = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/restaurants/${id}/`);
-        if (!response.ok) {
-          throw new Error("No se pudo cargar el restaurante");
-        }
-        const data = await response.json();
-        // Transformamos snake_case de Django a camelCase de TypeScript
-        const transformed: Restaurant = {
-          id: String(data.id),
-          name: data.name,
-          category: data.category,
-          rating: parseFloat(data.rating) || 0,
-          image: data.image,
-          latitude: data.latitude,
-          longitude: data.longitude,
-          location: data.location,
-          description: data.description,
-          menuHighlights: data.menu_highlights || [],
-          whatsapp: data.whatsapp || "",
-        };
+        const transformed = await fetchRestaurantById(String(id));
         setRestaurant(transformed);
       } catch (error) {
         console.error("Error fetching detail:", error);

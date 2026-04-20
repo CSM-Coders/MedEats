@@ -1,5 +1,10 @@
 from django.urls import path
-from .views import RestaurantListAPIView, CategoryListAPIView, RestaurantDetailAPIView
+from .views import (
+    RestaurantListAPIView,
+    CategoryListAPIView,
+    RestaurantDetailAPIView,
+    ReviewListAPIView,
+)
 
 # ============================================================
 # RUTAS DE LA APP RESTAURANTES
@@ -21,4 +26,5 @@ urlpatterns = [
         RestaurantDetailAPIView.as_view(),
         name="restaurant-detail",
     ),
+    path("reviews/", ReviewListAPIView.as_view(), name="review-list"),
 ]

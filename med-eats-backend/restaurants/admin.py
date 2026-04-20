@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Category, Restaurant
+from .models import Category, Restaurant, Review
 
 # ============================================================
 # PANEL DE ADMINISTRACIÓN (Django Admin)
@@ -32,3 +32,10 @@ class RestaurantAdmin(admin.ModelAdmin):
 
     # search_fields: Permite buscar restaurantes escribiendo su nombre o ubicación.
     search_fields = ("name", "location")
+
+
+@admin.register(Review)
+class ReviewAdmin(admin.ModelAdmin):
+    list_display = ("restaurant", "username", "rating", "date")
+    list_filter = ("restaurant",)
+    search_fields = ("username", "comment")

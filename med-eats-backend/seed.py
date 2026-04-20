@@ -7,7 +7,7 @@ sys.path.append("/Users/camiloalvarez/Documents/MedEats/med-eats-backend")
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 django.setup()
 
-from restaurants.models import Category, Restaurant  # noqa: E402
+from restaurants.models import Category, Restaurant, Review  # noqa: E402
 
 
 def seed_data():
@@ -321,6 +321,50 @@ def seed_data():
             print(f"🔄 Actualizado: {restaurant.name}")
 
     print("\n--- ¡RESTAURADAS LAS DE UNSPLASH Y ARREGLADAS LAS 5 DE PEXELS! ---")
+
+    reviews_data = [
+        {
+            "restaurant_name": "Mondongo's El Poblado",
+            "username": "andres_med",
+            "avatar": "https://images.unsplash.com/photo-1762708590808-c453c0e4fb0f?w=200",
+            "rating": 5,
+            "comment": "Excelente sabor y porciones generosas.",
+        },
+        {
+            "restaurant_name": "Mondongo's El Poblado",
+            "username": "maria_eats",
+            "avatar": "https://images.unsplash.com/photo-1614436201459-156d322d38c6?w=200",
+            "rating": 4,
+            "comment": "Muy rico, volvería sin duda.",
+        },
+        {
+            "restaurant_name": "Sushi Zen",
+            "username": "luisa_food",
+            "avatar": "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?w=200",
+            "rating": 5,
+            "comment": "Sushi fresco y súper presentación.",
+        },
+    ]
+
+    print(f"Total a insertar/actualizar: {len(reviews_data)} reviews")
+    for data in reviews_data:
+        restaurant = Restaurant.objects.get(name=data["restaurant_name"])
+        review, created = Review.objects.update_or_create(
+            restaurant=restaurant,
+            username=data["username"],
+            comment=data["comment"],
+            defaults={
+                "restaurant": restaurant,
+                "username": data["username"],
+                "avatar": data["avatar"],
+                "rating": data["rating"],
+                "comment": data["comment"],
+            },
+        )
+        if created:
+            print(f"✅ Review creada: {review.username} -> {review.restaurant.name}")
+        else:
+            print(f"🔄 Review actualizada: {review.username} -> {review.restaurant.name}")
 
 
 if __name__ == "__main__":

@@ -98,3 +98,30 @@ class Restaurant(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class Review(models.Model):
+    """
+    Modelo que representa una reseña pública de un restaurante.
+    """
+
+    restaurant = models.ForeignKey(
+        Restaurant,
+        on_delete=models.CASCADE,
+        related_name="reviews",
+        verbose_name="Restaurante",
+    )
+    username = models.CharField(max_length=150, verbose_name="Usuario")
+    avatar = models.URLField(
+        max_length=500, blank=True, verbose_name="URL del avatar"
+    )
+    rating = models.DecimalField(
+        max_digits=2,
+        decimal_places=1,
+        verbose_name="Calificación",
+    )
+    comment = models.TextField(verbose_name="Comentario")
+    date = models.DateField(auto_now_add=True, verbose_name="Fecha")
+
+    def __str__(self):
+        return f"{self.username} - {self.restaurant.name}"

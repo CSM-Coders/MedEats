@@ -9,7 +9,7 @@
 // - helpers de búsqueda semántica y distancia
 // ============================================================
 
-import { AppUser, Post, Restaurant, Review, VisitedRestaurant } from "@/src/models/domain";
+import { AppUser, Post, Restaurant, VisitedRestaurant } from "@/src/models/domain";
 
 export const MEDELLIN_REGION = {
   latitude: 6.2442,
@@ -129,36 +129,6 @@ export const initialPosts: Post[] = [
   },
 ];
 
-export const reviews: Review[] = [
-  {
-    id: "r1",
-    restaurantId: "1",
-    username: "andres_med",
-    avatar: "https://images.unsplash.com/photo-1762708590808-c453c0e4fb0f?w=200",
-    rating: 5,
-    comment: "Excelente sabor y porciones generosas.",
-    date: "2026-01-25",
-  },
-  {
-    id: "r2",
-    restaurantId: "1",
-    username: "maria_eats",
-    avatar: "https://images.unsplash.com/photo-1614436201459-156d322d38c6?w=200",
-    rating: 4,
-    comment: "Muy rico, volvería sin duda.",
-    date: "2026-01-20",
-  },
-  {
-    id: "r3",
-    restaurantId: "2",
-    username: "luisa_food",
-    avatar: "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?w=200",
-    rating: 5,
-    comment: "Sushi fresco y súper presentación.",
-    date: "2026-02-02",
-  },
-];
-
 export const visitedRestaurants: VisitedRestaurant[] = [
   { restaurantId: "2", rating: 5, visitDate: "2026-01-29" },
   { restaurantId: "1", rating: 5, visitDate: "2026-01-15" },
@@ -167,10 +137,6 @@ export const visitedRestaurants: VisitedRestaurant[] = [
 
 export function getRestaurantById(id: string) {
   return restaurants.find((restaurant) => restaurant.id === id);
-}
-
-export function getReviewsByRestaurantId(restaurantId: string) {
-  return reviews.filter((review) => review.restaurantId === restaurantId);
 }
 
 export function semanticCategoryMatches(query: string, category: string) {

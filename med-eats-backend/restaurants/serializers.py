@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Category, Restaurant
+from .models import Category, Restaurant, Review
 
 # ============================================================
 # SERIALIZADORES (Traducción Base de Datos -> JSON)
@@ -41,3 +41,11 @@ class RestaurantSerializer(serializers.ModelSerializer):
         # absolutamente todo lo que esté en la tabla de este restaurante
         # (latitud, longitud, imagen, whatsapp, etc.)".
         fields = "__all__"
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    restaurant = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    class Meta:
+        model = Review
+        fields = ["id", "restaurant", "username", "avatar", "rating", "comment", "date"]
