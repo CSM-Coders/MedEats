@@ -7,20 +7,29 @@
 // - restaurantes visitados
 // ============================================================
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useAuth } from "@/src/context/auth-context";
 import { useFeed } from "@/src/context/feed-context";
-import { currentUser, getRestaurantById, visitedRestaurants } from "@/src/services/mockData";
+import { getRestaurantById, visitedRestaurants } from "@/src/services/mockData";
 
 type TabType = "posts" | "visited";
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
+  const { user, refreshProfile, logout } = useAuth();
   const { userPosts } = useFeed();
   const [activeTab, setActiveTab] = useState<TabType>("posts");
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshProfile().catch(() => undefined);
+    }, [refreshProfile])
+  );
 
   const visitedData = useMemo(
     () =>
@@ -30,16 +39,22 @@ export default function ProfileScreen() {
     []
   );
 
+  if (!user) {
+    return null;
+  }
+
   return (
     <View style={styles.container}>
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}> 
-        <Text style={styles.headerTitle}>@{currentUser.username}</Text>
-        <Ionicons name="settings-outline" size={22} color="#2D3436" />
+        <Text style={styles.headerTitle}>@{user.username}</Text>
+        <Pressable onPress={logout} hitSlop={10}>
+          <Ionicons name="log-out-outline" size={22} color="#2D3436" />
+        </Pressable>
       </View>
 
       <View style={styles.profileBlock}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{currentUser.name.charAt(0)}</Text>
+          <Text style={styles.avatarText}>{user.name.charAt(0)}</Text>
         </View>
 
         <View style={styles.statsRow}>
@@ -48,20 +63,20 @@ export default function ProfileScreen() {
             <Text style={styles.statLabel}>Posts</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{currentUser.followers}</Text>
+            <Text style={styles.statValue}>{user.followers}</Text>
             <Text style={styles.statLabel}>Followers</Text>
           </View>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{currentUser.following}</Text>
+            <Text style={styles.statValue}>{user.following}</Text>
             <Text style={styles.statLabel}>Following</Text>
           </View>
         </View>
       </View>
 
       <View style={styles.bioBlock}>
-        <Text style={styles.name}>{currentUser.name}</Text>
-        <Text style={styles.bio}>{currentUser.bio}</Text>
-        <Text style={styles.location}>📍 {currentUser.location}</Text>
+        <Text style={styles.name}>{user.name}</Text>
+        {user.bio ? <Text style={styles.bio}>{user.bio}</Text> : null}
+        {user.location ? <Text style={styles.location}>📍 {user.location}</Text> : null}
       </View>
 
       <View style={styles.tabsRow}>

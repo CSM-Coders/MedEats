@@ -1,11 +1,22 @@
 from django.contrib.auth import authenticate
+from django.contrib.auth import get_user_model
+from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .serializers import RegisterSerializer, UserSerializer
+from .models import Follow, UserProfile
+from .serializers import (
+    PublicProfileSerializer,
+    RegisterSerializer,
+    UserProfileUpdateSerializer,
+    UserSerializer,
+    UserSummarySerializer,
+)
+
+User = get_user_model()
 
 
 def build_auth_response(user):
@@ -65,4 +76,93 @@ class MeAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        UserProfile.objects.get_or_create(user=request.user)
         return Response(UserSerializer(request.user).data)
+
+
+class MyProfileAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        serializer = PublicProfileSerializer(profile, context={"request": request})
+        return Response(serializer.data)
+
+    def patch(self, request):
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        serializer = UserProfileUpdateSerializer(profile, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(
+            PublicProfileSerializer(profile, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class UserProfileDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, username):
+        target_user = get_object_or_404(User.objects.select_related("profile"), username=username)
+        profile, _ = UserProfile.objects.get_or_create(user=target_user)
+        serializer = PublicProfileSerializer(profile, context={"request": request})
+        return Response(serializer.data)
+
+
+class FollowUserAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, username):
+        target_user = get_object_or_404(User, username=username)
+
+        if target_user == request.user:
+            return Response(
+                {"detail": "You cannot follow yourself."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        _, created = Follow.objects.get_or_create(
+            follower=request.user,
+            following=target_user,
+        )
+
+        profile, _ = UserProfile.objects.get_or_create(user=target_user)
+        serializer = PublicProfileSerializer(profile, context={"request": request})
+        return Response(
+            serializer.data,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+    def delete(self, request, username):
+        target_user = get_object_or_404(User, username=username)
+        Follow.objects.filter(follower=request.user, following=target_user).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class FollowersListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, username):
+        target_user = get_object_or_404(User, username=username)
+        followers = (
+            User.objects.filter(following_relationships__following=target_user)
+            .select_related("profile")
+            .order_by("username")
+        )
+        serializer = UserSummarySerializer(followers, many=True)
+        return Response({"count": len(serializer.data), "results": serializer.data})
+
+
+class FollowingListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, username):
+        target_user = get_object_or_404(User, username=username)
+        following = (
+            User.objects.filter(follower_relationships__follower=target_user)
+            .select_related("profile")
+            .order_by("username")
+        )
+        serializer = UserSummarySerializer(following, many=True)
+        return Response({"count": len(serializer.data), "results": serializer.data})

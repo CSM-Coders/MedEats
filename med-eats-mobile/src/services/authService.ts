@@ -46,6 +46,12 @@ type ApiUser = {
   email?: string;
   first_name?: string;
   last_name?: string;
+  name?: string;
+  avatar_url?: string;
+  bio?: string;
+  location?: string;
+  followers_count?: number;
+  following_count?: number;
 };
 
 type AuthResponse = {
@@ -172,6 +178,88 @@ export async function fetchUserProfile(accessToken: string): Promise<AppUser> {
 
   const payload = (await response.json()) as ApiUser;
   return normalizeUser(payload);
+}
+
+export async function fetchMyPublicProfile(accessToken: string): Promise<AppUser> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/profile/me/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(SESSION_REFRESH_FAILED_ERROR);
+  }
+
+  const payload = (await response.json()) as {
+    user_id: string | number;
+    username: string;
+    name?: string;
+    avatar_url?: string;
+    bio?: string;
+    location?: string;
+    followers_count?: number;
+    following_count?: number;
+  };
+
+  return {
+    id: String(payload.user_id),
+    username: payload.username,
+    name: payload.name || payload.username,
+    avatarUrl: payload.avatar_url,
+    bio: payload.bio ?? "",
+    location: payload.location ?? "",
+    followers: Number(payload.followers_count) || 0,
+    following: Number(payload.following_count) || 0,
+  };
+}
+
+export async function updateMyProfile(
+  accessToken: string,
+  input: { displayName?: string; avatarUrl?: string; bio?: string; location?: string }
+): Promise<AppUser> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/profile/me/`, {
+    method: "PATCH",
+    headers: {
+      ...AUTH_HEADERS,
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      display_name: input.displayName,
+      avatar_url: input.avatarUrl,
+      bio: input.bio,
+      location: input.location,
+    }),
+  });
+
+  const payload = await response.text();
+  const parsed = parseResponseBody(payload) as
+    | {
+        user_id?: string | number;
+        username?: string;
+        name?: string;
+        avatar_url?: string;
+        bio?: string;
+        location?: string;
+        followers_count?: number;
+        following_count?: number;
+      }
+    | null;
+
+  if (!response.ok || !parsed?.user_id || !parsed.username) {
+    throw new Error(resolveErrorMessage(parsed, REGISTRATION_FAILED_ERROR, response.status));
+  }
+
+  return {
+    id: String(parsed.user_id),
+    username: parsed.username,
+    name: parsed.name || parsed.username,
+    avatarUrl: parsed.avatar_url,
+    bio: parsed.bio ?? "",
+    location: parsed.location ?? "",
+    followers: Number(parsed.followers_count) || 0,
+    following: Number(parsed.following_count) || 0,
+  };
 }
 
 export async function refreshAccessToken(refreshToken: string): Promise<string> {
@@ -310,12 +398,13 @@ function normalizeUser(user: ApiUser): AppUser {
   return {
     id: String(user.id),
     username: user.username,
-    name: displayName || user.username,
+    name: user.name || displayName || user.username,
     email: user.email,
-    bio: "",
-    location: "",
-    followers: 0,
-    following: 0,
+    avatarUrl: user.avatar_url,
+    bio: user.bio ?? "",
+    location: user.location ?? "",
+    followers: Number(user.followers_count) || 0,
+    following: Number(user.following_count) || 0,
   };
 }
 

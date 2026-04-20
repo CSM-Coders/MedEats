@@ -7,9 +7,10 @@
 // - Profile (ver posts propios)
 // ============================================================
 
-import { createContext, ReactNode, useContext, useMemo, useState } from "react";
+import { createContext, ReactNode, useCallback, useContext, useMemo, useState } from "react";
 import { Post } from "@/src/models/domain";
-import { currentUser, getRestaurantById, initialPosts } from "@/src/services/mockData";
+import { useAuth } from "@/src/context/auth-context";
+import { getRestaurantById, initialPosts } from "@/src/services/mockData";
 
 type NewPostInput = {
   restaurantId: string;
@@ -29,8 +30,9 @@ const FeedContext = createContext<FeedContextValue | undefined>(undefined);
 
 export function FeedProvider({ children }: { children: ReactNode }) {
   const [posts, setPosts] = useState<Post[]>(initialPosts);
+  const { user } = useAuth();
 
-  const toggleLike = (postId: string) => {
+  const toggleLike = useCallback((postId: string) => {
     setPosts((currentPosts) =>
       currentPosts.map((post) =>
         post.id !== postId
@@ -42,42 +44,46 @@ export function FeedProvider({ children }: { children: ReactNode }) {
             }
       )
     );
-  };
+  }, []);
 
-  const createPost = ({ restaurantId, rating, caption, image }: NewPostInput) => {
-    const restaurant = getRestaurantById(restaurantId);
+  const createPost = useCallback(
+    ({ restaurantId, rating, caption, image }: NewPostInput) => {
+      const restaurant = getRestaurantById(restaurantId);
 
-    if (!restaurant) {
-      return;
-    }
+      if (!restaurant || !user) {
+        return;
+      }
 
-    const newPost: Post = {
-      id: `p-${Date.now()}`,
-      userId: currentUser.id,
-      username: currentUser.username,
-      userAvatar: "https://images.unsplash.com/photo-1614436201459-156d322d38c6?w=200",
-      restaurantId,
-      restaurantName: restaurant.name,
-      image,
-      rating,
-      caption,
-      likes: 0,
-      comments: 0,
-      date: new Date().toISOString().slice(0, 10),
-      isLiked: false,
-    };
+      const newPost: Post = {
+        id: `p-${Date.now()}`,
+        userId: user.id,
+        username: user.username,
+        userAvatar:
+          user.avatarUrl || "https://images.unsplash.com/photo-1614436201459-156d322d38c6?w=200",
+        restaurantId,
+        restaurantName: restaurant.name,
+        image,
+        rating,
+        caption,
+        likes: 0,
+        comments: 0,
+        date: new Date().toISOString().slice(0, 10),
+        isLiked: false,
+      };
 
-    setPosts((currentPosts) => [newPost, ...currentPosts]);
-  };
+      setPosts((currentPosts) => [newPost, ...currentPosts]);
+    },
+    [user]
+  );
 
   const userPosts = useMemo(
-    () => posts.filter((post) => post.userId === currentUser.id),
-    [posts]
+    () => (user ? posts.filter((post) => post.userId === user.id) : []),
+    [posts, user]
   );
 
   const value = useMemo(
     () => ({ posts, userPosts, toggleLike, createPost }),
-    [posts, userPosts]
+    [posts, userPosts, toggleLike, createPost]
   );
 
   return <FeedContext.Provider value={value}>{children}</FeedContext.Provider>;

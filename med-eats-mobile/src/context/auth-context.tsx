@@ -11,6 +11,7 @@ import * as SecureStore from "expo-secure-store";
 import { AppUser } from "@/src/models/domain";
 import {
   AuthSession,
+  fetchMyPublicProfile,
   LoginCredentials,
   RegisterCredentials,
   fetchUserProfile,
@@ -25,6 +26,7 @@ type AuthContextValue = {
   isHydrating: boolean;
   isLoggingIn: boolean;
   isRegistering: boolean;
+  refreshProfile: () => Promise<void>;
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (credentials: RegisterCredentials) => Promise<void>;
   logout: () => Promise<void>;
@@ -121,6 +123,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const refreshProfile = useCallback(async () => {
+    const session = await readSession();
+    if (!session) {
+      return;
+    }
+
+    try {
+      const currentUser = await fetchMyPublicProfile(session.accessToken);
+      setUser(currentUser);
+
+      const updatedSession: AuthSession = {
+        ...session,
+        user: currentUser,
+      };
+      await saveSession(updatedSession);
+    } catch {
+      const newAccessToken = await refreshAccessToken(session.refreshToken);
+      const currentUser = await fetchMyPublicProfile(newAccessToken);
+      const updatedSession: AuthSession = {
+        accessToken: newAccessToken,
+        refreshToken: session.refreshToken,
+        user: currentUser,
+      };
+
+      setUser(currentUser);
+      await saveSession(updatedSession);
+    }
+  }, []);
+
   const logout = useCallback(async () => {
     setUser(null);
     await clearSession();
@@ -133,11 +164,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isHydrating,
       isLoggingIn,
       isRegistering,
+      refreshProfile,
       login,
       register,
       logout,
     }),
-    [user, isHydrating, isLoggingIn, isRegistering, login, register, logout]
+    [
+      user,
+      isHydrating,
+      isLoggingIn,
+      isRegistering,
+      refreshProfile,
+      login,
+      register,
+      logout,
+    ]
   );
 
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;

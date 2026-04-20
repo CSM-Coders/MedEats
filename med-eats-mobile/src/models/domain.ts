@@ -51,6 +51,7 @@ export type AppUser = {
   username: string;
   name: string;
   email?: string;
+  avatarUrl?: string;
   bio: string;
   location: string;
   followers: number;
