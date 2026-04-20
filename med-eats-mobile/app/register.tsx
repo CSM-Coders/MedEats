@@ -51,9 +51,18 @@ export default function RegisterScreen() {
       await register({ username, email, password });
       router.replace("/(tabs)/home");
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : getRegistrationFailedErrorMessage();
-      setFormError(message);
+      const message = extractErrorMessage(error);
+      const field = getRegistrationFieldFromMessage(message);
+
+      if (field === "username") {
+        setUsernameError(message);
+      } else if (field === "email") {
+        setEmailError(message);
+      } else if (field === "password") {
+        setPasswordError(message);
+      } else {
+        setFormError(message);
+      }
     }
   };
 
@@ -225,3 +234,54 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 });
+
+function extractErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  if (typeof error === "string" && error.trim()) {
+    return error;
+  }
+
+  if (error && typeof error === "object") {
+    const typedError = error as Record<string, unknown>;
+
+    if (typeof typedError.message === "string" && typedError.message.trim()) {
+      return typedError.message;
+    }
+
+    for (const value of Object.values(typedError)) {
+      if (typeof value === "string" && value.trim()) {
+        return value;
+      }
+
+      if (Array.isArray(value)) {
+        const firstMessage = value.find((item) => typeof item === "string" && item.trim());
+        if (typeof firstMessage === "string") {
+          return firstMessage;
+        }
+      }
+    }
+  }
+
+  return getRegistrationFailedErrorMessage();
+}
+
+function getRegistrationFieldFromMessage(message: string) {
+  const normalizedMessage = message.toLowerCase();
+
+  if (normalizedMessage.includes("username")) {
+    return "username" as const;
+  }
+
+  if (normalizedMessage.includes("email")) {
+    return "email" as const;
+  }
+
+  if (normalizedMessage.includes("password")) {
+    return "password" as const;
+  }
+
+  return null;
+}
