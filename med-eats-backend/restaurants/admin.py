@@ -45,9 +45,9 @@ class RestaurantAdmin(admin.ModelAdmin):
 
 @admin.register(Review)
 class ReviewAdmin(admin.ModelAdmin):
-    list_display = ("restaurant", "username", "rating", "date")
-    list_filter = ("restaurant",)
-    search_fields = ("username", "comment")
+    list_display = ("restaurant", "user", "rating", "created_at")
+    list_filter = ("restaurant", "user")
+    search_fields = ("user__username", "comment")
 
 
 @admin.register(Post)

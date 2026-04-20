@@ -1,17 +1,31 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  Alert,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCallback, useEffect, useState } from "react";
 import { Restaurant, Review } from "@/src/models/domain";
 import { useAuth } from "@/src/context/auth-context";
-import { fetchReviewsByRestaurantId } from "@/src/services/reviewApi";
+import {
+  fetchReviewsByRestaurantId,
+  createReview,
+  updateReview,
+  deleteReview,
+} from "@/src/services/reviewApi";
 import {
   isRestaurantSaved,
   saveRestaurant,
   unsaveRestaurant,
 } from "@/src/services/userCollectionsApi";
+import ReviewModal from "@/src/components/ReviewModal";
 
 type Props = {
   restaurant: Restaurant;
@@ -50,21 +64,26 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
   const [isSaved, setIsSaved] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
 
-  useEffect(() => {
-    const loadReviews = async () => {
-      try {
-        const data = await fetchReviewsByRestaurantId(restaurant.id);
-        setReviews(data);
-      } catch (error) {
-        console.error("Error fetching reviews:", error);
-        setReviews([]);
-      } finally {
-        setReviewsLoading(false);
-      }
-    };
+  // Estados para el Modal de Reseñas
+  const [modalVisible, setModalVisible] = useState(false);
+  const [editingReview, setEditingReview] = useState<Review | null>(null);
 
-    loadReviews();
+  const loadReviews = useCallback(async () => {
+    setReviewsLoading(true);
+    try {
+      const data = await fetchReviewsByRestaurantId(restaurant.id);
+      setReviews(data);
+    } catch (error) {
+      console.error("Error fetching reviews:", error);
+      setReviews([]);
+    } finally {
+      setReviewsLoading(false);
+    }
   }, [restaurant.id]);
+
+  useEffect(() => {
+    loadReviews();
+  }, [loadReviews]);
 
   useFocusEffect(
     useCallback(() => {
@@ -90,6 +109,7 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
   const handleToggleSaved = async () => {
     const accessToken = await getAccessToken();
     if (!accessToken || saveLoading) {
+      router.push("/login");
       return;
     }
 
@@ -107,16 +127,64 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
     }
   };
 
+  const handleOpenCreateModal = () => {
+    setEditingReview(null);
+    setModalVisible(true);
+  };
+
+  const handleOpenEditModal = (review: Review) => {
+    setEditingReview(review);
+    setModalVisible(true);
+  };
+
+  const handleReviewSubmit = async (rating: number, comment: string) => {
+    const accessToken = await getAccessToken();
+    if (!accessToken) {
+      router.push("/login");
+      return;
+    }
+
+    if (editingReview) {
+      await updateReview(accessToken, editingReview.id, { rating, comment });
+    } else {
+      await createReview(accessToken, { restaurantId: restaurant.id, rating, comment });
+    }
+    loadReviews();
+  };
+
+  const handleDeleteReview = async (reviewId: string) => {
+    Alert.alert(
+      "Eliminar Reseña",
+      "¿Estás seguro de que quieres eliminar tu reseña? Esta acción no se puede deshacer.",
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: async () => {
+            const accessToken = await getAccessToken();
+            if (accessToken) {
+              try {
+                await deleteReview(accessToken, reviewId);
+                loadReviews();
+              } catch (error) {
+                Alert.alert("Error", "No se pudo eliminar la reseña.");
+              }
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <View style={styles.container}>
-      {/* Scrollable container that ignores the top notch for the full bleed hero image */}
       <ScrollView bounces={false} contentContainerStyle={{ paddingBottom: 40 }}>
         
         {/* ================= HERO IMAGE & HEADER STRIP ================= */}
         <View style={styles.heroContainer}>
           <Image source={{ uri: restaurant.image }} style={styles.heroImage} />
           
-          {/* Top Actions: Back, Favorite, Share OVERLAY */}
           <View style={[styles.headerActions, { top: insets.top + 8 }]}>
             <Pressable style={styles.iconCircle} onPress={() => router.back()}>
               <Ionicons name="arrow-back" size={20} color="#2D3436" />
@@ -141,7 +209,6 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
         <View style={styles.content}>
           <Text style={styles.title}>{restaurant.name}</Text>
           
-          {/* Rating and Category Row */}
           <View style={styles.ratingCategoryRow}>
             <RatingStars rating={restaurant.rating} size={15} />
             <Text style={styles.ratingNumber}>{restaurant.rating}</Text>
@@ -149,7 +216,6 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
             <Text style={styles.categoryText}>{restaurant.category}</Text>
           </View>
 
-          {/* Location Row */}
           <View style={styles.locationRow}>
             <Ionicons name="location-outline" size={18} color="#FF6B35" />
             <Text style={styles.locationText}>{restaurant.location}</Text>
@@ -160,24 +226,45 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
           {/* View Menu Button */}
           <Pressable style={styles.viewMenuButton}>
             <Ionicons name="list" size={22} color="#FFFFFF" />
-            <Text style={styles.viewMenuText}>View Menu</Text>
+            <Text style={styles.viewMenuText}>Ver Menú</Text>
           </Pressable>
 
           {/* ================= REVIEWS SECTION ================= */}
           <View style={styles.reviewsSection}>
-            <Text style={styles.sectionTitle}>Reviews & Ratings</Text>
+            <View style={styles.reviewsHeader}>
+              <Text style={styles.sectionTitle}>Reseñas y Calificaciones</Text>
+              <Pressable style={styles.addReviewButton} onPress={handleOpenCreateModal}>
+                <Ionicons name="add-circle-outline" size={20} color="#FF6B35" />
+                <Text style={styles.addReviewText}>Escribir</Text>
+              </Pressable>
+            </View>
 
             {reviewsLoading ? (
-              <Text style={styles.emptyReview}>Loading reviews...</Text>
+              <ActivityIndicator size="small" color="#FF6B35" style={{ marginTop: 20 }} />
             ) : reviews.length === 0 ? (
-              <Text style={styles.emptyReview}>No reviews yet.</Text>
+              <Text style={styles.emptyReview}>Aún no hay reseñas. ¡Sé el primero!</Text>
             ) : (
               reviews.map((review) => (
                 <View key={review.id} style={styles.reviewCard}>
                   <View style={styles.reviewHeader}>
-                    <Image source={{ uri: review.avatar }} style={styles.reviewAvatar} />
+                    <Image
+                      source={{ uri: review.avatar || "https://ui-avatars.com/api/?name=" + review.username }}
+                      style={styles.reviewAvatar}
+                    />
                     <View style={styles.reviewMetaContainer}>
-                      <Text style={styles.reviewUser}>{review.username}</Text>
+                      <View style={styles.reviewUserRow}>
+                        <Text style={styles.reviewUser}>{review.username}</Text>
+                        {review.isOwner && (
+                          <View style={styles.ownerActions}>
+                            <Pressable onPress={() => handleOpenEditModal(review)}>
+                              <Ionicons name="pencil-outline" size={16} color="#636E72" />
+                            </Pressable>
+                            <Pressable onPress={() => handleDeleteReview(review.id)}>
+                              <Ionicons name="trash-outline" size={16} color="#E63946" />
+                            </Pressable>
+                          </View>
+                        )}
+                      </View>
                       <View style={styles.reviewStarsDate}>
                         <RatingStars rating={review.rating} size={13} />
                         <Text style={styles.reviewDate}>{review.date}</Text>
@@ -189,9 +276,18 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
               ))
             )}
           </View>
-
         </View>
       </ScrollView>
+
+      {/* ================= MODAL DE RESEÑA ================= */}
+      <ReviewModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        onSubmit={handleReviewSubmit}
+        initialRating={editingReview?.rating}
+        initialComment={editingReview?.comment}
+        isEditing={!!editingReview}
+      />
     </View>
   );
 }
@@ -205,7 +301,7 @@ const styles = StyleSheet.create({
   heroContainer: {
     position: "relative",
     width: "100%",
-    height: 320, // Altura prominente como en el mockup
+    height: 320,
   },
   heroImage: {
     width: "100%",
@@ -290,7 +386,7 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   viewMenuButton: {
-    backgroundColor: "#FF6B35", // Naranja vibrante
+    backgroundColor: "#FF6B35",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -307,18 +403,37 @@ const styles = StyleSheet.create({
   reviewsSection: {
     paddingBottom: 20,
   },
+  reviewsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 18,
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "800",
     color: "#2D3436",
-    marginBottom: 18,
+  },
+  addReviewButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  addReviewText: {
+    color: "#FF6B35",
+    fontSize: 14,
+    fontWeight: "700",
   },
   emptyReview: {
     color: "#636E72",
     fontStyle: "italic",
+    textAlign: "center",
+    marginTop: 10,
   },
   reviewCard: {
-    backgroundColor: "#F8F9FA", // Fondo gris super claro sin bordes
+    backgroundColor: "#F8F9FA",
     borderRadius: 16,
     padding: 18,
     marginBottom: 16,
@@ -338,10 +453,19 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 4,
   },
+  reviewUserRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   reviewUser: {
     fontSize: 15,
     fontWeight: "700",
     color: "#2D3436",
+  },
+  ownerActions: {
+    flexDirection: "row",
+    gap: 12,
   },
   reviewStarsDate: {
     flexDirection: "row",

@@ -45,7 +45,7 @@ function getAuthHeaders(accessToken: string) {
 }
 
 export async function fetchPosts(accessToken: string): Promise<Post[]> {
-  const response = await fetch(`${API_BASE_URL}/api/posts/`, {
+  const response = await fetch(`${API_BASE_URL}/api/v1/posts/`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
@@ -63,7 +63,7 @@ export async function createPostApi(
   accessToken: string,
   input: { restaurantId: string; rating: number; caption: string; image: string }
 ): Promise<Post> {
-  const response = await fetch(`${API_BASE_URL}/api/posts/`, {
+  const response = await fetch(`${API_BASE_URL}/api/v1/posts/`, {
     method: "POST",
     headers: getAuthHeaders(accessToken),
     body: JSON.stringify({
@@ -83,7 +83,7 @@ export async function createPostApi(
 }
 
 export async function likePost(accessToken: string, postId: string): Promise<Post> {
-  const response = await fetch(`${API_BASE_URL}/api/posts/${postId}/like/`, {
+  const response = await fetch(`${API_BASE_URL}/api/v1/posts/${postId}/like/`, {
     method: "POST",
     headers: getAuthHeaders(accessToken),
   });
@@ -97,7 +97,7 @@ export async function likePost(accessToken: string, postId: string): Promise<Pos
 }
 
 export async function unlikePost(accessToken: string, postId: string): Promise<Post> {
-  const response = await fetch(`${API_BASE_URL}/api/posts/${postId}/like/`, {
+  const response = await fetch(`${API_BASE_URL}/api/v1/posts/${postId}/like/`, {
     method: "DELETE",
     headers: getAuthHeaders(accessToken),
   });

@@ -93,7 +93,7 @@ export async function loginWithCredentials(
     throw new Error(validation.passwordError);
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/auth/login/`, {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/login/`, {
     method: "POST",
     headers: AUTH_HEADERS,
     body: JSON.stringify({
@@ -152,7 +152,7 @@ export async function registerWithEmailAndPassword(
     throw new Error(validation.passwordError);
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/auth/register/`, {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/register/`, {
     method: "POST",
     headers: AUTH_HEADERS,
     body: JSON.stringify({
@@ -166,7 +166,7 @@ export async function registerWithEmailAndPassword(
 }
 
 export async function fetchUserProfile(accessToken: string): Promise<AppUser> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/me/`, {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/me/`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
@@ -181,7 +181,7 @@ export async function fetchUserProfile(accessToken: string): Promise<AppUser> {
 }
 
 export async function fetchMyPublicProfile(accessToken: string): Promise<AppUser> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/profile/me/`, {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/profile/me/`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
@@ -218,7 +218,7 @@ export async function updateMyProfile(
   accessToken: string,
   input: { displayName?: string; avatarUrl?: string; bio?: string; location?: string }
 ): Promise<AppUser> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/profile/me/`, {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/profile/me/`, {
     method: "PATCH",
     headers: {
       ...AUTH_HEADERS,
@@ -263,7 +263,7 @@ export async function updateMyProfile(
 }
 
 export async function refreshAccessToken(refreshToken: string): Promise<string> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/refresh/`, {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/refresh/`, {
     method: "POST",
     headers: AUTH_HEADERS,
     body: JSON.stringify({ refresh: refreshToken }),

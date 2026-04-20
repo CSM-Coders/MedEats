@@ -30,9 +30,8 @@ from django.urls import path, include
 urlpatterns = [
     # El Panel Administrativo privado que nos dio Django
     path("admin/", admin.site.urls),
-    # Endpoints de autenticación JWT
-    path("api/auth/", include("accounts.urls")),
-    # "Cualquier petición que empiece con la palabra 'api/',
-    # vete al archivo restaurants/urls.py y fíjate hacia dónde sigue el camino allá".
-    path("api/", include("restaurants.urls")),
+    # Endpoints de autenticación JWT (Versión 1)
+    path("api/v1/auth/", include("accounts.urls")),
+    # Apps de negocio (Versión 1)
+    path("api/v1/", include("restaurants.urls")),
 ]

@@ -32,7 +32,7 @@ function mapRestaurant(item: RestaurantApiItem): Restaurant {
 }
 
 export async function fetchRestaurants(): Promise<Restaurant[]> {
-  const response = await fetch(`${API_BASE_URL}/api/restaurants/`);
+  const response = await fetch(`${API_BASE_URL}/api/v1/restaurants/`);
 
   if (!response.ok) {
     throw new Error("Unable to load restaurants");
@@ -43,7 +43,7 @@ export async function fetchRestaurants(): Promise<Restaurant[]> {
 }
 
 export async function fetchRestaurantById(id: string): Promise<Restaurant> {
-  const response = await fetch(`${API_BASE_URL}/api/restaurants/${id}/`);
+  const response = await fetch(`${API_BASE_URL}/api/v1/restaurants/${id}/`);
 
   if (!response.ok) {
     throw new Error("Unable to load restaurant");

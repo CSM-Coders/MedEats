@@ -82,7 +82,7 @@ function mapVisited(item: VisitedApiItem): VisitedRestaurantRecord {
 export async function fetchSavedRestaurants(
   accessToken: string
 ): Promise<SavedRestaurantRecord[]> {
-  const response = await fetch(`${API_BASE_URL}/api/user/restaurants/saved/`, {
+  const response = await fetch(`${API_BASE_URL}/api/v1/user/restaurants/saved/`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
@@ -99,7 +99,7 @@ export async function fetchSavedRestaurants(
 export async function fetchVisitedRestaurants(
   accessToken: string
 ): Promise<VisitedRestaurantRecord[]> {
-  const response = await fetch(`${API_BASE_URL}/api/user/restaurants/visited/`, {
+  const response = await fetch(`${API_BASE_URL}/api/v1/user/restaurants/visited/`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
@@ -117,7 +117,7 @@ export async function saveRestaurant(
   accessToken: string,
   restaurantId: string
 ): Promise<SavedRestaurantRecord> {
-  const response = await fetch(`${API_BASE_URL}/api/user/restaurants/saved/`, {
+  const response = await fetch(`${API_BASE_URL}/api/v1/user/restaurants/saved/`, {
     method: "POST",
     headers: getAuthHeaders(accessToken),
     body: JSON.stringify({ restaurant_id: Number(restaurantId) }),
@@ -136,7 +136,7 @@ export async function unsaveRestaurant(
   restaurantId: string
 ): Promise<void> {
   const response = await fetch(
-    `${API_BASE_URL}/api/user/restaurants/saved/${Number(restaurantId)}/`,
+    `${API_BASE_URL}/api/v1/user/restaurants/saved/${Number(restaurantId)}/`,
     {
       method: "DELETE",
       headers: {
@@ -155,7 +155,7 @@ export async function isRestaurantSaved(
   restaurantId: string
 ): Promise<boolean> {
   const response = await fetch(
-    `${API_BASE_URL}/api/user/restaurants/saved/${Number(restaurantId)}/`,
+    `${API_BASE_URL}/api/v1/user/restaurants/saved/${Number(restaurantId)}/`,
     {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -175,7 +175,7 @@ export async function markRestaurantVisited(
   accessToken: string,
   input: { restaurantId: string; rating: number; note?: string }
 ): Promise<VisitedRestaurantRecord> {
-  const response = await fetch(`${API_BASE_URL}/api/user/restaurants/visited/`, {
+  const response = await fetch(`${API_BASE_URL}/api/v1/user/restaurants/visited/`, {
     method: "POST",
     headers: getAuthHeaders(accessToken),
     body: JSON.stringify({

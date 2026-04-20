@@ -28,6 +28,7 @@ export type Review = {
   rating: number;
   comment: string;
   date: string;
+  isOwner?: boolean;
 };
 
 export type Post = {

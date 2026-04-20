@@ -79,23 +79,43 @@ class RestaurantDetailAPIView(generics.RetrieveAPIView):
     permission_classes = [AllowAny]
 
 
-class ReviewListAPIView(generics.ListAPIView):
-    """
-    Devuelve las reseñas de un restaurante específico.
-    Se filtra por query param: ?restaurant=<id>
-    """
+from .permissions import IsOwnerOrReadOnly
 
+class ReviewListCreateAPIView(generics.ListCreateAPIView):
+    """
+    Lista reseñas de un restaurante o permite crear una nueva.
+    GET: ?restaurant=<id>
+    POST: requiere estar autenticado.
+    """
     serializer_class = ReviewSerializer
-    permission_classes = [AllowAny]
+
+    def get_permissions(self):
+        if self.request.method == "POST":
+            return [IsAuthenticated()]
+        return [AllowAny()]
 
     def get_queryset(self):
-        queryset = Review.objects.select_related("restaurant").order_by("-date", "-id")
+        queryset = Review.objects.select_related("restaurant", "user", "user__profile").order_by("-created_at")
         restaurant_id = self.request.query_params.get("restaurant")
 
         if restaurant_id:
             queryset = queryset.filter(restaurant_id=restaurant_id)
 
         return queryset
+
+    def perform_create(self, serializer):
+        # El restaurante se toma del validated_data['restaurant'] enviado en el JSON
+        serializer.save(user=self.request.user)
+
+
+class ReviewDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    Permite ver, actualizar o borrar una reseña específica.
+    Solo el propietario puede EDITAR o BORRAR.
+    """
+    queryset = Review.objects.all()
+    serializer_class = ReviewSerializer
+    permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
 
 
 class PostListCreateAPIView(generics.ListCreateAPIView):

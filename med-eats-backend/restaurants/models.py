@@ -40,7 +40,7 @@ class Restaurant(models.Model):
     """
 
     # Nombre del restaurante.
-    name = models.CharField(max_length=200, verbose_name="Nombre del restaurante")
+    name = models.CharField(max_length=200, db_index=True, verbose_name="Nombre del restaurante")
 
     # ForeignKey: Es el concepto de "Llave Foránea" en Bases de Datos Relacionales.
     # Significa "Muchos a Uno": Muchos restaurantes pueden pertenecer a Una misma Categoría.
@@ -61,6 +61,7 @@ class Restaurant(models.Model):
         decimal_places=1,
         null=True,
         blank=True,
+        db_index=True,
         verbose_name="Calificación",
     )
 
@@ -104,7 +105,7 @@ class Restaurant(models.Model):
 
 class Review(models.Model):
     """
-    Modelo que representa una reseña pública de un restaurante.
+    Modelo que representa una reseña pública de un restaurante ligada a un usuario real.
     """
 
     restaurant = models.ForeignKey(
@@ -113,9 +114,12 @@ class Review(models.Model):
         related_name="reviews",
         verbose_name="Restaurante",
     )
-    username = models.CharField(max_length=150, verbose_name="Usuario")
-    avatar = models.URLField(
-        max_length=500, blank=True, verbose_name="URL del avatar"
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="restaurant_reviews",
+        verbose_name="Usuario",
+        default=1,  # Temporal para migración
     )
     rating = models.DecimalField(
         max_digits=2,
@@ -123,10 +127,17 @@ class Review(models.Model):
         verbose_name="Calificación",
     )
     comment = models.TextField(verbose_name="Comentario")
-    date = models.DateField(auto_now_add=True, verbose_name="Fecha")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Fecha de creación")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Última actualización")
+
+    class Meta:
+        verbose_name = "Reseña"
+        verbose_name_plural = "Reseñas"
+        unique_together = ("user", "restaurant")
+        ordering = ["-created_at"]
 
     def __str__(self):
-        return f"{self.username} - {self.restaurant.name}"
+        return f"{self.user.username} - {self.restaurant.name} ({self.rating})"
 
 
 class Post(models.Model):
@@ -145,7 +156,7 @@ class Post(models.Model):
     image = models.URLField(max_length=500, verbose_name="Imagen")
     rating = models.PositiveSmallIntegerField(verbose_name="Calificación")
     caption = models.TextField(blank=True, verbose_name="Caption")
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
