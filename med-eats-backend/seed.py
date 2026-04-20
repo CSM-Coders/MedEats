@@ -1,13 +1,17 @@
 import os
 import django
 import sys
+import random
 
 # Configurar el entorno de Django para poder usar los modelos en un script externo
 sys.path.append("/Users/camiloalvarez/Documents/MedEats/med-eats-backend")
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 django.setup()
 
-from restaurants.models import Category, Restaurant, Review  # noqa: E402
+from django.contrib.auth import get_user_model  # noqa: E402
+from restaurants.models import Category, Post, Restaurant, Review  # noqa: E402
+
+User = get_user_model()
 
 
 def seed_data():
@@ -365,6 +369,83 @@ def seed_data():
             print(f"✅ Review creada: {review.username} -> {review.restaurant.name}")
         else:
             print(f"🔄 Review actualizada: {review.username} -> {review.restaurant.name}")
+
+    # ============================================================
+    # POSTS DEMO PARA FEED (PRESENTACIÓN)
+    # ------------------------------------------------------------
+    # Crea publicaciones de prueba para evitar feed vacío cuando
+    # todavía hay pocos usuarios/follows reales.
+    # ============================================================
+    demo_users_data = [
+        ("andres_med", "andres_med@example.com"),
+        ("maria_eats", "maria_eats@example.com"),
+        ("luisa_food", "luisa_food@example.com"),
+        ("camilo_demo", "camilo_demo@example.com"),
+        ("sofia_foodie", "sofia_foodie@example.com"),
+    ]
+
+    demo_users = []
+    for username, email in demo_users_data:
+        user, created = User.objects.get_or_create(
+            username=username,
+            defaults={"email": email},
+        )
+        if created:
+            user.set_password("Medeats123!")
+            user.save(update_fields=["password"])
+            print(f"✅ Usuario demo creado: {username}")
+        demo_users.append(user)
+
+    # Limpiamos solo posts demo anteriores para que el seeding sea idempotente
+    deleted_count, _ = Post.objects.filter(caption__startswith="[DEMO]").delete()
+    if deleted_count:
+        print(f"🧹 Posts demo anteriores eliminados: {deleted_count}")
+
+    sample_images = [
+        "https://images.unsplash.com/photo-1702827496422-edff3a844c9c?w=800",
+        "https://images.unsplash.com/photo-1579871494447-9811cf80d66c?w=800",
+        "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=800",
+        "https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?w=800",
+        "https://images.unsplash.com/photo-1497935586351-b67a49e012bf?w=800",
+        "https://images.unsplash.com/photo-1513104890138-7c749659a591?w=800",
+        "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=800",
+        "https://images.unsplash.com/photo-1504544750208-dc0358e63f7f?w=800",
+        "https://images.unsplash.com/photo-1550547660-d9450f859349?w=800",
+        "https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=800",
+    ]
+
+    caption_templates = [
+        "[DEMO] Brutal experiencia en {name}.",
+        "[DEMO] Volvería a {name} sin pensarlo.",
+        "[DEMO] Muy recomendado: {name} ⭐",
+        "[DEMO] Excelente servicio y comida en {name}.",
+        "[DEMO] Probé {name} y quedé encantado.",
+    ]
+
+    random.seed(20260420)
+    all_restaurants = list(Restaurant.objects.all())
+
+    if not all_restaurants:
+        print("⚠️ No hay restaurantes para crear posts demo.")
+    else:
+        total_posts = 100
+        print(f"Total a crear: {total_posts} posts demo")
+        for index in range(total_posts):
+            restaurant = random.choice(all_restaurants)
+            user = random.choice(demo_users)
+            rating = random.randint(3, 5)
+            caption_template = random.choice(caption_templates)
+            caption = f"{caption_template.format(name=restaurant.name)} #{index + 1}"
+
+            Post.objects.create(
+                user=user,
+                restaurant=restaurant,
+                image=random.choice(sample_images),
+                rating=rating,
+                caption=caption,
+            )
+
+        print("✅ 100 posts demo creados para el feed")
 
 
 if __name__ == "__main__":
