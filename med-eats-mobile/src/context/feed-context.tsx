@@ -11,6 +11,7 @@ import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, 
 import { Post } from "@/src/models/domain";
 import { useAuth } from "@/src/context/auth-context";
 import { createPostApi, fetchPosts, likePost, unlikePost } from "@/src/services/postApi";
+import { markRestaurantVisited } from "@/src/services/userCollectionsApi";
 
 type NewPostInput = {
   restaurantId: string;
@@ -108,6 +109,11 @@ export function FeedProvider({ children }: { children: ReactNode }) {
           rating,
           caption,
           image,
+        });
+        await markRestaurantVisited(accessToken, {
+          restaurantId,
+          rating,
+          note: caption,
         });
         setPosts((currentPosts) => [newPost, ...currentPosts]);
       } catch {

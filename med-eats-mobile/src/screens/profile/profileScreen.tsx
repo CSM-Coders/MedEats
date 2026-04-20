@@ -7,36 +7,59 @@
 // - restaurantes visitados
 // ============================================================
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { SavedRestaurantRecord, VisitedRestaurantRecord } from "@/src/models/domain";
 import { useAuth } from "@/src/context/auth-context";
 import { useFeed } from "@/src/context/feed-context";
-import { getRestaurantById, visitedRestaurants } from "@/src/services/mockData";
+import {
+  fetchSavedRestaurants,
+  fetchVisitedRestaurants,
+} from "@/src/services/userCollectionsApi";
 
-type TabType = "posts" | "visited";
+type TabType = "posts" | "saved" | "visited";
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
-  const { user, refreshProfile, logout } = useAuth();
+  const { user, refreshProfile, logout, getAccessToken } = useAuth();
   const { userPosts } = useFeed();
   const [activeTab, setActiveTab] = useState<TabType>("posts");
+  const [savedRestaurants, setSavedRestaurants] = useState<SavedRestaurantRecord[]>([]);
+  const [visitedRestaurants, setVisitedRestaurants] = useState<VisitedRestaurantRecord[]>([]);
+  const [collectionsLoading, setCollectionsLoading] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
-      refreshProfile().catch(() => undefined);
-    }, [refreshProfile])
-  );
+      const loadCollections = async () => {
+        const accessToken = await getAccessToken();
+        if (!accessToken) {
+          return;
+        }
 
-  const visitedData = useMemo(
-    () =>
-      visitedRestaurants
-        .map((item) => ({ ...item, restaurant: getRestaurantById(item.restaurantId) }))
-        .filter((item) => item.restaurant),
-    []
+        setCollectionsLoading(true);
+        try {
+          await refreshProfile();
+          const [saved, visited] = await Promise.all([
+            fetchSavedRestaurants(accessToken),
+            fetchVisitedRestaurants(accessToken),
+          ]);
+
+          setSavedRestaurants(saved);
+          setVisitedRestaurants(visited);
+        } catch {
+          setSavedRestaurants([]);
+          setVisitedRestaurants([]);
+        } finally {
+          setCollectionsLoading(false);
+        }
+      };
+
+      loadCollections().catch(() => undefined);
+    }, [getAccessToken, refreshProfile])
   );
 
   if (!user) {
@@ -88,6 +111,17 @@ export default function ProfileScreen() {
         </Pressable>
 
         <Pressable
+          style={[styles.tabButton, activeTab === "saved" && styles.tabButtonActive]}
+          onPress={() => setActiveTab("saved")}
+        >
+          <Ionicons
+            name="bookmark-outline"
+            size={20}
+            color={activeTab === "saved" ? "#FF6B35" : "#8C8C8C"}
+          />
+        </Pressable>
+
+        <Pressable
           style={[styles.tabButton, activeTab === "visited" && styles.tabButtonActive]}
           onPress={() => setActiveTab("visited")}
         >
@@ -118,28 +152,69 @@ export default function ProfileScreen() {
             )}
           />
         )
-      ) : (
+      ) : activeTab === "saved" ? (
         <FlatList
-          data={visitedData}
-          keyExtractor={(item) => item.restaurantId}
+          data={savedRestaurants}
+          keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingBottom: 24 }}
+          ListEmptyComponent={
+            collectionsLoading ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>Loading saved restaurants...</Text>
+              </View>
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyTitle}>No saved restaurants yet</Text>
+                <Text style={styles.emptyText}>Save restaurants from the detail view.</Text>
+              </View>
+            )
+          }
           renderItem={({ item }) => {
-            if (!item.restaurant) return null;
-
             return (
               <Pressable
                 style={styles.visitedCard}
-                onPress={() => router.push(`/restaurant/${item.restaurant?.id}`)}
+                onPress={() => router.push(`/restaurant/${item.restaurant.id}`)}
               >
                 <Image source={{ uri: item.restaurant.image }} style={styles.visitedImage} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.visitedName}>{item.restaurant.name}</Text>
-                  <Text style={styles.visitedMeta}>Tu rating: {item.rating} ⭐</Text>
-                  <Text style={styles.visitedMeta}>{item.visitDate}</Text>
+                  <Text style={styles.visitedMeta}>{item.restaurant.category}</Text>
+                  <Text style={styles.visitedMeta}>Saved: {item.createdAt.slice(0, 10)}</Text>
                 </View>
               </Pressable>
             );
           }}
+        />
+      ) : (
+        <FlatList
+          data={visitedRestaurants}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={{ paddingBottom: 24 }}
+          ListEmptyComponent={
+            collectionsLoading ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>Loading visited restaurants...</Text>
+              </View>
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyTitle}>No visits yet</Text>
+                <Text style={styles.emptyText}>Create a post to mark a restaurant as visited.</Text>
+              </View>
+            )
+          }
+          renderItem={({ item }) => (
+            <Pressable
+              style={styles.visitedCard}
+              onPress={() => router.push(`/restaurant/${item.restaurant.id}`)}
+            >
+              <Image source={{ uri: item.restaurant.image }} style={styles.visitedImage} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.visitedName}>{item.restaurant.name}</Text>
+                <Text style={styles.visitedMeta}>Tu rating: {item.rating} ⭐</Text>
+                <Text style={styles.visitedMeta}>{item.visitDate}</Text>
+              </View>
+            </Pressable>
+          )}
         />
       )}
     </View>

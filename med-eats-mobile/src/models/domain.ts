@@ -64,6 +64,22 @@ export type VisitedRestaurant = {
   visitDate: string;
 };
 
+export type SavedRestaurantRecord = {
+  id: string;
+  restaurant: Restaurant;
+  createdAt: string;
+};
+
+export type VisitedRestaurantRecord = {
+  id: string;
+  restaurant: Restaurant;
+  rating: number;
+  visitDate: string;
+  note?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type HomeFilters = {
   category: string | null;
   minRating: number | null;

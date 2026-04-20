@@ -1,5 +1,6 @@
 from django.db import models
 from django.conf import settings
+from django.utils import timezone
 
 # ============================================================
 # MODELOS DE DOMINIO BACKEND (Sprint 1)
@@ -197,3 +198,53 @@ class PostComment(models.Model):
 
     class Meta:
         ordering = ["-created_at", "-id"]
+
+
+class SavedRestaurant(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="saved_restaurants",
+    )
+    restaurant = models.ForeignKey(
+        Restaurant,
+        on_delete=models.CASCADE,
+        related_name="saved_by_users",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "restaurant"],
+                name="unique_saved_restaurant_per_user",
+            )
+        ]
+        ordering = ["-created_at", "-id"]
+
+
+class VisitedRestaurant(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="visited_restaurants",
+    )
+    restaurant = models.ForeignKey(
+        Restaurant,
+        on_delete=models.CASCADE,
+        related_name="visited_by_users",
+    )
+    rating = models.PositiveSmallIntegerField()
+    visit_date = models.DateField(default=timezone.now)
+    note = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "restaurant"],
+                name="unique_visited_restaurant_per_user",
+            )
+        ]
+        ordering = ["-visit_date", "-updated_at", "-id"]

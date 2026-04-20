@@ -1,16 +1,27 @@
 from rest_framework import generics
+from django.db.models import Q
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Category, Post, PostLike, Restaurant, Review
+from .models import (
+    Category,
+    Post,
+    PostLike,
+    Restaurant,
+    Review,
+    SavedRestaurant,
+    VisitedRestaurant,
+)
 from .serializers import (
     CategorySerializer,
     PostCreateSerializer,
     PostSerializer,
     RestaurantSerializer,
     ReviewSerializer,
+    SavedRestaurantSerializer,
+    VisitedRestaurantSerializer,
 )
 
 # ============================================================
@@ -91,8 +102,13 @@ class PostListCreateAPIView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Post.objects.select_related("user", "restaurant", "user__profile").prefetch_related(
-            "likes", "comments"
+        following_ids = self.request.user.following_relationships.values_list(
+            "following_id", flat=True
+        )
+        return (
+            Post.objects.select_related("user", "restaurant", "user__profile")
+            .prefetch_related("likes", "comments")
+            .filter(Q(user=self.request.user) | Q(user_id__in=following_ids))
         )
 
     def get_serializer_class(self):
@@ -129,3 +145,78 @@ class PostLikeAPIView(APIView):
         PostLike.objects.filter(post=post, user=request.user).delete()
         serializer = PostSerializer(post, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class SavedRestaurantListCreateAPIView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = SavedRestaurantSerializer
+
+    def get_queryset(self):
+        return SavedRestaurant.objects.select_related("restaurant", "restaurant__category").filter(
+            user=self.request.user
+        )
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        saved_restaurant, _ = SavedRestaurant.objects.get_or_create(
+            user=request.user,
+            restaurant=serializer.validated_data["restaurant"],
+        )
+        output = SavedRestaurantSerializer(saved_restaurant)
+        return Response(output.data, status=status.HTTP_201_CREATED)
+
+
+class SavedRestaurantDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, restaurant_id):
+        saved = SavedRestaurant.objects.filter(
+            user=request.user,
+            restaurant_id=restaurant_id,
+        ).select_related("restaurant", "restaurant__category").first()
+
+        if not saved:
+            return Response({"is_saved": False}, status=status.HTTP_200_OK)
+
+        payload = SavedRestaurantSerializer(saved).data
+        payload["is_saved"] = True
+        return Response(payload, status=status.HTTP_200_OK)
+
+    def delete(self, request, restaurant_id):
+        SavedRestaurant.objects.filter(user=request.user, restaurant_id=restaurant_id).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class VisitedRestaurantListCreateAPIView(generics.ListCreateAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = VisitedRestaurantSerializer
+
+    def get_queryset(self):
+        return VisitedRestaurant.objects.select_related(
+            "restaurant", "restaurant__category"
+        ).filter(user=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        visited, _ = VisitedRestaurant.objects.update_or_create(
+            user=request.user,
+            restaurant=serializer.validated_data["restaurant"],
+            defaults={
+                "rating": serializer.validated_data["rating"],
+                "visit_date": serializer.validated_data.get("visit_date"),
+                "note": serializer.validated_data.get("note", ""),
+            },
+        )
+        output = VisitedRestaurantSerializer(visited)
+        return Response(output.data, status=status.HTTP_201_CREATED)
+
+
+class VisitedRestaurantDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, restaurant_id):
+        VisitedRestaurant.objects.filter(user=request.user, restaurant_id=restaurant_id).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)

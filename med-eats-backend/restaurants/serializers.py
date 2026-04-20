@@ -1,5 +1,12 @@
 from rest_framework import serializers
-from .models import Category, Post, Restaurant, Review
+from .models import (
+    Category,
+    Post,
+    Restaurant,
+    Review,
+    SavedRestaurant,
+    VisitedRestaurant,
+)
 
 # ============================================================
 # SERIALIZADORES (Traducción Base de Datos -> JSON)
@@ -54,7 +61,7 @@ class ReviewSerializer(serializers.ModelSerializer):
 class PostSerializer(serializers.ModelSerializer):
     user_id = serializers.CharField(source="user.id", read_only=True)
     username = serializers.CharField(source="user.username", read_only=True)
-    user_avatar = serializers.CharField(source="user.profile.avatar_url", read_only=True)
+    user_avatar = serializers.SerializerMethodField()
     restaurant_id = serializers.CharField(source="restaurant.id", read_only=True)
     restaurant_name = serializers.CharField(source="restaurant.name", read_only=True)
     likes_count = serializers.IntegerField(source="likes.count", read_only=True)
@@ -86,6 +93,13 @@ class PostSerializer(serializers.ModelSerializer):
 
         return obj.likes.filter(user=request.user).exists()
 
+    def get_user_avatar(self, obj):
+        profile = getattr(obj.user, "profile", None)
+        if not profile:
+            return ""
+
+        return profile.avatar_url
+
 
 class PostCreateSerializer(serializers.ModelSerializer):
     restaurant_id = serializers.PrimaryKeyRelatedField(
@@ -97,6 +111,48 @@ class PostCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Post
         fields = ["restaurant_id", "image", "rating", "caption"]
+
+    def validate_rating(self, value):
+        if value < 1 or value > 5:
+            raise serializers.ValidationError("Rating must be between 1 and 5.")
+
+        return value
+
+
+class SavedRestaurantSerializer(serializers.ModelSerializer):
+    restaurant = RestaurantSerializer(read_only=True)
+    restaurant_id = serializers.PrimaryKeyRelatedField(
+        source="restaurant",
+        queryset=Restaurant.objects.all(),
+        write_only=True,
+        required=False,
+    )
+
+    class Meta:
+        model = SavedRestaurant
+        fields = ["id", "restaurant", "restaurant_id", "created_at"]
+
+
+class VisitedRestaurantSerializer(serializers.ModelSerializer):
+    restaurant = RestaurantSerializer(read_only=True)
+    restaurant_id = serializers.PrimaryKeyRelatedField(
+        source="restaurant",
+        queryset=Restaurant.objects.all(),
+        write_only=True,
+    )
+
+    class Meta:
+        model = VisitedRestaurant
+        fields = [
+            "id",
+            "restaurant",
+            "restaurant_id",
+            "rating",
+            "visit_date",
+            "note",
+            "created_at",
+            "updated_at",
+        ]
 
     def validate_rating(self, value):
         if value < 1 or value > 5:

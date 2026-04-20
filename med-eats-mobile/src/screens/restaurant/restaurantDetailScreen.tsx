@@ -1,10 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Restaurant, Review } from "@/src/models/domain";
+import { useAuth } from "@/src/context/auth-context";
 import { fetchReviewsByRestaurantId } from "@/src/services/reviewApi";
+import {
+  isRestaurantSaved,
+  saveRestaurant,
+  unsaveRestaurant,
+} from "@/src/services/userCollectionsApi";
 
 type Props = {
   restaurant: Restaurant;
@@ -37,8 +44,11 @@ function RatingStars({ rating, size = 16 }: { rating: number; size?: number }) {
 
 export default function RestaurantDetailScreen({ restaurant }: Props) {
   const insets = useSafeAreaInsets();
+  const { getAccessToken } = useAuth();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [isSaved, setIsSaved] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
 
   useEffect(() => {
     const loadReviews = async () => {
@@ -56,6 +66,47 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
     loadReviews();
   }, [restaurant.id]);
 
+  useFocusEffect(
+    useCallback(() => {
+      const loadSavedState = async () => {
+        const accessToken = await getAccessToken();
+        if (!accessToken) {
+          setIsSaved(false);
+          return;
+        }
+
+        try {
+          const saved = await isRestaurantSaved(accessToken, restaurant.id);
+          setIsSaved(saved);
+        } catch {
+          setIsSaved(false);
+        }
+      };
+
+      loadSavedState().catch(() => undefined);
+    }, [getAccessToken, restaurant.id])
+  );
+
+  const handleToggleSaved = async () => {
+    const accessToken = await getAccessToken();
+    if (!accessToken || saveLoading) {
+      return;
+    }
+
+    setSaveLoading(true);
+    try {
+      if (isSaved) {
+        await unsaveRestaurant(accessToken, restaurant.id);
+        setIsSaved(false);
+      } else {
+        await saveRestaurant(accessToken, restaurant.id);
+        setIsSaved(true);
+      }
+    } finally {
+      setSaveLoading(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Scrollable container that ignores the top notch for the full bleed hero image */}
@@ -72,8 +123,12 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
             </Pressable>
             
             <View style={styles.rightActions}>
-              <Pressable style={styles.iconCircle}>
-                <Ionicons name="heart-outline" size={20} color="#2D3436" />
+              <Pressable style={styles.iconCircle} onPress={handleToggleSaved}>
+                <Ionicons
+                  name={isSaved ? "heart" : "heart-outline"}
+                  size={20}
+                  color={isSaved ? "#E63946" : "#2D3436"}
+                />
               </Pressable>
               <Pressable style={styles.iconCircle}>
                 <Ionicons name="share-social-outline" size={20} color="#2D3436" />
