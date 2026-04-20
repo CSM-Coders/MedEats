@@ -195,31 +195,55 @@ export async function refreshAccessToken(refreshToken: string): Promise<string> 
 }
 
 function parseAuthResponse(response: Response, fallbackErrorMessage: string) {
-  return response
-    .json()
-    .catch(() => null)
-    .then((payload) => {
-      if (!response.ok) {
-        throw new Error(resolveErrorMessage(payload, fallbackErrorMessage));
-      }
+  return response.text().then((rawBody) => {
+    const payload = parseResponseBody(rawBody);
 
-      const typedPayload = payload as Partial<AuthResponse> | null;
+    if (!response.ok) {
+      throw new Error(resolveErrorMessage(payload, fallbackErrorMessage, response.status));
+    }
 
-      if (!typedPayload?.access || !typedPayload.refresh || !typedPayload.user) {
-        throw new Error(fallbackErrorMessage);
-      }
+    const typedPayload = payload as Partial<AuthResponse> | null;
 
-      return {
-        accessToken: typedPayload.access,
-        refreshToken: typedPayload.refresh,
-        user: normalizeUser(typedPayload.user),
-      } satisfies AuthSession;
-    });
+    if (!typedPayload?.access || !typedPayload.refresh || !typedPayload.user) {
+      throw new Error(fallbackErrorMessage);
+    }
+
+    return {
+      accessToken: typedPayload.access,
+      refreshToken: typedPayload.refresh,
+      user: normalizeUser(typedPayload.user),
+    } satisfies AuthSession;
+  });
 }
 
-function resolveErrorMessage(payload: unknown, fallbackMessage: string) {
-  if (!payload || typeof payload !== "object") {
+function parseResponseBody(rawBody: string) {
+  if (!rawBody.trim()) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(rawBody) as unknown;
+  } catch {
+    return rawBody;
+  }
+}
+
+function resolveErrorMessage(
+  payload: unknown,
+  fallbackMessage: string,
+  statusCode?: number
+) {
+  if (typeof payload === "string") {
+    const trimmedPayload = normalizeErrorText(payload);
+    if (trimmedPayload) {
+      return trimmedPayload;
+    }
+
     return fallbackMessage;
+  }
+
+  if (!payload || typeof payload !== "object") {
+    return statusCode ? `${fallbackMessage} (HTTP ${statusCode})` : fallbackMessage;
   }
 
   const typedPayload = payload as Record<string, unknown>;
@@ -239,7 +263,45 @@ function resolveErrorMessage(payload: unknown, fallbackMessage: string) {
     }
   }
 
-  return fallbackMessage;
+  const nestedMessage = findFirstStringValue(typedPayload);
+  if (nestedMessage) {
+    return nestedMessage;
+  }
+
+  return statusCode ? `${fallbackMessage} (HTTP ${statusCode})` : fallbackMessage;
+}
+
+function findFirstStringValue(value: unknown): string | null {
+  if (typeof value === "string") {
+    const normalizedValue = normalizeErrorText(value);
+    return normalizedValue || null;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const nested = findFirstStringValue(item);
+      if (nested) {
+        return nested;
+      }
+    }
+
+    return null;
+  }
+
+  if (value && typeof value === "object") {
+    for (const nestedValue of Object.values(value as Record<string, unknown>)) {
+      const nested = findFirstStringValue(nestedValue);
+      if (nested) {
+        return nested;
+      }
+    }
+  }
+
+  return null;
+}
+
+function normalizeErrorText(text: string) {
+  return text.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
 
 function normalizeUser(user: ApiUser): AppUser {
