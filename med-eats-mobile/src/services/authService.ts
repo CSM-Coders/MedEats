@@ -1,6 +1,5 @@
-import { AppUser } from "@/src/models/domain";
 import { API_BASE_URL } from "@/src/config/api";
-import { currentUser } from "@/src/services/mockData";
+import { AppUser } from "@/src/models/domain";
 
 export type LoginCredentials = {
   username: string;
@@ -8,56 +7,112 @@ export type LoginCredentials = {
 };
 
 export type RegisterCredentials = {
+  username: string;
   email: string;
   password: string;
 };
 
-const REGISTERED_CREDENTIALS: LoginCredentials = {
-  username: "foodlover_med",
-  password: "Medeats123!",
+export type AuthSession = {
+  accessToken: string;
+  refreshToken: string;
+  user: AppUser;
 };
 
-const INVALID_CREDENTIALS_ERROR = "Invalid username or password.";
+const USERNAME_REQUIRED_ERROR = "Username is required.";
+const USERNAME_INVALID_ERROR =
+  "Username must be 3-20 characters and use only letters, numbers, underscores or periods.";
 const EMAIL_REQUIRED_ERROR = "Email is required.";
 const EMAIL_INVALID_ERROR = "Please enter a valid email address.";
+const INVALID_CREDENTIALS_ERROR = "Invalid username or password.";
 const PASSWORD_REQUIRED_ERROR = "Password is required.";
 const PASSWORD_WEAK_ERROR =
   "Password must be at least 8 characters and include uppercase, lowercase and a number.";
 const REGISTRATION_FAILED_ERROR = "Registration failed. Please try again.";
+const SESSION_REFRESH_FAILED_ERROR = "Your session expired. Please log in again.";
 
-const USE_REAL_AUTH_API = process.env.EXPO_PUBLIC_USE_REAL_AUTH === "true";
+const AUTH_HEADERS = {
+  "Content-Type": "application/json",
+} as const;
 
 type ValidationResult = {
+  usernameError?: string;
   emailError?: string;
   passwordError?: string;
 };
 
-export async function loginWithCredentials(
-  credentials: LoginCredentials
-): Promise<AppUser> {
-  await new Promise((resolve) => setTimeout(resolve, 650));
+type ApiUser = {
+  id: number | string;
+  username: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+};
 
-  const normalizedUsername = credentials.username.trim().toLowerCase();
-  const normalizedPassword = credentials.password.trim();
+type AuthResponse = {
+  access: string;
+  refresh: string;
+  user: ApiUser;
+};
 
-  const isValidUser =
-    normalizedUsername === REGISTERED_CREDENTIALS.username &&
-    normalizedPassword === REGISTERED_CREDENTIALS.password;
+export function validateLoginCredentials(credentials: LoginCredentials): {
+  usernameError?: string;
+  passwordError?: string;
+} {
+  const username = credentials.username.trim();
+  const password = credentials.password.trim();
 
-  if (!isValidUser) {
-    throw new Error(INVALID_CREDENTIALS_ERROR);
+  const validationErrors: { usernameError?: string; passwordError?: string } = {};
+
+  if (!username) {
+    validationErrors.usernameError = USERNAME_REQUIRED_ERROR;
   }
 
-  return currentUser;
+  if (!password) {
+    validationErrors.passwordError = PASSWORD_REQUIRED_ERROR;
+  }
+
+  return validationErrors;
+}
+
+export async function loginWithCredentials(
+  credentials: LoginCredentials
+): Promise<AuthSession> {
+  const validation = validateLoginCredentials(credentials);
+
+  if (validation.usernameError) {
+    throw new Error(validation.usernameError);
+  }
+
+  if (validation.passwordError) {
+    throw new Error(validation.passwordError);
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/auth/login/`, {
+    method: "POST",
+    headers: AUTH_HEADERS,
+    body: JSON.stringify({
+      username: credentials.username.trim(),
+      password: credentials.password,
+    }),
+  });
+
+  return parseAuthResponse(response, INVALID_CREDENTIALS_ERROR);
 }
 
 export function validateRegistrationCredentials(
   credentials: RegisterCredentials
 ): ValidationResult {
+  const username = credentials.username.trim();
   const email = credentials.email.trim();
   const password = credentials.password.trim();
 
   const validationErrors: ValidationResult = {};
+
+  if (!username) {
+    validationErrors.usernameError = USERNAME_REQUIRED_ERROR;
+  } else if (!isValidUsername(username)) {
+    validationErrors.usernameError = USERNAME_INVALID_ERROR;
+  }
 
   if (!email) {
     validationErrors.emailError = EMAIL_REQUIRED_ERROR;
@@ -76,8 +131,12 @@ export function validateRegistrationCredentials(
 
 export async function registerWithEmailAndPassword(
   credentials: RegisterCredentials
-): Promise<AppUser> {
+): Promise<AuthSession> {
   const validation = validateRegistrationCredentials(credentials);
+
+  if (validation.usernameError) {
+    throw new Error(validation.usernameError);
+  }
 
   if (validation.emailError) {
     throw new Error(validation.emailError);
@@ -87,62 +146,123 @@ export async function registerWithEmailAndPassword(
     throw new Error(validation.passwordError);
   }
 
-  if (USE_REAL_AUTH_API) {
-    return registerInBackend(credentials);
-  }
+  const response = await fetch(`${API_BASE_URL}/api/auth/register/`, {
+    method: "POST",
+    headers: AUTH_HEADERS,
+    body: JSON.stringify({
+      username: credentials.username.trim(),
+      email: credentials.email.trim().toLowerCase(),
+      password: credentials.password,
+    }),
+  });
 
-  await new Promise((resolve) => setTimeout(resolve, 700));
-  return currentUser;
+  return parseAuthResponse(response, REGISTRATION_FAILED_ERROR);
 }
 
-async function registerInBackend(credentials: RegisterCredentials): Promise<AppUser> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/auth/register/`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email: credentials.email.trim().toLowerCase(),
-        password: credentials.password,
-      }),
-    });
+export async function fetchUserProfile(accessToken: string): Promise<AppUser> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/me/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
 
-    const payload = await response.json().catch(() => null);
-
-    if (!response.ok) {
-      const backendMessage = payload?.message ?? payload?.detail;
-      throw new Error(backendMessage || REGISTRATION_FAILED_ERROR);
-    }
-
-    const createdUser = payload?.user;
-
-    if (!createdUser) {
-      return currentUser;
-    }
-
-    return {
-      id: createdUser.id ?? currentUser.id,
-      username:
-        createdUser.username ??
-        (createdUser.email ? String(createdUser.email).split("@")[0] : currentUser.username),
-      name: createdUser.name ?? currentUser.name,
-      bio: createdUser.bio ?? currentUser.bio,
-      location: createdUser.location ?? currentUser.location,
-      followers: createdUser.followers ?? 0,
-      following: createdUser.following ?? 0,
-    };
-  } catch (error) {
-    if (error instanceof Error) {
-      throw error;
-    }
-
-    throw new Error(REGISTRATION_FAILED_ERROR);
+  if (!response.ok) {
+    throw new Error(SESSION_REFRESH_FAILED_ERROR);
   }
+
+  const payload = (await response.json()) as ApiUser;
+  return normalizeUser(payload);
+}
+
+export async function refreshAccessToken(refreshToken: string): Promise<string> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/refresh/`, {
+    method: "POST",
+    headers: AUTH_HEADERS,
+    body: JSON.stringify({ refresh: refreshToken }),
+  });
+
+  if (!response.ok) {
+    throw new Error(SESSION_REFRESH_FAILED_ERROR);
+  }
+
+  const payload = (await response.json()) as { access?: string };
+
+  if (!payload.access) {
+    throw new Error(SESSION_REFRESH_FAILED_ERROR);
+  }
+
+  return payload.access;
+}
+
+function parseAuthResponse(response: Response, fallbackErrorMessage: string) {
+  return response
+    .json()
+    .catch(() => null)
+    .then((payload) => {
+      if (!response.ok) {
+        throw new Error(resolveErrorMessage(payload, fallbackErrorMessage));
+      }
+
+      const typedPayload = payload as Partial<AuthResponse> | null;
+
+      if (!typedPayload?.access || !typedPayload.refresh || !typedPayload.user) {
+        throw new Error(fallbackErrorMessage);
+      }
+
+      return {
+        accessToken: typedPayload.access,
+        refreshToken: typedPayload.refresh,
+        user: normalizeUser(typedPayload.user),
+      } satisfies AuthSession;
+    });
+}
+
+function resolveErrorMessage(payload: unknown, fallbackMessage: string) {
+  if (!payload || typeof payload !== "object") {
+    return fallbackMessage;
+  }
+
+  const typedPayload = payload as Record<string, unknown>;
+
+  if (typeof typedPayload.detail === "string") {
+    return typedPayload.detail;
+  }
+
+  const fieldNames = ["username", "email", "password", "non_field_errors"];
+  for (const fieldName of fieldNames) {
+    const fieldValue = typedPayload[fieldName];
+    if (Array.isArray(fieldValue) && typeof fieldValue[0] === "string") {
+      return fieldValue[0];
+    }
+    if (typeof fieldValue === "string") {
+      return fieldValue;
+    }
+  }
+
+  return fallbackMessage;
+}
+
+function normalizeUser(user: ApiUser): AppUser {
+  const displayName = `${user.first_name ?? ""} ${user.last_name ?? ""}`.trim();
+
+  return {
+    id: String(user.id),
+    username: user.username,
+    name: displayName || user.username,
+    email: user.email,
+    bio: "",
+    location: "",
+    followers: 0,
+    following: 0,
+  };
 }
 
 function isValidEmail(email: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function isValidUsername(username: string) {
+  return /^[a-zA-Z0-9._]{3,20}$/.test(username);
 }
 
 function isStrongPassword(password: string) {

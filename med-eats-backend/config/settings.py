@@ -23,6 +23,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 import os
 from pathlib import Path
 import getpass
+from datetime import timedelta
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -53,8 +54,10 @@ INSTALLED_APPS = [
     # ----- Librerías de terceros -----
     "rest_framework",  # Para crear APIs REST (endpoints JSON)
     "corsheaders",  # Para permitir peticiones desde React Native
+    "rest_framework_simplejwt",  # JWT para autenticación real
     # ----- Nuestras apps -----
     "restaurants",  # App de restaurantes
+    "accounts",  # App de autenticación
 ]
 
 MIDDLEWARE = [
@@ -163,7 +166,15 @@ CORS_ALLOW_ALL_ORIGINS = True
 # Django REST Framework: Configuración de la API
 # ============================================================
 REST_FRAMEWORK = {
-    "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.AllowAny",  # En desarrollo, sin auth requerida
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.AllowAny",
+    ],
+}
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=8),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
 }

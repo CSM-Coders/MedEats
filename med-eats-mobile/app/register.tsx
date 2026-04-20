@@ -21,29 +21,34 @@ import {
 export default function RegisterScreen() {
   const { register, isRegistering } = useAuth();
 
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [usernameError, setUsernameError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const isSubmitDisabled = isRegistering || !email.trim() || !password.trim();
+  const isSubmitDisabled =
+    isRegistering || !username.trim() || !email.trim() || !password.trim();
 
   const handleRegister = async () => {
+    setUsernameError(null);
     setEmailError(null);
     setPasswordError(null);
     setFormError(null);
 
-    const validation = validateRegistrationCredentials({ email, password });
+    const validation = validateRegistrationCredentials({ username, email, password });
 
-    if (validation.emailError || validation.passwordError) {
+    if (validation.usernameError || validation.emailError || validation.passwordError) {
+      setUsernameError(validation.usernameError ?? null);
       setEmailError(validation.emailError ?? null);
       setPasswordError(validation.passwordError ?? null);
       return;
     }
 
     try {
-      await register({ email, password });
+      await register({ username, email, password });
       router.replace("/(tabs)/home");
     } catch (error) {
       const message =
@@ -60,7 +65,22 @@ export default function RegisterScreen() {
       >
         <View style={styles.card}>
           <Text style={styles.title}>Create your account</Text>
-          <Text style={styles.subtitle}>Register with your email and password.</Text>
+          <Text style={styles.subtitle}>
+            Pick a username and register with your email and password.
+          </Text>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Username</Text>
+            <TextInput
+              placeholder="your_username"
+              value={username}
+              onChangeText={setUsername}
+              autoCapitalize="none"
+              autoCorrect={false}
+              style={[styles.input, usernameError ? styles.inputError : null]}
+            />
+            {usernameError ? <Text style={styles.errorText}>{usernameError}</Text> : null}
+          </View>
 
           <View style={styles.formGroup}>
             <Text style={styles.label}>Email</Text>
@@ -107,6 +127,10 @@ export default function RegisterScreen() {
           <Pressable onPress={() => router.push("/login" as never)} style={styles.linkButton}>
             <Text style={styles.linkText}>Already have an account? Log in</Text>
           </Pressable>
+
+          <Text style={styles.helperText}>
+            Username must be 3-20 chars and can include letters, numbers, dots and underscores.
+          </Text>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -193,5 +217,11 @@ const styles = StyleSheet.create({
   linkText: {
     color: "#636E72",
     fontWeight: "600",
+  },
+  helperText: {
+    marginTop: 14,
+    fontSize: 12,
+    color: "#98A0A6",
+    textAlign: "center",
   },
 });

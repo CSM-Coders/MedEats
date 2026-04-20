@@ -22,9 +22,13 @@ export const unstable_settings = {
 function AuthGate() {
   const router = useRouter();
   const pathname = usePathname();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isHydrating } = useAuth();
 
   useEffect(() => {
+    if (isHydrating) {
+      return;
+    }
+
     const isPublicRoute = pathname === '/' || pathname === '/login' || pathname === '/register';
 
     if (!isAuthenticated && !isPublicRoute) {
@@ -35,7 +39,7 @@ function AuthGate() {
     if (isAuthenticated && isPublicRoute) {
       router.replace('/(tabs)/home');
     }
-  }, [isAuthenticated, pathname, router]);
+  }, [isAuthenticated, isHydrating, pathname, router]);
 
   return null;
 }

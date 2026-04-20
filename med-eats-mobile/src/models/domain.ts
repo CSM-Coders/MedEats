@@ -50,6 +50,7 @@ export type AppUser = {
   id: string;
   username: string;
   name: string;
+  email?: string;
   bio: string;
   location: string;
   followers: number;

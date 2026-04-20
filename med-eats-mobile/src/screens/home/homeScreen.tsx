@@ -27,6 +27,7 @@ import { useUserLocation } from "@/src/hooks/useUserLocation";
 import {
   getDistanceKm,
   MEDELLIN_REGION,
+  restaurants as mockRestaurants,
   semanticCategoryMatches,
 } from "@/src/services/mockData";
 import MapView from "./components/mapView";
@@ -68,7 +69,6 @@ export default function HomeScreen() {
         }
         
         const data = await response.json();
-        // ============================================================
         // TRANSFORMACIÓN DE DATOS (API snake_case → Frontend camelCase)
         // ------------------------------------------------------------
         // Django envía los campos en snake_case (menu_highlights, created_at)
@@ -90,7 +90,8 @@ export default function HomeScreen() {
         }));
         setRestaurants(transformed);
       } catch (error) {
-        console.error("Error conectando con Django:", error);
+        console.warn("Backend no disponible, usando datos mock:", error);
+        setRestaurants(mockRestaurants);
       } finally {
         // Apagamos el circulito de carga de la pantalla, haya funcionado o fallado.
         setLoading(false);
