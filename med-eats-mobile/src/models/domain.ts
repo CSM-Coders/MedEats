@@ -47,6 +47,14 @@ export type Post = {
   isLiked?: boolean;
 };
 
+export type PostComment = {
+  id: string;
+  username: string;
+  userAvatar: string;
+  content: string;
+  date: string;
+};
+
 export type AppUser = {
   id: string;
   username: string;

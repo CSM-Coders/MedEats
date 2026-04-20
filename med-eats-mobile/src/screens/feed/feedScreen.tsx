@@ -14,6 +14,8 @@ import { useFocusEffect } from "@react-navigation/native";
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFeed } from "@/src/context/feed-context";
+import PostCommentModal from "@/src/components/PostCommentModal";
+import { useState } from "react";
 
 function stars(rating: number) {
   return [1, 2, 3, 4, 5].map((star) => (
@@ -29,6 +31,13 @@ function stars(rating: number) {
 export default function FeedScreen() {
   const insets = useSafeAreaInsets();
   const { posts, toggleLike, isLoadingPosts, feedError, refreshPosts } = useFeed();
+  const [commentModalVisible, setCommentModalVisible] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+
+  const openComments = (postId: string) => {
+    setSelectedPostId(postId);
+    setCommentModalVisible(true);
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -92,10 +101,10 @@ export default function FeedScreen() {
                 <Text style={styles.actionText}>{item.likes}</Text>
               </Pressable>
 
-              <View style={styles.actionButton}>
+              <Pressable style={styles.actionButton} onPress={() => openComments(item.id)}>
                 <Ionicons name="chatbubble-outline" size={21} color="#2D3436" />
                 <Text style={styles.actionText}>{item.comments}</Text>
-              </View>
+              </Pressable>
             </View>
 
             <Pressable
@@ -115,6 +124,15 @@ export default function FeedScreen() {
           </View>
         )}
       />
+
+      {selectedPostId && (
+        <PostCommentModal
+          visible={commentModalVisible}
+          postId={selectedPostId}
+          onClose={() => setCommentModalVisible(false)}
+          onCommentAdded={refreshPosts}
+        />
+      )}
     </View>
   );
 }

@@ -1,5 +1,5 @@
 import { API_BASE_URL } from "@/src/config/api";
-import { Post } from "@/src/models/domain";
+import { Post, PostComment } from "@/src/models/domain";
 
 type PostApiItem = {
   id: number | string;
@@ -108,4 +108,53 @@ export async function unlikePost(accessToken: string, postId: string): Promise<P
 
   const payload = (await response.json()) as PostApiItem;
   return mapPost(payload);
+}
+
+export async function fetchPostComments(
+  accessToken: string,
+  postId: string
+): Promise<PostComment[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/posts/${postId}/comments/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error("Unable to load comments");
+  }
+
+  const payload = (await response.json()) as any[];
+  return payload.map((item) => ({
+    id: String(item.id),
+    username: item.username,
+    userAvatar: item.user_avatar || "https://ui-avatars.com/api/?name=" + item.username,
+    content: item.content,
+    date: item.created_at?.slice(0, 10) || "",
+  }));
+}
+
+export async function addCommentApi(
+  accessToken: string,
+  postId: string,
+  content: string
+): Promise<PostComment> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/posts/${postId}/comments/`, {
+    method: "POST",
+    headers: getAuthHeaders(accessToken),
+    body: JSON.stringify({ content }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Unable to add comment");
+  }
+
+  const item = await response.json();
+  return {
+    id: String(item.id),
+    username: item.username,
+    userAvatar: item.user_avatar || "https://ui-avatars.com/api/?name=" + item.username,
+    content: item.content,
+    date: item.created_at?.slice(0, 10) || "",
+  };
 }

@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import (
     Category,
     Post,
+    PostComment,
     Restaurant,
     Review,
     SavedRestaurant,
@@ -93,6 +94,22 @@ class ReviewSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("La calificación debe estar entre 1 y 5.")
 
         return value
+
+
+class PostCommentSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source="user.username", read_only=True)
+    user_avatar = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PostComment
+        fields = ["id", "username", "user_avatar", "content", "created_at"]
+        read_only_fields = ["created_at"]
+
+    def get_user_avatar(self, obj):
+        profile = getattr(obj.user, "profile", None)
+        if not profile:
+            return ""
+        return profile.avatar_url
 
 
 class PostSerializer(serializers.ModelSerializer):

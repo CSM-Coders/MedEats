@@ -7,6 +7,7 @@ from .views import (
     ReviewDetailAPIView,
     PostListCreateAPIView,
     PostLikeAPIView,
+    PostCommentListCreateAPIView,
     SavedRestaurantDetailAPIView,
     SavedRestaurantListCreateAPIView,
     VisitedRestaurantDetailAPIView,
@@ -37,6 +38,7 @@ urlpatterns = [
     path("reviews/<int:pk>/", ReviewDetailAPIView.as_view(), name="review-detail"),
     path("posts/", PostListCreateAPIView.as_view(), name="post-list-create"),
     path("posts/<int:post_id>/like/", PostLikeAPIView.as_view(), name="post-like"),
+    path("posts/<int:post_id>/comments/", PostCommentListCreateAPIView.as_view(), name="post-comment-list-create"),
     path(
         "user/restaurants/saved/",
         SavedRestaurantListCreateAPIView.as_view(),

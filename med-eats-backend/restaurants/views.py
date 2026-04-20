@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 from .models import (
     Category,
     Post,
+    PostComment,
     PostLike,
     Restaurant,
     Review,
@@ -16,6 +17,7 @@ from .models import (
 )
 from .serializers import (
     CategorySerializer,
+    PostCommentSerializer,
     PostCreateSerializer,
     PostSerializer,
     RestaurantSerializer,
@@ -164,6 +166,24 @@ class PostLikeAPIView(APIView):
         PostLike.objects.get_or_create(post=post, user=request.user)
         serializer = PostSerializer(post, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class PostCommentListCreateAPIView(generics.ListCreateAPIView):
+    """
+    Lista comentarios de un post o permite añadir uno nuevo.
+    GET: /api/v1/posts/<id>/comments/
+    POST: idéntico, requiere auth.
+    """
+    serializer_class = PostCommentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        post_id = self.kwargs.get("post_id")
+        return PostComment.objects.filter(post_id=post_id).select_related("user", "user__profile").order_by("created_at")
+
+    def perform_create(self, serializer):
+        post = generics.get_object_or_404(Post, id=self.kwargs.get("post_id"))
+        serializer.save(user=self.request.user, post=post)
 
     def delete(self, request, post_id):
         post = generics.get_object_or_404(Post, id=post_id)
