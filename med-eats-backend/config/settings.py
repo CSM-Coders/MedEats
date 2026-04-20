@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     "rest_framework",  # Para crear APIs REST (endpoints JSON)
     "corsheaders",  # Para permitir peticiones desde React Native
     "rest_framework_simplejwt",  # JWT para autenticación real
+    "rest_framework_simplejwt.token_blacklist",  # Para invalidar tokens al cerrar sesión
     # ----- Nuestras apps -----
     "restaurants",  # App de restaurantes
     "accounts",  # App de autenticación

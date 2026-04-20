@@ -282,6 +282,17 @@ export async function refreshAccessToken(refreshToken: string): Promise<string> 
   return payload.access;
 }
 
+export async function logoutFromServer(refreshToken: string, accessToken: string): Promise<void> {
+  await fetch(`${API_BASE_URL}/api/v1/auth/logout/`, {
+    method: "POST",
+    headers: {
+      ...AUTH_HEADERS,
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ refresh: refreshToken }),
+  });
+}
+
 function parseAuthResponse(response: Response, fallbackErrorMessage: string) {
   return response.text().then((rawBody) => {
     const payload = parseResponseBody(rawBody);

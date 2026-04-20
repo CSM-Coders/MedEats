@@ -9,11 +9,12 @@ import {
   Text,
   View,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCallback, useEffect, useState } from "react";
-import { Restaurant, Review } from "@/src/models/domain";
-import { useAuth } from "@/src/context/auth-context";
+import { Restaurant, Review } from "../../models/domain";
+import { useAuth } from "../../context/auth-context";
 import {
   fetchReviewsByRestaurantId,
   createReview,
@@ -24,8 +25,8 @@ import {
   isRestaurantSaved,
   saveRestaurant,
   unsaveRestaurant,
-} from "@/src/services/userCollectionsApi";
-import ReviewModal from "@/src/components/ReviewModal";
+} from "../../services/userCollectionsApi";
+import ReviewModal from "../../components/ReviewModal";
 
 type Props = {
   restaurant: Restaurant;

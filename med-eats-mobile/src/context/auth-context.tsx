@@ -18,6 +18,7 @@ import {
   loginWithCredentials,
   refreshAccessToken,
   registerWithEmailAndPassword,
+  logoutFromServer,
 } from "@/src/services/authService";
 
 type AuthContextValue = {
@@ -168,8 +169,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    setUser(null);
-    await clearSession();
+    try {
+      const session = await readSession();
+      if (session) {
+        await logoutFromServer(session.refreshToken, session.accessToken);
+      }
+    } catch (error) {
+      console.warn("Server-side logout failed, but clearing local session anyway.", error);
+    } finally {
+      setUser(null);
+      await clearSession();
+    }
   }, []);
 
   const contextValue = useMemo<AuthContextValue>(
