@@ -7,13 +7,20 @@ import {
   useState,
 } from "react";
 import { AppUser } from "@/src/models/domain";
-import { LoginCredentials, loginWithCredentials } from "@/src/services/authService";
+import {
+  LoginCredentials,
+  RegisterCredentials,
+  loginWithCredentials,
+  registerWithEmailAndPassword,
+} from "@/src/services/authService";
 
 type AuthContextValue = {
   user: AppUser | null;
   isAuthenticated: boolean;
   isLoggingIn: boolean;
+  isRegistering: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
+  register: (credentials: RegisterCredentials) => Promise<void>;
   logout: () => void;
 };
 
@@ -22,6 +29,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isRegistering, setIsRegistering] = useState(false);
 
   const login = useCallback(async (credentials: LoginCredentials) => {
     setIsLoggingIn(true);
@@ -34,6 +42,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const register = useCallback(async (credentials: RegisterCredentials) => {
+    setIsRegistering(true);
+
+    try {
+      const authenticatedUser = await registerWithEmailAndPassword(credentials);
+      setUser(authenticatedUser);
+    } finally {
+      setIsRegistering(false);
+    }
+  }, []);
+
   const logout = useCallback(() => {
     setUser(null);
   }, []);
@@ -43,10 +62,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       isAuthenticated: Boolean(user),
       isLoggingIn,
+      isRegistering,
       login,
+      register,
       logout,
     }),
-    [user, isLoggingIn, login, logout]
+    [user, isLoggingIn, isRegistering, login, register, logout]
   );
 
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;

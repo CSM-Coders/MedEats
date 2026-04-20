@@ -4,6 +4,7 @@
 // Primera pantalla de MedEats. Muestra el branding de la app
 // y botones para Iniciar Sesión o Registrarse.
 // "Iniciar Sesión" abre la pantalla de login (FR03).
+// "Crear Cuenta" abre la pantalla de registro (FR02).
 // ============================================================
 
 import { useRef, useEffect } from "react";
@@ -101,12 +102,10 @@ export default function WelcomeScreen() {
             <Text style={styles.loginButtonText}>Iniciar Sesión</Text>
           </Pressable>
 
-          {/* Botón Registrarse — placeholder para Sprint 2 */}
+          {/* Botón Registrarse */}
           <Pressable
             style={styles.registerButton}
-            onPress={() => {
-              // TODO: Sprint 2 — Navegar a pantalla de registro
-            }}
+            onPress={() => router.push("/register" as never)}
           >
             <Text style={styles.registerButtonText}>Crear Cuenta</Text>
           </Pressable>

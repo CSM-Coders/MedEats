@@ -13,27 +13,42 @@ import {
 import { router } from "expo-router";
 
 import { useAuth } from "@/src/context/auth-context";
-import { getInvalidCredentialsErrorMessage } from "@/src/services/authService";
+import {
+  getRegistrationFailedErrorMessage,
+  validateRegistrationCredentials,
+} from "@/src/services/authService";
 
-export default function LoginScreen() {
-  const { login, isLoggingIn } = useAuth();
+export default function RegisterScreen() {
+  const { register, isRegistering } = useAuth();
 
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
-  const isSubmitDisabled = isLoggingIn || !username.trim() || !password.trim();
+  const isSubmitDisabled = isRegistering || !email.trim() || !password.trim();
 
-  const handleLogin = async () => {
-    setErrorMessage(null);
+  const handleRegister = async () => {
+    setEmailError(null);
+    setPasswordError(null);
+    setFormError(null);
+
+    const validation = validateRegistrationCredentials({ email, password });
+
+    if (validation.emailError || validation.passwordError) {
+      setEmailError(validation.emailError ?? null);
+      setPasswordError(validation.passwordError ?? null);
+      return;
+    }
 
     try {
-      await login({ username, password });
+      await register({ email, password });
       router.replace("/(tabs)/home");
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : getInvalidCredentialsErrorMessage();
-      setErrorMessage(message);
+        error instanceof Error ? error.message : getRegistrationFailedErrorMessage();
+      setFormError(message);
     }
   };
 
@@ -44,53 +59,54 @@ export default function LoginScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <View style={styles.card}>
-          <Text style={styles.title}>Welcome back</Text>
-          <Text style={styles.subtitle}>Log in to continue to your account.</Text>
+          <Text style={styles.title}>Create your account</Text>
+          <Text style={styles.subtitle}>Register with your email and password.</Text>
 
           <View style={styles.formGroup}>
-            <Text style={styles.label}>Username</Text>
+            <Text style={styles.label}>Email</Text>
             <TextInput
-              placeholder="Enter your username"
-              value={username}
-              onChangeText={setUsername}
+              placeholder="name@example.com"
+              value={email}
+              onChangeText={setEmail}
               autoCapitalize="none"
+              keyboardType="email-address"
               autoCorrect={false}
-              style={styles.input}
+              style={[styles.input, emailError ? styles.inputError : null]}
             />
+            {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
           </View>
 
           <View style={styles.formGroup}>
             <Text style={styles.label}>Password</Text>
             <TextInput
-              placeholder="Enter your password"
+              placeholder="At least 8 chars, 1 uppercase and 1 number"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
               autoCapitalize="none"
               autoCorrect={false}
-              style={styles.input}
+              style={[styles.input, passwordError ? styles.inputError : null]}
             />
+            {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
           </View>
 
-          {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+          {formError ? <Text style={styles.errorText}>{formError}</Text> : null}
 
           <Pressable
-            style={[styles.loginButton, isSubmitDisabled && styles.loginButtonDisabled]}
-            onPress={handleLogin}
+            style={[styles.registerButton, isSubmitDisabled && styles.registerButtonDisabled]}
+            onPress={handleRegister}
             disabled={isSubmitDisabled}
           >
-            {isLoggingIn ? (
+            {isRegistering ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
-              <Text style={styles.loginButtonText}>Log In</Text>
+              <Text style={styles.registerButtonText}>Create Account</Text>
             )}
           </Pressable>
 
-          <Pressable onPress={() => router.push("/register" as never)} style={styles.linkButton}>
-            <Text style={styles.linkText}>Don&apos;t have an account? Create one</Text>
+          <Pressable onPress={() => router.push("/login" as never)} style={styles.linkButton}>
+            <Text style={styles.linkText}>Already have an account? Log in</Text>
           </Pressable>
-
-          <Text style={styles.helperText}>Demo credentials: foodlover_med / Medeats123!</Text>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -145,24 +161,27 @@ const styles = StyleSheet.create({
     backgroundColor: "#FBFCFD",
     color: "#2D3436",
   },
+  inputError: {
+    borderColor: "#D63031",
+  },
   errorText: {
-    marginTop: 2,
-    marginBottom: 10,
+    marginTop: 6,
     color: "#D63031",
     fontWeight: "500",
+    fontSize: 12,
   },
-  loginButton: {
-    marginTop: 4,
+  registerButton: {
+    marginTop: 8,
     height: 48,
     borderRadius: 12,
     backgroundColor: "#FF6B35",
     alignItems: "center",
     justifyContent: "center",
   },
-  loginButtonDisabled: {
+  registerButtonDisabled: {
     opacity: 0.55,
   },
-  loginButtonText: {
+  registerButtonText: {
     color: "#FFFFFF",
     fontWeight: "700",
     fontSize: 16,
@@ -174,11 +193,5 @@ const styles = StyleSheet.create({
   linkText: {
     color: "#636E72",
     fontWeight: "600",
-  },
-  helperText: {
-    marginTop: 14,
-    fontSize: 12,
-    color: "#98A0A6",
-    textAlign: "center",
   },
 });

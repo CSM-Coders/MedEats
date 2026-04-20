@@ -25,7 +25,7 @@ function AuthGate() {
   const { isAuthenticated } = useAuth();
 
   useEffect(() => {
-    const isPublicRoute = pathname === '/' || pathname === '/login';
+    const isPublicRoute = pathname === '/' || pathname === '/login' || pathname === '/register';
 
     if (!isAuthenticated && !isPublicRoute) {
       router.replace('/login' as never);
@@ -51,6 +51,7 @@ export default function RootLayout() {
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="index" />
             <Stack.Screen name="login" />
+            <Stack.Screen name="register" />
             <Stack.Screen name="(tabs)" />
           </Stack>
           <StatusBar style="auto" />
