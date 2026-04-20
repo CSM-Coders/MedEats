@@ -69,13 +69,16 @@ export default function FeedScreen() {
         contentContainerStyle={styles.listContent}
         renderItem={({ item }) => (
           <View style={styles.card}>
-            <View style={styles.userRow}>
+            <Pressable 
+              style={styles.userRow} 
+              onPress={() => router.push(`/user/${item.username}`)}
+            >
               <Image source={{ uri: item.userAvatar }} style={styles.avatar} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.username}>{item.username}</Text>
                 <Text style={styles.date}>{item.date}</Text>
               </View>
-            </View>
+            </Pressable>
 
             <Image source={{ uri: item.image }} style={styles.postImage} />
 
