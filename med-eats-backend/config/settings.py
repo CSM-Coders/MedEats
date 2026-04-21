@@ -154,6 +154,11 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 
+# Media files (Archivos subidos por los usuarios como fotos y videos)
+MEDIA_URL = "/media/"
+import os
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+
 # Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

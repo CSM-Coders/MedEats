@@ -63,15 +63,34 @@ export async function createPostApi(
   accessToken: string,
   input: { restaurantId: string; rating: number; caption: string; image: string }
 ): Promise<Post> {
+  const formData = new FormData();
+  formData.append("restaurant_id", input.restaurantId);
+  formData.append("rating", String(input.rating));
+  formData.append("caption", input.caption);
+
+  // Check if it's a local file URI (from image picker) or a web URL
+  if (input.image.startsWith("file://") || input.image.startsWith("content://")) {
+    const filename = input.image.split("/").pop() || "upload.jpg";
+    const match = /\.(\w+)$/.exec(filename);
+    const type = match ? `image/${match[1]}` : `image`;
+
+    formData.append("image", {
+      uri: input.image,
+      name: filename,
+      type,
+    } as any);
+  } else {
+    // Fallback if it's somehow just a string URL
+    formData.append("image", input.image);
+  }
+
   const response = await fetch(`${API_BASE_URL}/api/v1/posts/`, {
     method: "POST",
-    headers: getAuthHeaders(accessToken),
-    body: JSON.stringify({
-      restaurant_id: Number(input.restaurantId),
-      rating: input.rating,
-      caption: input.caption,
-      image: input.image,
-    }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      // Fetch will automatically add the multipart boundary header
+    },
+    body: formData,
   });
 
   if (!response.ok) {

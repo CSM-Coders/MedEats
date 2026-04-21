@@ -153,7 +153,7 @@ class Post(models.Model):
         related_name="posts",
         verbose_name="Restaurante",
     )
-    image = models.URLField(max_length=500, verbose_name="Imagen")
+    image = models.FileField(upload_to="posts/", max_length=500, verbose_name="Imagen/Video")
     rating = models.PositiveSmallIntegerField(verbose_name="Calificación")
     caption = models.TextField(blank=True, verbose_name="Caption")
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
