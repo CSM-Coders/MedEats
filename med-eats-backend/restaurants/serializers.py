@@ -121,6 +121,7 @@ class PostSerializer(serializers.ModelSerializer):
     likes_count = serializers.IntegerField(source="likes.count", read_only=True)
     comments_count = serializers.IntegerField(source="comments.count", read_only=True)
     is_liked = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
 
     class Meta:
         model = Post
@@ -139,6 +140,23 @@ class PostSerializer(serializers.ModelSerializer):
             "is_liked",
             "created_at",
         ]
+
+    def get_image(self, obj):
+        if not obj.image:
+            return ""
+        
+        raw_val = str(obj.image)
+        if raw_val.startswith("http"):
+            return raw_val
+            
+        request = self.context.get("request")
+        if request and hasattr(obj.image, "url"):
+            try:
+                return request.build_absolute_uri(obj.image.url)
+            except ValueError:
+                return raw_val
+
+        return raw_val
 
     def get_is_liked(self, obj):
         request = self.context.get("request")
