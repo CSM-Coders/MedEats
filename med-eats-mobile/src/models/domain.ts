@@ -65,6 +65,7 @@ export type AppUser = {
   location: string;
   followers: number;
   following: number;
+  posts: number;
 };
 
 export type VisitedRestaurant = {

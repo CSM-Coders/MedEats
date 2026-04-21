@@ -128,6 +128,12 @@ class PostListCreateAPIView(generics.ListCreateAPIView):
             "user", "restaurant", "user__profile"
         ).prefetch_related("likes", "comments")
 
+        # Filtro opcional: Devuelve los posts de un usuario específico
+        username = self.request.query_params.get("username", None)
+        if username:
+            return base_queryset.filter(user__username=username)
+
+        # Lógica por defecto del feed (seguidos)
         following_ids = list(
             self.request.user.following_relationships.values_list("following_id", flat=True)
         )

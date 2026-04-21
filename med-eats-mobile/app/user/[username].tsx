@@ -1,11 +1,12 @@
 import { useLocalSearchParams } from "expo-router";
-import { View, Text, StyleSheet, Image, Pressable, FlatList, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, Image, Pressable, FlatList, ActivityIndicator, Dimensions, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/src/context/auth-context";
 import { fetchUserProfileByUsername, followUser, unfollowUser } from "@/src/services/userApi";
-import { AppUser } from "@/src/models/domain";
+import { fetchUserPosts } from "@/src/services/postApi";
+import { AppUser, Post } from "@/src/models/domain";
 import { router } from "expo-router";
 
 export default function UserProfileScreen() {
@@ -14,6 +15,7 @@ export default function UserProfileScreen() {
   const { getAccessToken, user: currentUser } = useAuth();
   
   const [userProfile, setUserProfile] = useState<(AppUser & { isFollowing: boolean }) | null>(null);
+  const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [interactionLoading, setInteractionLoading] = useState(false);
 
@@ -22,8 +24,12 @@ export default function UserProfileScreen() {
     if (!accessToken || !username) return;
 
     try {
-      const data = await fetchUserProfileByUsername(accessToken, username);
-      setUserProfile(data);
+      const [profileData, postsData] = await Promise.all([
+        fetchUserProfileByUsername(accessToken, username),
+        fetchUserPosts(accessToken, username),
+      ]);
+      setUserProfile(profileData);
+      setUserPosts(postsData);
     } catch (error) {
       console.error("Error loading profile:", error);
     } finally {
@@ -74,7 +80,7 @@ export default function UserProfileScreen() {
   const isMe = currentUser?.username === userProfile.username;
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} bounces={false}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
@@ -91,6 +97,10 @@ export default function UserProfileScreen() {
         </View>
 
         <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{userProfile.posts}</Text>
+            <Text style={styles.statLabel}>Posts</Text>
+          </View>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{userProfile.followers}</Text>
             <Text style={styles.statLabel}>Seguidores</Text>
@@ -133,14 +143,37 @@ export default function UserProfileScreen() {
         </View>
       )}
 
-      {/* Feed placeholder - In the future we will list the user's posts here */}
-      <View style={styles.emptyFeed}>
-        <Ionicons name="images-outline" size={48} color="#B2BEC3" />
-        <Text style={styles.emptyFeedText}>Próximamente: Lista de posts</Text>
+      {/* Grid de Posts */}
+      <View style={styles.gridContainer}>
+        {userPosts.length === 0 ? (
+          <View style={styles.emptyFeed}>
+            <Ionicons name="images-outline" size={48} color="#B2BEC3" />
+            <Text style={styles.emptyFeedText}>No hay publicaciones aún</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={userPosts}
+            keyExtractor={(item) => item.id}
+            numColumns={3}
+            scrollEnabled={false}
+            renderItem={({ item }) => (
+              <Pressable
+                style={styles.gridItem}
+                onPress={() => router.push(`/feed`)} // Podríamos navegar al detalle en el futuro
+              >
+                <Image source={{ uri: item.image }} style={styles.gridImage} />
+              </Pressable>
+            )}
+          />
+        )}
       </View>
-    </View>
+    </ScrollView>
   );
 }
+
+const numColumns = 3;
+const screenWidth = Dimensions.get("window").width;
+const itemSize = screenWidth / numColumns;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFFFFF" },
@@ -211,5 +244,18 @@ const styles = StyleSheet.create({
   emptyFeedText: {
     color: "#B2BEC3",
     fontSize: 16,
-  }
+  },
+  gridContainer: {
+    marginTop: 20,
+    flex: 1,
+  },
+  gridItem: {
+    width: itemSize,
+    height: itemSize,
+    padding: 1,
+  },
+  gridImage: {
+    flex: 1,
+    backgroundColor: "#F3F4F6",
+  },
 });
