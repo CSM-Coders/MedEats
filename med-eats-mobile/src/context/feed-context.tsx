@@ -110,11 +110,18 @@ export function FeedProvider({ children }: { children: ReactNode }) {
           caption,
           image,
         });
-        await markRestaurantVisited(accessToken, {
-          restaurantId,
-          rating,
-          note: caption,
-        });
+        try {
+          await markRestaurantVisited(accessToken, {
+            restaurantId,
+            rating,
+            note: caption,
+          });
+        } catch (err) {
+          // Si falla (probablemente porque ya lo había visitado), ignoramos 
+          // para no interrumpir el flujo visual de la publicación principal.
+          console.log("Restaurant already marked as visited or unable to mark:", err);
+        }
+
         setPosts((currentPosts) => [newPost, ...currentPosts]);
       } catch {
         setFeedError("Unable to publish your post.");
