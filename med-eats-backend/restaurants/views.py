@@ -167,6 +167,12 @@ class PostLikeAPIView(APIView):
         serializer = PostSerializer(post, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    def delete(self, request, post_id):
+        post = generics.get_object_or_404(Post, id=post_id)
+        PostLike.objects.filter(post=post, user=request.user).delete()
+        serializer = PostSerializer(post, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 class PostCommentListCreateAPIView(generics.ListCreateAPIView):
     """
@@ -184,12 +190,6 @@ class PostCommentListCreateAPIView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         post = generics.get_object_or_404(Post, id=self.kwargs.get("post_id"))
         serializer.save(user=self.request.user, post=post)
-
-    def delete(self, request, post_id):
-        post = generics.get_object_or_404(Post, id=post_id)
-        PostLike.objects.filter(post=post, user=request.user).delete()
-        serializer = PostSerializer(post, context={"request": request})
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class SavedRestaurantListCreateAPIView(generics.ListCreateAPIView):
