@@ -1,5 +1,6 @@
 from rest_framework import generics
 from django.db.models import Q
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -257,7 +258,8 @@ class VisitedRestaurantListCreateAPIView(generics.ListCreateAPIView):
             restaurant=serializer.validated_data["restaurant"],
             defaults={
                 "rating": serializer.validated_data["rating"],
-                "visit_date": serializer.validated_data.get("visit_date"),
+                "visit_date": serializer.validated_data.get("visit_date")
+                or timezone.now().date(),
                 "note": serializer.validated_data.get("note", ""),
             },
         )

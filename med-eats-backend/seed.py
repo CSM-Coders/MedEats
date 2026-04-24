@@ -330,21 +330,18 @@ def seed_data():
         {
             "restaurant_name": "Mondongo's El Poblado",
             "username": "andres_med",
-            "avatar": "https://images.unsplash.com/photo-1762708590808-c453c0e4fb0f?w=200",
             "rating": 5,
             "comment": "Excelente sabor y porciones generosas.",
         },
         {
             "restaurant_name": "Mondongo's El Poblado",
             "username": "maria_eats",
-            "avatar": "https://images.unsplash.com/photo-1614436201459-156d322d38c6?w=200",
             "rating": 4,
             "comment": "Muy rico, volvería sin duda.",
         },
         {
             "restaurant_name": "Sushi Zen",
             "username": "luisa_food",
-            "avatar": "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?w=200",
             "rating": 5,
             "comment": "Sushi fresco y súper presentación.",
         },
@@ -353,22 +350,28 @@ def seed_data():
     print(f"Total a insertar/actualizar: {len(reviews_data)} reviews")
     for data in reviews_data:
         restaurant = Restaurant.objects.get(name=data["restaurant_name"])
+        review_user = User.objects.filter(username=data["username"]).first()
+        if not review_user:
+            review_user = User.objects.create_user(
+                username=data["username"],
+                email=f"{data['username']}@example.com",
+                password="Medeats123!",
+            )
+
         review, created = Review.objects.update_or_create(
             restaurant=restaurant,
-            username=data["username"],
-            comment=data["comment"],
+            user=review_user,
             defaults={
                 "restaurant": restaurant,
-                "username": data["username"],
-                "avatar": data["avatar"],
+                "user": review_user,
                 "rating": data["rating"],
                 "comment": data["comment"],
             },
         )
         if created:
-            print(f"✅ Review creada: {review.username} -> {review.restaurant.name}")
+            print(f"✅ Review creada: {review.user.username} -> {review.restaurant.name}")
         else:
-            print(f"🔄 Review actualizada: {review.username} -> {review.restaurant.name}")
+            print(f"🔄 Review actualizada: {review.user.username} -> {review.restaurant.name}")
 
     # ============================================================
     # POSTS DEMO PARA FEED (PRESENTACIÓN)

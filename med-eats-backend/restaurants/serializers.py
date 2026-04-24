@@ -95,6 +95,24 @@ class ReviewSerializer(serializers.ModelSerializer):
 
         return value
 
+    def validate(self, attrs):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        restaurant = attrs.get("restaurant")
+
+        if (
+            self.instance is None
+            and user
+            and user.is_authenticated
+            and restaurant
+            and Review.objects.filter(user=user, restaurant=restaurant).exists()
+        ):
+            raise serializers.ValidationError(
+                {"detail": "You have already reviewed this restaurant."}
+            )
+
+        return attrs
+
 
 class PostCommentSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source="user.username", read_only=True)

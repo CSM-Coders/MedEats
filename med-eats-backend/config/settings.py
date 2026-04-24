@@ -26,6 +26,22 @@ import getpass
 from datetime import timedelta
 from dotenv import load_dotenv
 
+
+def parse_bool_env(var_name: str, default: bool = False) -> bool:
+    value = os.getenv(var_name)
+    if value is None:
+        return default
+
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def parse_list_env(var_name: str, default: list[str] | None = None) -> list[str]:
+    value = os.getenv(var_name)
+    if not value:
+        return default or []
+
+    return [item.strip() for item in value.split(",") if item.strip()]
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -39,7 +55,10 @@ SECRET_KEY = "django-insecure-)$=%+l*&&*%l3!hr_50jyz*^rm3bwae%nhg5v(iy-_*+=hg8o^
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["*"]  # En desarrollo permitimos todo. En producción se restringe.
+ALLOWED_HOSTS = parse_list_env(
+    "ALLOWED_HOSTS",
+    default=["*"] if DEBUG else ["localhost", "127.0.0.1"],
+)
 
 
 # Application definition
@@ -166,7 +185,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # CORS: Permite que React Native se conecte al backend
 # ============================================================
 # En desarrollo permitimos todo. En producción, lista dominios específicos.
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = parse_bool_env("CORS_ALLOW_ALL_ORIGINS", default=DEBUG)
+CORS_ALLOWED_ORIGINS = parse_list_env("CORS_ALLOWED_ORIGINS", default=[])
 
 # ============================================================
 # Django REST Framework: Configuración de la API
