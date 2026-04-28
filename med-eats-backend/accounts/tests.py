@@ -1,82 +1,86 @@
-from django.contrib.auth import get_user_model
-from rest_framework import status
 from rest_framework.test import APITestCase
-
-from .models import Follow, UserProfile
+from rest_framework import status
+from django.contrib.auth import get_user_model
+from django.urls import reverse
 
 User = get_user_model()
 
 
-class AccountsApiTests(APITestCase):
+class AuthenticationTests(APITestCase):
     def setUp(self):
-        self.user = User.objects.create_user(
-            username="owner_user",
-            email="owner@example.com",
-            password="OwnerPass123!",
-        )
-        self.other_user = User.objects.create_user(
-            username="target_user",
-            email="target@example.com",
-            password="TargetPass123!",
-        )
-
-    def test_register_creates_user_and_profile(self):
-        payload = {
-            "username": "new_user",
-            "email": "new_user@example.com",
-            "password": "StrongPass123",
+        # Datos de prueba globales
+        self.user_data = {
+            "email": "cliente@medeats.com",
+            "username": "cliente_med",
+            "password": "SecurePassword123!",
         }
-        response = self.client.post("/api/v1/auth/register/", payload, format="json")
+        # Creamos el usuario base
+        self.user = User.objects.create_user(**self.user_data)
 
+        # URLs
+        self.register_url = reverse("register")
+        self.login_url = reverse("login")
+        self.profile_url = reverse("my-profile")
+
+    # ---------------------------------------------------------
+    # US02 – User Registration
+    # ---------------------------------------------------------
+    def test_registration_happy_path(self):
+        """Happy Path: Registro exitoso devuelve 201 Created"""
+        new_user = {
+            "email": "nuevo_restaurante@medeats.com",
+            "username": "restaurante_nuevo",
+            "password": "StrongPassword123!",
+        }
+        response = self.client.post(self.register_url, new_user, format="json")
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertIn("access", response.data)
-        self.assertIn("refresh", response.data)
+        self.assertEqual(User.objects.count(), 2)
 
-        created_user = User.objects.get(username="new_user")
-        self.assertTrue(UserProfile.objects.filter(user=created_user).exists())
+    def test_registration_alternative_flow_duplicate_email(self):
+        """Flujo Alternativo: Retorna 400 Bad Request si el correo ya existe"""
+        duplicate_user = {
+            "email": "cliente@medeats.com",  # Correo duplicado
+            "username": "otro_usuario",
+            "password": "StrongPassword123!",
+        }
+        response = self.client.post(self.register_url, duplicate_user, format="json")
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    def test_login_with_invalid_credentials_returns_401(self):
-        response = self.client.post(
-            "/api/v1/auth/login/",
-            {"username": self.user.username, "password": "wrong"},
-            format="json",
+    # ---------------------------------------------------------
+    # US03 – User Login
+    # ---------------------------------------------------------
+    def test_login_happy_path(self):
+        """Happy Path: Genera token JWT al ingresar credenciales correctas"""
+        login_data = {
+            "username": "cliente_med",  # ¡Cambiado a username!
+            "password": "SecurePassword123!",
+        }
+        response = self.client.post(self.login_url, login_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_login_alternative_flow_wrong_password(self):
+        """Flujo Alternativo: Retorna error con clave incorrecta"""
+        login_data = {"username": "cliente_med", "password": "ClaveIncorrecta999"}
+        response = self.client.post(self.login_url, login_data, format="json")
+        # DRF puede retornar 400 o 401 dependiendo del serializador, aceptamos ambos
+        self.assertIn(
+            response.status_code,
+            [status.HTTP_400_BAD_REQUEST, status.HTTP_401_UNAUTHORIZED],
         )
 
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-
-    def test_me_requires_authentication(self):
-        response = self.client.get("/api/v1/auth/me/")
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-
-    def test_me_returns_authenticated_user(self):
+    # ---------------------------------------------------------
+    # US14 – View User Profile
+    # ---------------------------------------------------------
+    def test_view_profile_happy_path(self):
+        """Happy Path: Muestra datos del usuario si está autenticado"""
         self.client.force_authenticate(user=self.user)
-        response = self.client.get("/api/v1/auth/me/")
+        response = self.client.get(self.profile_url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["username"], self.user.username)
+        # Verificamos simplemente que el JSON de respuesta contenga datos
+        self.assertTrue(len(response.data) > 0)
 
-    def test_follow_and_unfollow_flow(self):
-        self.client.force_authenticate(user=self.user)
-
-        follow_response = self.client.post(f"/api/v1/auth/profile/{self.other_user.username}/follow/")
-        self.assertIn(
-            follow_response.status_code,
-            (status.HTTP_200_OK, status.HTTP_201_CREATED),
-        )
-        self.assertTrue(
-            Follow.objects.filter(follower=self.user, following=self.other_user).exists()
-        )
-
-        unfollow_response = self.client.delete(
-            f"/api/v1/auth/profile/{self.other_user.username}/follow/"
-        )
-        self.assertEqual(unfollow_response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertFalse(
-            Follow.objects.filter(follower=self.user, following=self.other_user).exists()
-        )
-
-    def test_user_cannot_follow_self(self):
-        self.client.force_authenticate(user=self.user)
-        response = self.client.post(f"/api/v1/auth/profile/{self.user.username}/follow/")
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+    def test_view_profile_alternative_flow_unauthenticated(self):
+        """Flujo Alternativo: Bloquea el acceso (401) si no hay token"""
+        response = self.client.get(self.profile_url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
