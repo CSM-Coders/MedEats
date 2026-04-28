@@ -89,6 +89,8 @@ class PublicProfileSerializer(serializers.ModelSerializer):
     following_count = serializers.SerializerMethodField()
     is_following = serializers.SerializerMethodField()
     posts_count = serializers.SerializerMethodField()
+    saved_count = serializers.SerializerMethodField()
+    visited_count = serializers.SerializerMethodField()
 
     class Meta:
         model = UserProfile
@@ -104,6 +106,8 @@ class PublicProfileSerializer(serializers.ModelSerializer):
             "following_count",
             "is_following",
             "posts_count",
+            "saved_count",
+            "visited_count",
         ]
 
     def get_name(self, obj):
@@ -116,6 +120,12 @@ class PublicProfileSerializer(serializers.ModelSerializer):
 
     def get_posts_count(self, obj):
         return obj.user.posts.count()
+
+    def get_saved_count(self, obj):
+        return obj.user.saved_restaurants.count()
+
+    def get_visited_count(self, obj):
+        return obj.user.visited_restaurants.count()
 
     def get_followers_count(self, obj):
         return obj.user.follower_relationships.count()

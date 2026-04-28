@@ -181,3 +181,123 @@ class SocialAPITests(APITestCase):
                 "\n[DEUDA TÉCNICA DETECTADA] - Endpoint de Comentarios arroja Error 500 con posts inexistentes."
             )
             self.assertTrue(True)
+
+
+class ReviewAPITests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="reviewer@medeats.com",
+            username="reviewer_med",
+            password="SecurePassword123!",
+        )
+        self.client.force_authenticate(user=self.user)
+
+        from .models import Restaurant
+
+        self.restaurant = Restaurant.objects.create(
+            name="Restaurante de Prueba Reseñas",
+            latitude=6.2442,
+            longitude=-75.5812,
+            location="El Poblado, Medellín",
+            description="Restaurante de prueba para reseñas.",
+        )
+        self.review_list_url = reverse("review-list-create")
+        self.review_detail_url = lambda review_id: reverse(
+            "review-detail", kwargs={"pk": review_id}
+        )
+
+    def test_create_and_list_reviews(self):
+        payload = {
+            "restaurant_id": self.restaurant.id,
+            "rating": 5,
+            "comment": "Excelente comida y servicio.",
+        }
+
+        create_response = self.client.post(self.review_list_url, payload, format="json")
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(create_response.data["comment"], payload["comment"])
+
+        list_response = self.client.get(f"{self.review_list_url}?restaurant={self.restaurant.id}")
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(list_response.data), 1)
+        self.assertEqual(list_response.data[0]["comment"], payload["comment"])
+
+    def test_update_and_delete_review(self):
+        from .models import Review
+
+        review = Review.objects.create(
+            restaurant=self.restaurant,
+            user=self.user,
+            rating=4,
+            comment="Muy bueno.",
+        )
+
+        patch_response = self.client.patch(
+            self.review_detail_url(review.id),
+            {"rating": 5, "comment": "Ahora es excelente."},
+            format="json",
+        )
+        self.assertEqual(patch_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(patch_response.data["comment"], "Ahora es excelente.")
+
+        delete_response = self.client.delete(self.review_detail_url(review.id))
+        self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(Review.objects.filter(id=review.id).exists())
+
+
+class CollectionAPITests(APITestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="collector@medeats.com",
+            username="collector_med",
+            password="SecurePassword123!",
+        )
+        self.client.force_authenticate(user=self.user)
+
+        from .models import Restaurant
+
+        self.restaurant = Restaurant.objects.create(
+            name="Restaurante Colección",
+            latitude=6.2442,
+            longitude=-75.5812,
+            location="Centro, Medellín",
+            description="Restaurante para colecciones.",
+        )
+        self.saved_list_url = reverse("saved-restaurant-list-create")
+        self.saved_detail_url = reverse(
+            "saved-restaurant-detail", kwargs={"restaurant_id": self.restaurant.id}
+        )
+        self.visited_list_url = reverse("visited-restaurant-list-create")
+
+    def test_save_and_unsave_restaurant(self):
+        create_response = self.client.post(
+            self.saved_list_url,
+            {"restaurant_id": self.restaurant.id},
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        check_response = self.client.get(self.saved_detail_url)
+        self.assertEqual(check_response.status_code, status.HTTP_200_OK)
+        self.assertTrue(check_response.data["is_saved"])
+
+        delete_response = self.client.delete(self.saved_detail_url)
+        self.assertEqual(delete_response.status_code, status.HTTP_204_NO_CONTENT)
+
+    def test_create_visited_restaurant(self):
+        response = self.client.post(
+            self.visited_list_url,
+            {
+                "restaurant_id": self.restaurant.id,
+                "rating": 5,
+                "note": "Muy buena experiencia.",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["rating"], 5)
+
+        list_response = self.client.get(self.visited_list_url)
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(list_response.data), 1)
+        self.assertEqual(list_response.data[0]["restaurant"]["id"], self.restaurant.id)

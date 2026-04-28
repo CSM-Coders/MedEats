@@ -25,6 +25,7 @@ import {
   isRestaurantSaved,
   saveRestaurant,
   unsaveRestaurant,
+  markRestaurantVisited,
 } from "../../services/userCollectionsApi";
 import ReviewModal from "../../components/ReviewModal";
 
@@ -150,6 +151,13 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
     } else {
       await createReview(accessToken, { restaurantId: restaurant.id, rating, comment });
     }
+
+    await markRestaurantVisited(accessToken, {
+      restaurantId: restaurant.id,
+      rating,
+      note: comment,
+    });
+
     loadReviews();
   };
 

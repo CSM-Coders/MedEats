@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFeed } from "@/src/context/feed-context";
 import PostCommentModal from "@/src/components/PostCommentModal";
 import { useState } from "react";
+import { useAuth } from "@/src/context/auth-context";
 
 function stars(rating: number) {
   return [1, 2, 3, 4, 5].map((star) => (
@@ -31,8 +32,17 @@ function stars(rating: number) {
 export default function FeedScreen() {
   const insets = useSafeAreaInsets();
   const { posts, toggleLike, isLoadingPosts, feedError, refreshPosts } = useFeed();
+  const { user: currentUser } = useAuth();
   const [commentModalVisible, setCommentModalVisible] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+
+  const handleUserPress = (username: string) => {
+    if (currentUser && currentUser.username === username) {
+      router.push("/profile");
+    } else {
+      router.push(`/user/${username}`);
+    }
+  };
 
   const openComments = (postId: string) => {
     setSelectedPostId(postId);
@@ -80,7 +90,7 @@ export default function FeedScreen() {
           <View style={styles.card}>
             <Pressable 
               style={styles.userRow} 
-              onPress={() => router.push(`/user/${item.username}`)}
+              onPress={() => handleUserPress(item.username)}
             >
               <Image source={{ uri: item.userAvatar }} style={styles.avatar} />
               <View style={{ flex: 1 }}>

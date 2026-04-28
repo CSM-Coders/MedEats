@@ -59,6 +59,21 @@ export async function fetchPosts(accessToken: string): Promise<Post[]> {
   return payload.map(mapPost);
 }
 
+export async function fetchPostById(accessToken: string, postId: string): Promise<Post> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/posts/${postId}/`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error("Unable to load post details");
+  }
+
+  const payload = (await response.json()) as PostApiItem;
+  return mapPost(payload);
+}
+
 export async function fetchUserPosts(accessToken: string, username: string): Promise<Post[]> {
   const response = await fetch(`${API_BASE_URL}/api/v1/posts/?username=${username}`, {
     headers: {

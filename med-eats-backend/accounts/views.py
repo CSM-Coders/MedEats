@@ -117,7 +117,7 @@ class UserProfileDetailAPIView(APIView):
 
     def get(self, request, username):
         target_user = get_object_or_404(
-            User.objects.select_related("profile"), username=username
+            User.objects.select_related("profile"), username__iexact=username
         )
         profile, _ = UserProfile.objects.get_or_create(user=target_user)
         serializer = PublicProfileSerializer(profile, context={"request": request})
@@ -128,7 +128,7 @@ class FollowUserAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, username):
-        target_user = get_object_or_404(User, username=username)
+        target_user = get_object_or_404(User, username__iexact=username)
 
         if target_user == request.user:
             return Response(
@@ -149,7 +149,7 @@ class FollowUserAPIView(APIView):
         )
 
     def delete(self, request, username):
-        target_user = get_object_or_404(User, username=username)
+        target_user = get_object_or_404(User, username__iexact=username)
         Follow.objects.filter(follower=request.user, following=target_user).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -158,7 +158,7 @@ class FollowersListAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, username):
-        target_user = get_object_or_404(User, username=username)
+        target_user = get_object_or_404(User, username__iexact=username)
         followers = (
             User.objects.filter(following_relationships__following=target_user)
             .select_related("profile")
@@ -172,7 +172,7 @@ class FollowingListAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, username):
-        target_user = get_object_or_404(User, username=username)
+        target_user = get_object_or_404(User, username__iexact=username)
         following = (
             User.objects.filter(follower_relationships__follower=target_user)
             .select_related("profile")

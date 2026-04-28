@@ -66,6 +66,8 @@ export type AppUser = {
   followers: number;
   following: number;
   posts: number;
+  savedCount: number;
+  visitedCount: number;
 };
 
 export type VisitedRestaurant = {

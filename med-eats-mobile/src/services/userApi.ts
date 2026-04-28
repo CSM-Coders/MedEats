@@ -12,6 +12,8 @@ type ApiProfile = {
   following_count?: number;
   is_following?: boolean;
   posts_count?: number;
+  saved_count?: number;
+  visited_count?: number;
 };
 
 function mapProfile(item: ApiProfile): AppUser & { isFollowing: boolean } {
@@ -25,6 +27,8 @@ function mapProfile(item: ApiProfile): AppUser & { isFollowing: boolean } {
     followers: Number(item.followers_count) || 0,
     following: Number(item.following_count) || 0,
     posts: Number(item.posts_count) || 0,
+    savedCount: Number(item.saved_count) || 0,
+    visitedCount: Number(item.visited_count) || 0,
     isFollowing: item.is_following ?? false,
   };
 }
