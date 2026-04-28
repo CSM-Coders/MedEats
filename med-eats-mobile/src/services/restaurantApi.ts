@@ -32,10 +32,17 @@ function mapRestaurant(item: RestaurantApiItem): Restaurant {
 }
 
 export async function fetchRestaurants(): Promise<Restaurant[]> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/restaurants/`);
+  const url = `${API_BASE_URL}/api/v1/restaurants/`;
+  let response: Response;
+  try {
+    response = await fetch(url);
+  } catch (err) {
+    throw new Error(`Network error when fetching restaurants from ${url}: ${String(err)}`);
+  }
 
   if (!response.ok) {
-    throw new Error("Unable to load restaurants");
+    const text = await response.text().catch(() => "<no body>");
+    throw new Error(`Unable to load restaurants from ${url} (status ${response.status}): ${text}`);
   }
 
   const payload = (await response.json()) as RestaurantApiItem[];

@@ -120,8 +120,9 @@ WSGI_APPLICATION = "config.wsgi.application"
 # HOST: localhost porque corre en tu máquina
 # PORT: 5432 es el puerto por defecto de PostgreSQL
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from backend .env file explicitly.
+# This avoids depending on the current working directory when starting Django.
+load_dotenv(dotenv_path=BASE_DIR / ".env")
 
 DATABASES = {
     "default": {
@@ -212,6 +213,12 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=8),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
 }
+
+# ============================================================
+# Gemini (Foodie AI)
+# ============================================================
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 
 # ============================================================
 # LOGGING: Trazabilidad de errores en producción

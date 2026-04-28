@@ -2,9 +2,12 @@ import os
 import django
 import sys
 import random
+from pathlib import Path
 
 # Configurar el entorno de Django para poder usar los modelos en un script externo
-sys.path.append("/Users/camiloalvarez/Documents/MedEats/med-eats-backend")
+# Añadimos la carpeta del proyecto dinámicamente (no una ruta hardcodeada de otro usuario)
+PROJECT_ROOT = Path(__file__).resolve().parent
+sys.path.append(str(PROJECT_ROOT))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 django.setup()
 
