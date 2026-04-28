@@ -1,4 +1,6 @@
 from django.db import models
+from django.conf import settings
+from django.utils import timezone
 
 # ============================================================
 # MODELOS DE DOMINIO BACKEND (Sprint 1)
@@ -38,7 +40,11 @@ class Restaurant(models.Model):
     """
 
     # Nombre del restaurante.
-    name = models.CharField(max_length=200, verbose_name="Nombre del restaurante")
+    name = models.CharField(
+        max_length=200,
+        db_index=True,
+        verbose_name="Nombre del restaurante",
+    )
 
     # ForeignKey: Es el concepto de "Llave Foránea" en Bases de Datos Relacionales.
     # Significa "Muchos a Uno": Muchos restaurantes pueden pertenecer a Una misma Categoría.
@@ -59,6 +65,7 @@ class Restaurant(models.Model):
         decimal_places=1,
         null=True,
         blank=True,
+        db_index=True,
         verbose_name="Calificación",
     )
 
@@ -98,3 +105,164 @@ class Restaurant(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class Review(models.Model):
+    """
+    Modelo que representa una reseña pública de un restaurante ligada a un usuario real.
+    """
+
+    restaurant = models.ForeignKey(
+        Restaurant,
+        on_delete=models.CASCADE,
+        related_name="reviews",
+        verbose_name="Restaurante",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="restaurant_reviews",
+        verbose_name="Usuario",
+    )
+    rating = models.DecimalField(
+        max_digits=2,
+        decimal_places=1,
+        verbose_name="Calificación",
+    )
+    comment = models.TextField(verbose_name="Comentario")
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        db_index=True,
+        verbose_name="Fecha de creación",
+    )
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Última actualización")
+
+    class Meta:
+        verbose_name = "Reseña"
+        verbose_name_plural = "Reseñas"
+        unique_together = ("user", "restaurant")
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.restaurant.name} ({self.rating})"
+
+
+class Post(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="posts",
+        verbose_name="Usuario",
+    )
+    restaurant = models.ForeignKey(
+        Restaurant,
+        on_delete=models.CASCADE,
+        related_name="posts",
+        verbose_name="Restaurante",
+    )
+    image = models.FileField(upload_to="posts/", max_length=500, verbose_name="Imagen/Video")
+    rating = models.PositiveSmallIntegerField(verbose_name="Calificación")
+    caption = models.TextField(blank=True, verbose_name="Caption")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+    def __str__(self):
+        return f"{self.user.username} - {self.restaurant.name}"
+
+
+class PostLike(models.Model):
+    post = models.ForeignKey(
+        Post,
+        on_delete=models.CASCADE,
+        related_name="likes",
+        verbose_name="Post",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="post_likes",
+        verbose_name="Usuario",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["post", "user"],
+                name="unique_post_like",
+            )
+        ]
+
+
+class PostComment(models.Model):
+    post = models.ForeignKey(
+        Post,
+        on_delete=models.CASCADE,
+        related_name="comments",
+        verbose_name="Post",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="post_comments",
+        verbose_name="Usuario",
+    )
+    content = models.TextField(verbose_name="Comentario")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+
+
+class SavedRestaurant(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="saved_restaurants",
+    )
+    restaurant = models.ForeignKey(
+        Restaurant,
+        on_delete=models.CASCADE,
+        related_name="saved_by_users",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "restaurant"],
+                name="unique_saved_restaurant_per_user",
+            )
+        ]
+        ordering = ["-created_at", "-id"]
+
+
+class VisitedRestaurant(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="visited_restaurants",
+    )
+    restaurant = models.ForeignKey(
+        Restaurant,
+        on_delete=models.CASCADE,
+        related_name="visited_by_users",
+    )
+    rating = models.PositiveSmallIntegerField()
+    visit_date = models.DateField(default=timezone.now)
+    note = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "restaurant"],
+                name="unique_visited_restaurant_per_user",
+            )
+        ]
+        ordering = ["-visit_date", "-updated_at", "-id"]

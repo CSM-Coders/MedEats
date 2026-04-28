@@ -9,9 +9,14 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { useCallback } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFeed } from "@/src/context/feed-context";
+import PostCommentModal from "@/src/components/PostCommentModal";
+import { useState } from "react";
+import { useAuth } from "@/src/context/auth-context";
 
 function stars(rating: number) {
   return [1, 2, 3, 4, 5].map((star) => (
@@ -26,7 +31,49 @@ function stars(rating: number) {
 
 export default function FeedScreen() {
   const insets = useSafeAreaInsets();
-  const { posts, toggleLike } = useFeed();
+  const { posts, toggleLike, isLoadingPosts, feedError, refreshPosts } = useFeed();
+  const { user: currentUser } = useAuth();
+  const [commentModalVisible, setCommentModalVisible] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+
+  const handleUserPress = (username: string) => {
+    if (currentUser && currentUser.username === username) {
+      router.push("/profile");
+    } else {
+      router.push(`/user/${username}`);
+    }
+  };
+
+  const openComments = (postId: string) => {
+    setSelectedPostId(postId);
+    setCommentModalVisible(true);
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshPosts().catch(() => undefined);
+    }, [refreshPosts])
+  );
+
+  if (isLoadingPosts) {
+    return (
+      <View style={[styles.container, { alignItems: "center", justifyContent: "center" }]}>
+        <Text style={styles.subtitle}>Loading feed...</Text>
+      </View>
+    );
+  }
+
+  if (feedError) {
+    return (
+      <View style={[styles.container, { alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }]}> 
+        <Text style={styles.title}>Feed unavailable</Text>
+        <Text style={[styles.subtitle, { textAlign: "center", marginTop: 8 }]}>{feedError}</Text>
+        <Pressable style={[styles.restaurantBox, { marginTop: 14 }]} onPress={() => refreshPosts()}>
+          <Text style={styles.restaurantName}>Retry</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -41,13 +88,16 @@ export default function FeedScreen() {
         contentContainerStyle={styles.listContent}
         renderItem={({ item }) => (
           <View style={styles.card}>
-            <View style={styles.userRow}>
+            <Pressable 
+              style={styles.userRow} 
+              onPress={() => handleUserPress(item.username)}
+            >
               <Image source={{ uri: item.userAvatar }} style={styles.avatar} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.username}>{item.username}</Text>
                 <Text style={styles.date}>{item.date}</Text>
               </View>
-            </View>
+            </Pressable>
 
             <Image source={{ uri: item.image }} style={styles.postImage} />
 
@@ -61,10 +111,10 @@ export default function FeedScreen() {
                 <Text style={styles.actionText}>{item.likes}</Text>
               </Pressable>
 
-              <View style={styles.actionButton}>
+              <Pressable style={styles.actionButton} onPress={() => openComments(item.id)}>
                 <Ionicons name="chatbubble-outline" size={21} color="#2D3436" />
                 <Text style={styles.actionText}>{item.comments}</Text>
-              </View>
+              </Pressable>
             </View>
 
             <Pressable
@@ -84,6 +134,15 @@ export default function FeedScreen() {
           </View>
         )}
       />
+
+      {selectedPostId && (
+        <PostCommentModal
+          visible={commentModalVisible}
+          postId={selectedPostId}
+          onClose={() => setCommentModalVisible(false)}
+          onCommentAdded={refreshPosts}
+        />
+      )}
     </View>
   );
 }

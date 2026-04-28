@@ -17,6 +17,8 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
 
 # ============================================================
 # RUTAS BACKEND PRINCIPALES (El índice base)
@@ -30,7 +32,11 @@ from django.urls import path, include
 urlpatterns = [
     # El Panel Administrativo privado que nos dio Django
     path("admin/", admin.site.urls),
-    # "Cualquier petición que empiece con la palabra 'api/',
-    # vete al archivo restaurants/urls.py y fíjate hacia dónde sigue el camino allá".
-    path("api/", include("restaurants.urls")),
+    # Endpoints de autenticación JWT (Versión 1)
+    path("api/v1/auth/", include("accounts.urls")),
+    # Apps de negocio (Versión 1)
+    path("api/v1/", include("restaurants.urls")),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

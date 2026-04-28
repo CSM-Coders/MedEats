@@ -1,5 +1,13 @@
 from rest_framework import serializers
-from .models import Category, Restaurant
+from .models import (
+    Category,
+    Post,
+    PostComment,
+    Restaurant,
+    Review,
+    SavedRestaurant,
+    VisitedRestaurant,
+)
 
 # ============================================================
 # SERIALIZADORES (Traducción Base de Datos -> JSON)
@@ -41,3 +49,203 @@ class RestaurantSerializer(serializers.ModelSerializer):
         # absolutamente todo lo que esté en la tabla de este restaurante
         # (latitud, longitud, imagen, whatsapp, etc.)".
         fields = "__all__"
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source="user.username", read_only=True)
+    avatar = serializers.SerializerMethodField()
+    restaurant_id = serializers.PrimaryKeyRelatedField(
+        source="restaurant",
+        queryset=Restaurant.objects.all(),
+        write_only=True,
+    )
+    is_owner = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Review
+        fields = [
+            "id",
+            "restaurant_id",
+            "username",
+            "avatar",
+            "rating",
+            "comment",
+            "created_at",
+            "is_owner",
+        ]
+        read_only_fields = ["created_at"]
+
+    def get_avatar(self, obj):
+        profile = getattr(obj.user, "profile", None)
+        if not profile:
+            return ""
+
+        return profile.avatar_url
+
+    def get_is_owner(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+
+        return obj.user == request.user
+
+    def validate_rating(self, value):
+        if value < 1 or value > 5:
+            raise serializers.ValidationError("La calificación debe estar entre 1 y 5.")
+
+        return value
+
+    def validate(self, attrs):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        restaurant = attrs.get("restaurant")
+
+        if (
+            self.instance is None
+            and user
+            and user.is_authenticated
+            and restaurant
+            and Review.objects.filter(user=user, restaurant=restaurant).exists()
+        ):
+            raise serializers.ValidationError(
+                {"detail": "You have already reviewed this restaurant."}
+            )
+
+        return attrs
+
+
+class PostCommentSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source="user.username", read_only=True)
+    user_avatar = serializers.SerializerMethodField()
+
+    class Meta:
+        model = PostComment
+        fields = ["id", "username", "user_avatar", "content", "created_at"]
+        read_only_fields = ["created_at"]
+
+    def get_user_avatar(self, obj):
+        profile = getattr(obj.user, "profile", None)
+        if not profile:
+            return ""
+        return profile.avatar_url
+
+
+class PostSerializer(serializers.ModelSerializer):
+    user_id = serializers.CharField(source="user.id", read_only=True)
+    username = serializers.CharField(source="user.username", read_only=True)
+    user_avatar = serializers.SerializerMethodField()
+    restaurant_id = serializers.CharField(source="restaurant.id", read_only=True)
+    restaurant_name = serializers.CharField(source="restaurant.name", read_only=True)
+    likes_count = serializers.IntegerField(source="likes.count", read_only=True)
+    comments_count = serializers.IntegerField(source="comments.count", read_only=True)
+    is_liked = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Post
+        fields = [
+            "id",
+            "user_id",
+            "username",
+            "user_avatar",
+            "restaurant_id",
+            "restaurant_name",
+            "image",
+            "rating",
+            "caption",
+            "likes_count",
+            "comments_count",
+            "is_liked",
+            "created_at",
+        ]
+
+    def get_image(self, obj):
+        if not obj.image:
+            return ""
+        
+        raw_val = str(obj.image)
+        if raw_val.startswith("http"):
+            return raw_val
+            
+        request = self.context.get("request")
+        if request and hasattr(obj.image, "url"):
+            try:
+                return request.build_absolute_uri(obj.image.url)
+            except ValueError:
+                return raw_val
+
+        return raw_val
+
+    def get_is_liked(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+
+        return obj.likes.filter(user=request.user).exists()
+
+    def get_user_avatar(self, obj):
+        profile = getattr(obj.user, "profile", None)
+        if not profile:
+            return ""
+
+        return profile.avatar_url
+
+
+class PostCreateSerializer(serializers.ModelSerializer):
+    restaurant_id = serializers.PrimaryKeyRelatedField(
+        source="restaurant",
+        queryset=Restaurant.objects.all(),
+        write_only=True,
+    )
+
+    class Meta:
+        model = Post
+        fields = ["restaurant_id", "image", "rating", "caption"]
+
+    def validate_rating(self, value):
+        if value < 1 or value > 5:
+            raise serializers.ValidationError("Rating must be between 1 and 5.")
+
+        return value
+
+
+class SavedRestaurantSerializer(serializers.ModelSerializer):
+    restaurant = RestaurantSerializer(read_only=True)
+    restaurant_id = serializers.PrimaryKeyRelatedField(
+        source="restaurant",
+        queryset=Restaurant.objects.all(),
+        write_only=True,
+        required=False,
+    )
+
+    class Meta:
+        model = SavedRestaurant
+        fields = ["id", "restaurant", "restaurant_id", "created_at"]
+
+
+class VisitedRestaurantSerializer(serializers.ModelSerializer):
+    restaurant = RestaurantSerializer(read_only=True)
+    restaurant_id = serializers.PrimaryKeyRelatedField(
+        source="restaurant",
+        queryset=Restaurant.objects.all(),
+        write_only=True,
+    )
+
+    class Meta:
+        model = VisitedRestaurant
+        fields = [
+            "id",
+            "restaurant",
+            "restaurant_id",
+            "rating",
+            "visit_date",
+            "note",
+            "created_at",
+            "updated_at",
+        ]
+
+    def validate_rating(self, value):
+        if value < 1 or value > 5:
+            raise serializers.ValidationError("Rating must be between 1 and 5.")
+
+        return value

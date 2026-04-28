@@ -23,7 +23,24 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 import os
 from pathlib import Path
 import getpass
+from datetime import timedelta
 from dotenv import load_dotenv
+
+
+def parse_bool_env(var_name: str, default: bool = False) -> bool:
+    value = os.getenv(var_name)
+    if value is None:
+        return default
+
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def parse_list_env(var_name: str, default: list[str] | None = None) -> list[str]:
+    value = os.getenv(var_name)
+    if not value:
+        return default or []
+
+    return [item.strip() for item in value.split(",") if item.strip()]
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -38,7 +55,10 @@ SECRET_KEY = "django-insecure-)$=%+l*&&*%l3!hr_50jyz*^rm3bwae%nhg5v(iy-_*+=hg8o^
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["*"]  # En desarrollo permitimos todo. En producción se restringe.
+ALLOWED_HOSTS = parse_list_env(
+    "ALLOWED_HOSTS",
+    default=["*"] if DEBUG else ["localhost", "127.0.0.1"],
+)
 
 
 # Application definition
@@ -53,8 +73,11 @@ INSTALLED_APPS = [
     # ----- Librerías de terceros -----
     "rest_framework",  # Para crear APIs REST (endpoints JSON)
     "corsheaders",  # Para permitir peticiones desde React Native
+    "rest_framework_simplejwt",  # JWT para autenticación real
+    "rest_framework_simplejwt.token_blacklist",  # Para invalidar tokens al cerrar sesión
     # ----- Nuestras apps -----
     "restaurants",  # App de restaurantes
+    "accounts",  # App de autenticación
 ]
 
 MIDDLEWARE = [
@@ -97,8 +120,9 @@ WSGI_APPLICATION = "config.wsgi.application"
 # HOST: localhost porque corre en tu máquina
 # PORT: 5432 es el puerto por defecto de PostgreSQL
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from backend .env file explicitly.
+# This avoids depending on the current working directory when starting Django.
+load_dotenv(dotenv_path=BASE_DIR / ".env")
 
 DATABASES = {
     "default": {
@@ -150,6 +174,11 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 
+# Media files (Archivos subidos por los usuarios como fotos y videos)
+MEDIA_URL = "/media/"
+import os
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+
 # Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -157,13 +186,60 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # CORS: Permite que React Native se conecte al backend
 # ============================================================
 # En desarrollo permitimos todo. En producción, lista dominios específicos.
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = parse_bool_env("CORS_ALLOW_ALL_ORIGINS", default=DEBUG)
+CORS_ALLOWED_ORIGINS = parse_list_env("CORS_ALLOWED_ORIGINS", default=[])
 
 # ============================================================
 # Django REST Framework: Configuración de la API
 # ============================================================
 REST_FRAMEWORK = {
-    "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.AllowAny",  # En desarrollo, sin auth requerida
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.AllowAny",
+    ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "100/day",
+        "user": "1000/day",
+    },
+}
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=8),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
+}
+
+# ============================================================
+# Gemini (Foodie AI)
+# ============================================================
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+
+# ============================================================
+# LOGGING: Trazabilidad de errores en producción
+# ============================================================
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
+    },
 }

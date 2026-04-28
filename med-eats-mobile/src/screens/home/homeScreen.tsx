@@ -11,8 +11,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  FlatList,
   Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -28,17 +30,141 @@ import { useUserLocation } from "@/src/hooks/useUserLocation";
 import {
   getDistanceKm,
   MEDELLIN_REGION,
+  restaurants as mockRestaurants,
   semanticCategoryMatches,
 } from "@/src/services/mockData";
 import MapView from "./components/mapView";
 import RestaurantCard from "./components/restaurantCard";
 import { API_BASE_URL } from "@/src/config/api";
+import { fetchRestaurants as fetchRestaurantsApi } from "@/src/services/restaurantApi";
 
 const initialFilters: HomeFilters = {
   category: null,
   minRating: null,
   maxDistanceKm: null,
 };
+
+type FoodieRecommendation = {
+  restaurant: Restaurant;
+  explanation: string;
+};
+
+type FoodieChatMessage = {
+  id: string;
+  role: "assistant" | "user";
+  text: string;
+};
+
+function normalizeText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function mapApiRestaurant(item: any): Restaurant {
+  return {
+    id: String(item.id),
+    name: item.name,
+    category: item.category,
+    rating: parseFloat(item.rating) || 0,
+    image: item.image,
+    latitude: item.latitude,
+    longitude: item.longitude,
+    location: item.location,
+    description: item.description,
+    menuHighlights: item.menu_highlights || [],
+    whatsapp: item.whatsapp || "",
+  };
+}
+
+function getDistanceKmBetween(
+  latA: number,
+  lonA: number,
+  latB: number,
+  lonB: number
+): number {
+  const toRad = (value: number) => (value * Math.PI) / 180;
+  const earth = 6371;
+  const dLat = toRad(latB - latA);
+  const dLon = toRad(lonB - lonA);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(latA)) *
+      Math.cos(toRad(latB)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return earth * c;
+}
+
+function hasProximityIntent(query: string): boolean {
+  const normalized = normalizeText(query);
+  return ["cerca", "cercano", "cercana", "near", "por aqui", "por aca", "alrededor"].some(
+    (term) => normalized.includes(term)
+  );
+}
+
+function rankLocalFoodieMatch(
+  query: string,
+  restaurantsPool: Restaurant[],
+  userLocation?: { latitude: number; longitude: number } | null
+): Restaurant | null {
+  const tokens = normalizeText(query)
+    .split(" ")
+    .filter((token) => token.length >= 3);
+  if (!tokens.length) return null;
+
+  const semanticGroups = [
+    ["pizza", "italian", "italiana", "napolitana"],
+    ["sushi", "japanese", "japonesa", "asiatica", "asiatico"],
+    ["burger", "hamburguesa", "grill", "parrilla"],
+    ["healthy", "fit", "saludable", "vegano", "vegana"],
+    ["mexican", "mexicana", "tacos", "taqueria"],
+  ];
+
+  const ranked = [...restaurantsPool].sort((left, right) => {
+    const scoreFor = (restaurant: Restaurant) => {
+      const name = normalizeText(restaurant.name);
+      const category = normalizeText(restaurant.category);
+      const description = normalizeText(restaurant.description);
+      const location = normalizeText(restaurant.location);
+
+      let score = 0;
+      for (const token of tokens) {
+        if (name.includes(token)) score += 3;
+        if (category.includes(token)) score += 5;
+        if (description.includes(token)) score += 2;
+        if (location.includes(token)) score += 0.5;
+      }
+
+      for (const group of semanticGroups) {
+        const queryHitsGroup = group.some((term) => tokens.some((token) => token.includes(term)));
+        const restaurantHitsGroup = group.some(
+          (term) => name.includes(term) || category.includes(term) || description.includes(term)
+        );
+        if (queryHitsGroup && restaurantHitsGroup) score += 6;
+      }
+
+      if (userLocation && hasProximityIntent(query)) {
+        const distanceKm = getDistanceKmBetween(
+          userLocation.latitude,
+          userLocation.longitude,
+          restaurant.latitude,
+          restaurant.longitude
+        );
+        score += Math.max(0, 15 - distanceKm);
+      }
+
+      return score;
+    };
+
+    return scoreFor(right) - scoreFor(left);
+  });
+
+  return ranked[0] ?? null;
+}
 
 export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -50,6 +176,19 @@ export default function HomeScreen() {
   const [stagedFilters, setStagedFilters] = useState<HomeFilters>(initialFilters);
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [foodieLoading, setFoodieLoading] = useState(false);
+  const [foodieRecommendation, setFoodieRecommendation] =
+    useState<FoodieRecommendation | null>(null);
+  const [isFoodieChatOpen, setIsFoodieChatOpen] = useState(false);
+  const [chatInput, setChatInput] = useState("");
+  const [chatInputHeight, setChatInputHeight] = useState(42);
+  const [chatMessages, setChatMessages] = useState<FoodieChatMessage[]>([
+    {
+      id: "welcome",
+      role: "assistant",
+      text: "Soy Foodie AI. Cuéntame qué se te antoja y te recomiendo el mejor restaurante.",
+    },
+  ]);
 
   // ============================================================
   // CONEXIÓN CON EL BACKEND APENAS CARGA LA APP (Sprint 1)
@@ -59,46 +198,20 @@ export default function HomeScreen() {
   // En lugar de usar los fijos de mockData.ts, pedimos a Django la lista por internet.
   // ============================================================
   useEffect(() => {
-    const fetchRestaurants = async () => {
+    const loadRestaurants = async () => {
       try {
-        // La IP de tu Mac se detecta automáticamente vía API_BASE_URL
-        const response = await fetch(`${API_BASE_URL}/api/restaurants/`);
-        
-        if (!response.ok) {
-          throw new Error("Respuesta de red incorrecta");
-        }
-        
-        const data = await response.json();
-        // ============================================================
-        // TRANSFORMACIÓN DE DATOS (API snake_case → Frontend camelCase)
-        // ------------------------------------------------------------
-        // Django envía los campos en snake_case (menu_highlights, created_at)
-        // pero nuestro TypeScript espera camelCase (menuHighlights).
-        // También el rating viene como string "4.8" y lo necesitamos como número.
-        // ============================================================
-        const transformed: Restaurant[] = data.map((item: any) => ({
-          id: String(item.id),
-          name: item.name,
-          category: item.category,
-          rating: parseFloat(item.rating) || 0,
-          image: item.image,
-          latitude: item.latitude,
-          longitude: item.longitude,
-          location: item.location,
-          description: item.description,
-          menuHighlights: item.menu_highlights || [],
-          whatsapp: item.whatsapp || "",
-        }));
-        setRestaurants(transformed);
+        const data = await fetchRestaurantsApi();
+        setRestaurants(data.length > 0 ? data : mockRestaurants);
       } catch (error) {
         console.error("Error conectando con Django:", error);
+        setRestaurants(mockRestaurants);
       } finally {
         // Apagamos el circulito de carga de la pantalla, haya funcionado o fallado.
         setLoading(false);
       }
     };
 
-    fetchRestaurants();
+    loadRestaurants();
   }, []);
 
   // ============================================================
@@ -174,36 +287,6 @@ export default function HomeScreen() {
   }, [filters, searchQuery, userLocation, restaurants]);
 
 
-  // ============================================================
-  // SUGERENCIAS DE BÚSQUEDA (Autocomplete)
-  // Filtra restaurantes cuyo nombre contenga lo que el usuario escribe.
-  // Solo aparece si hay texto y hay coincidencias.
-  // ============================================================
-  const searchSuggestions = useMemo(() => {
-    const query = searchQuery.toLowerCase().trim();
-    if (!query || query.length < 2) return [];
-    return restaurants.filter((r) =>
-      r.name.toLowerCase().includes(query)
-    ).slice(0, 5); // Máximo 5 sugerencias
-  }, [searchQuery, restaurants]);
-
-  // Al tocar una sugerencia, hacemos zoom al restaurante y abrimos su tarjeta
-  const handleSuggestionPress = (restaurant: Restaurant) => {
-    Keyboard.dismiss();
-    skipResetRef.current = true; // Evita que el useEffect resetee el mapa
-    setSearchQuery("");
-    setSelectedRestaurant(restaurant);
-    mapRef.current?.animateToRegion(
-      {
-        latitude: restaurant.latitude,
-        longitude: restaurant.longitude,
-        latitudeDelta: 0.008,
-        longitudeDelta: 0.008,
-      },
-      700
-    );
-  };
-
   const handleSearchSubmit = () => {
     Keyboard.dismiss();
 
@@ -242,8 +325,151 @@ export default function HomeScreen() {
     }
   };
 
+  const handleRestaurantPreviewPress = (restaurant: Restaurant) => {
+    Keyboard.dismiss();
+    skipResetRef.current = true;
+    setSelectedRestaurant(restaurant);
+    mapRef.current?.animateToRegion(
+      {
+        latitude: restaurant.latitude,
+        longitude: restaurant.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      },
+      700
+    );
+  };
+
+  const runFoodieSearch = async (question: string): Promise<FoodieRecommendation | null> => {
+    const normalizedQuestion = question.trim();
+    if (!normalizedQuestion) return null;
+
+    const fallbackRestaurant = rankLocalFoodieMatch(
+      normalizedQuestion,
+      restaurants,
+      userLocation
+    );
+    const fallbackRecommendation = fallbackRestaurant
+      ? {
+          restaurant: fallbackRestaurant,
+          explanation: `Te recomiendo ${fallbackRestaurant.name} porque encaja mejor con "${normalizedQuestion}".`,
+        }
+      : null;
+
+    let recommendation: FoodieRecommendation | null = null;
+
+    try {
+      setFoodieLoading(true);
+      const response = await fetch(`${API_BASE_URL}/api/v1/ai/foodie-chat/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: normalizedQuestion,
+          latitude: userLocation?.latitude ?? null,
+          longitude: userLocation?.longitude ?? null,
+          excluded_restaurant_id: foodieRecommendation ? Number(foodieRecommendation.restaurant.id) : null,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("No se pudo consultar Foodie AI");
+      }
+
+      const payload = await response.json();
+
+      if (payload.detail && !payload.restaurant) {
+        const assistantText = String(payload.detail);
+        setChatMessages((prev) => [
+          ...prev,
+          { id: `a-${Date.now()}`, role: "assistant", text: assistantText },
+        ]);
+        setFoodieRecommendation(null);
+        return null;
+      }
+
+      const restaurant = mapApiRestaurant(payload.restaurant);
+
+      recommendation = {
+        restaurant,
+        explanation: payload.explanation || "Te encontré una recomendación ideal para tu plan.",
+      };
+
+      setFoodieRecommendation(recommendation);
+      setSelectedRestaurant(restaurant);
+
+      mapRef.current?.animateToRegion(
+        {
+          latitude: restaurant.latitude,
+          longitude: restaurant.longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        },
+        700
+      );
+    } catch (error) {
+      console.error("Error consultando Foodie AI:", error);
+      const nearestFallback = rankLocalFoodieMatch(
+        normalizedQuestion,
+        restaurants,
+        userLocation
+      );
+      recommendation = fallbackRecommendation;
+      if (!recommendation && nearestFallback) {
+        recommendation = {
+          restaurant: nearestFallback,
+          explanation: "Tomé una recomendación local basada en tu búsqueda y cercanía.",
+        };
+      }
+
+      if (recommendation) {
+        setFoodieRecommendation(recommendation);
+        setSelectedRestaurant(recommendation.restaurant);
+        mapRef.current?.animateToRegion(
+          {
+            latitude: recommendation.restaurant.latitude,
+            longitude: recommendation.restaurant.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          },
+          700
+        );
+      }
+    } finally {
+      setFoodieLoading(false);
+    }
+
+    return recommendation;
+  };
+
+  const handleOpenFoodieChat = () => {
+    Keyboard.dismiss();
+    setIsFoodieChatOpen(true);
+  };
+
+  const handleSendFoodieMessage = async () => {
+    const question = chatInput.trim();
+    if (!question) return;
+
+    setChatMessages((prev) => [
+      ...prev,
+      { id: `u-${Date.now()}`, role: "user", text: question },
+    ]);
+    setChatInput("");
+
+    const recommendation = await runFoodieSearch(question);
+    const assistantText = recommendation
+      ? `${recommendation.explanation}\n\nRecomendado: ${recommendation.restaurant.name}`
+      : "No encontré una recomendación clara, intenta con más detalles.";
+
+    setChatMessages((prev) => [
+      ...prev,
+      { id: `a-${Date.now()}`, role: "assistant", text: assistantText },
+    ]);
+  };
+
   const clearSearchAndFilters = () => {
     setSelectedRestaurant(null);
+    setFoodieRecommendation(null);
     Keyboard.dismiss();
     setSearchQuery("");
     setFilters(initialFilters);
@@ -306,24 +532,16 @@ export default function HomeScreen() {
           )}
         </View>
 
-        {/* ===== DROPDOWN DE SUGERENCIAS ===== */}
-        {searchSuggestions.length > 0 && (
-          <View style={styles.suggestionsContainer}>
-            {searchSuggestions.map((restaurant) => (
-              <Pressable
-                key={restaurant.id}
-                style={styles.suggestionItem}
-                onPress={() => handleSuggestionPress(restaurant)}
-              >
-                <Ionicons name="location-outline" size={16} color="#FF6B35" />
-                <View style={styles.suggestionTextContainer}>
-                  <Text style={styles.suggestionName}>{restaurant.name}</Text>
-                  <Text style={styles.suggestionCategory}>{restaurant.category} · {restaurant.location}</Text>
-                </View>
-              </Pressable>
-            ))}
-          </View>
-        )}
+        <Pressable
+          style={[styles.foodieAskButton, foodieLoading && styles.foodieAskButtonDisabled]}
+          onPress={handleOpenFoodieChat}
+          disabled={foodieLoading}
+        >
+          <Ionicons name="sparkles" size={16} color="#fff" />
+          <Text style={styles.foodieAskButtonText}>
+            {foodieLoading ? "Foodie AI está pensando..." : "Preguntarle a Foodie AI"}
+          </Text>
+        </Pressable>
 
         <View style={styles.resultsCount}>
           <Text style={styles.resultsText}>
@@ -331,6 +549,46 @@ export default function HomeScreen() {
           </Text>
           {isAiSearch && <Text style={styles.aiBadge}>AI</Text>}
         </View>
+
+        {searchQuery.trim().length > 0 && filteredRestaurants.length > 0 && (
+          <View style={styles.searchResultsPanel}>
+            <Text style={styles.searchResultsTitle}>Resultados</Text>
+            <ScrollView
+              style={styles.searchResultsList}
+              keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled
+            >
+              {filteredRestaurants.slice(0, 6).map((restaurant) => (
+                <Pressable
+                  key={restaurant.id}
+                  style={styles.searchResultItem}
+                  onPress={() => handleRestaurantPreviewPress(restaurant)}
+                >
+                  <View style={styles.searchResultTextWrap}>
+                    <Text style={styles.searchResultName}>{restaurant.name}</Text>
+                    <Text style={styles.searchResultMeta}>
+                      {restaurant.category} · {restaurant.location}
+                    </Text>
+                  </View>
+                  <View style={styles.searchResultRating}>
+                    <Ionicons name="star" size={14} color="#FF6B35" />
+                    <Text style={styles.searchResultRatingText}>{restaurant.rating.toFixed(1)}</Text>
+                  </View>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        )}
+
+        {foodieRecommendation && (
+          <View style={styles.foodieAnswerCard}>
+            <Text style={styles.foodieAnswerTitle}>Foodie AI recomienda</Text>
+            <Text style={styles.foodieAnswerRestaurant}>
+              {foodieRecommendation.restaurant.name}
+            </Text>
+            <Text style={styles.foodieAnswerText}>{foodieRecommendation.explanation}</Text>
+          </View>
+        )}
 
         {showFilters && (
           <View style={styles.filterPanel}>
@@ -468,6 +726,85 @@ export default function HomeScreen() {
           />
         </View>
       )}
+
+      <Modal
+        visible={isFoodieChatOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setIsFoodieChatOpen(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.chatOverlay}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+        >
+          <View style={styles.chatSheet}>
+            <View style={styles.chatHeader}>
+              <Text style={styles.chatTitle}>Foodie AI</Text>
+              <Pressable onPress={() => setIsFoodieChatOpen(false)}>
+                <Ionicons name="close" size={22} color="#2D3436" />
+              </Pressable>
+            </View>
+
+            <ScrollView
+              style={styles.chatMessagesContainer}
+              contentContainerStyle={styles.chatMessagesContent}
+              keyboardShouldPersistTaps="handled"
+            >
+              {chatMessages.map((message) => (
+                <View
+                  key={message.id}
+                  style={[
+                    styles.chatBubble,
+                    message.role === "assistant" ? styles.chatBubbleAssistant : styles.chatBubbleUser,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.chatBubbleText,
+                      message.role === "assistant"
+                        ? styles.chatBubbleTextAssistant
+                        : styles.chatBubbleTextUser,
+                    ]}
+                  >
+                    {message.text}
+                  </Text>
+                </View>
+              ))}
+            </ScrollView>
+
+            <View
+              style={[
+                styles.chatComposer,
+                Platform.OS === "ios" ? { paddingBottom: 18 } : null,
+              ]}
+            >
+              <TextInput
+                style={[styles.chatInput, { height: Math.max(42, chatInputHeight) }]}
+                placeholder="Ej: Quiero pizza para parche"
+                placeholderTextColor="#B2BEC3"
+                value={chatInput}
+                onChangeText={setChatInput}
+                onSubmitEditing={handleSendFoodieMessage}
+                returnKeyType="send"
+                autoFocus
+                multiline
+                blurOnSubmit={false}
+                onContentSizeChange={(event) => {
+                  const height = Math.min(110, Math.max(42, event.nativeEvent.contentSize.height));
+                  setChatInputHeight(height);
+                }}
+              />
+              <Pressable
+                style={[styles.chatSendBtn, (!chatInput.trim() || foodieLoading) && styles.chatSendBtnDisabled]}
+                disabled={!chatInput.trim() || foodieLoading}
+                onPress={handleSendFoodieMessage}
+              >
+                <Ionicons name="send" size={16} color="#fff" />
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -634,38 +971,190 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#fff",
   },
-  // ===== Estilos del Dropdown de Sugerencias =====
-  suggestionsContainer: {
-    marginTop: 6,
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    paddingVertical: 6,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  suggestionItem: {
+  foodieAskButton: {
+    marginTop: 8,
+    alignSelf: "flex-start",
+    backgroundColor: "#2D3436",
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#F0F0F0",
+    gap: 8,
   },
-  suggestionTextContainer: {
+  foodieAskButtonDisabled: {
+    opacity: 0.65,
+  },
+  foodieAskButtonText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  foodieAnswerCard: {
+    marginTop: 10,
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#FFE5D8",
+    padding: 12,
+  },
+  foodieAnswerTitle: {
+    color: "#D35400",
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 4,
+    textTransform: "uppercase",
+  },
+  foodieAnswerRestaurant: {
+    color: "#2D3436",
+    fontSize: 15,
+    fontWeight: "700",
+    marginBottom: 2,
+  },
+  foodieAnswerText: {
+    color: "#636E72",
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  searchResultsPanel: {
+    marginTop: 10,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  searchResultsTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#2D3436",
+    marginBottom: 8,
+  },
+  searchResultsList: {
+    maxHeight: 210,
+  },
+  searchResultItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F2F6",
+    gap: 10,
+  },
+  searchResultTextWrap: {
     flex: 1,
   },
-  suggestionName: {
+  searchResultName: {
     fontSize: 15,
-    fontWeight: "600",
+    fontWeight: "700",
     color: "#2D3436",
   },
-  suggestionCategory: {
+  searchResultMeta: {
     fontSize: 12,
     color: "#636E72",
     marginTop: 2,
+  },
+  searchResultRating: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  searchResultRatingText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#2D3436",
+  },
+  chatOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    justifyContent: "flex-end",
+  },
+  chatSheet: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    minHeight: "55%",
+    maxHeight: "82%",
+  },
+  chatHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F2F6",
+  },
+  chatTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#2D3436",
+  },
+  chatMessagesContainer: {
+    flex: 1,
+  },
+  chatMessagesContent: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 10,
+  },
+  chatBubble: {
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    maxWidth: "88%",
+  },
+  chatBubbleAssistant: {
+    alignSelf: "flex-start",
+    backgroundColor: "#F6F7FB",
+  },
+  chatBubbleUser: {
+    alignSelf: "flex-end",
+    backgroundColor: "#2D3436",
+  },
+  chatBubbleText: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  chatBubbleTextAssistant: {
+    color: "#2D3436",
+  },
+  chatBubbleTextUser: {
+    color: "#fff",
+  },
+  chatComposer: {
+    borderTopWidth: 1,
+    borderTopColor: "#F1F2F6",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingTop: 10,
+    paddingBottom: 12,
+    gap: 8,
+  },
+  chatInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#DFE6E9",
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: "#2D3436",
+  },
+  chatSendBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#FF6B35",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  chatSendBtnDisabled: {
+    opacity: 0.5,
   },
 });

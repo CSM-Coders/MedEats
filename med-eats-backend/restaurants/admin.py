@@ -1,5 +1,14 @@
 from django.contrib import admin
-from .models import Category, Restaurant
+from .models import (
+    Category,
+    Post,
+    PostComment,
+    PostLike,
+    Restaurant,
+    Review,
+    SavedRestaurant,
+    VisitedRestaurant,
+)
 
 # ============================================================
 # PANEL DE ADMINISTRACIÓN (Django Admin)
@@ -32,3 +41,41 @@ class RestaurantAdmin(admin.ModelAdmin):
 
     # search_fields: Permite buscar restaurantes escribiendo su nombre o ubicación.
     search_fields = ("name", "location")
+
+
+@admin.register(Review)
+class ReviewAdmin(admin.ModelAdmin):
+    list_display = ("restaurant", "user", "rating", "created_at")
+    list_filter = ("restaurant", "user")
+    search_fields = ("user__username", "comment")
+
+
+@admin.register(Post)
+class PostAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "restaurant", "rating", "created_at")
+    list_filter = ("restaurant",)
+    search_fields = ("user__username", "restaurant__name", "caption")
+
+
+@admin.register(PostLike)
+class PostLikeAdmin(admin.ModelAdmin):
+    list_display = ("id", "post", "user", "created_at")
+    search_fields = ("user__username",)
+
+
+@admin.register(PostComment)
+class PostCommentAdmin(admin.ModelAdmin):
+    list_display = ("id", "post", "user", "created_at")
+    search_fields = ("user__username", "content")
+
+
+@admin.register(SavedRestaurant)
+class SavedRestaurantAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "restaurant", "created_at")
+    search_fields = ("user__username", "restaurant__name")
+
+
+@admin.register(VisitedRestaurant)
+class VisitedRestaurantAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "restaurant", "rating", "visit_date")
+    search_fields = ("user__username", "restaurant__name", "note")

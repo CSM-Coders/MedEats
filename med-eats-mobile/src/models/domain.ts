@@ -28,6 +28,7 @@ export type Review = {
   rating: number;
   comment: string;
   date: string;
+  isOwner?: boolean;
 };
 
 export type Post = {
@@ -46,20 +47,49 @@ export type Post = {
   isLiked?: boolean;
 };
 
+export type PostComment = {
+  id: string;
+  username: string;
+  userAvatar: string;
+  content: string;
+  date: string;
+};
+
 export type AppUser = {
   id: string;
   username: string;
   name: string;
+  email?: string;
+  avatarUrl?: string;
   bio: string;
   location: string;
   followers: number;
   following: number;
+  posts: number;
+  savedCount: number;
+  visitedCount: number;
 };
 
 export type VisitedRestaurant = {
   restaurantId: string;
   rating: number;
   visitDate: string;
+};
+
+export type SavedRestaurantRecord = {
+  id: string;
+  restaurant: Restaurant;
+  createdAt: string;
+};
+
+export type VisitedRestaurantRecord = {
+  id: string;
+  restaurant: Restaurant;
+  rating: number;
+  visitDate: string;
+  note?: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type HomeFilters = {

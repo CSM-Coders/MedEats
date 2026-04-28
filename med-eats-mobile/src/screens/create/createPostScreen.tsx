@@ -9,7 +9,7 @@
 // 5) publicar en el feed (estado global)
 // ============================================================
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import {
@@ -23,47 +23,87 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Restaurant } from "@/src/models/domain";
 import { useFeed } from "@/src/context/feed-context";
-import { restaurants } from "@/src/services/mockData";
+import { fetchRestaurants } from "@/src/services/restaurantApi";
+import * as ImagePicker from "expo-image-picker";
 
-const sampleImages = [
-  "https://images.unsplash.com/photo-1702827496422-edff3a844c9c?w=600",
-  "https://images.unsplash.com/photo-1723693407562-bb4fcae76797?w=600",
-  "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=600",
-];
+// We won't use sample images anymore
 
 export default function CreatePostScreen() {
   const insets = useSafeAreaInsets();
   const { createPost } = useFeed();
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [isLoadingRestaurants, setIsLoadingRestaurants] = useState(true);
 
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [restaurantId, setRestaurantId] = useState<string>("");
   const [rating, setRating] = useState(0);
   const [caption, setCaption] = useState("");
   const [showRestaurantSelector, setShowRestaurantSelector] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const selectedRestaurant = useMemo(
     () => restaurants.find((restaurant) => restaurant.id === restaurantId),
-    [restaurantId]
+    [restaurants, restaurantId]
   );
+  
+  const filteredRestaurants = useMemo(() => {
+    if (!searchQuery.trim()) return restaurants;
+    return restaurants.filter((r) =>
+      r.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [restaurants, searchQuery]);
+
+  const pickMedia = async () => {
+    // Solicitar abrir galería
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images', 'videos'],
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      setSelectedImage(result.assets[0].uri);
+    }
+  };
+
+  useEffect(() => {
+    const loadRestaurants = async () => {
+      try {
+        const data = await fetchRestaurants();
+        setRestaurants(data);
+      } catch {
+        Alert.alert("Error", "Unable to load restaurants.");
+      } finally {
+        setIsLoadingRestaurants(false);
+      }
+    };
+
+    loadRestaurants();
+  }, []);
 
   const canPublish = Boolean(selectedImage && restaurantId && rating > 0 && caption.trim());
 
-  const handlePublish = () => {
+  const handlePublish = async () => {
     if (!canPublish || !selectedImage) {
       Alert.alert("Campos incompletos", "Completa todos los campos antes de publicar.");
       return;
     }
 
-    createPost({
-      restaurantId,
-      rating,
-      caption: caption.trim(),
-      image: selectedImage,
-    });
+    try {
+      await createPost({
+        restaurantId,
+        rating,
+        caption: caption.trim(),
+        image: selectedImage,
+      });
 
-    Alert.alert("Post publicado", "Tu experiencia ya aparece en el feed.");
-    router.replace("/feed");
+      Alert.alert("Post publicado", "Tu experiencia ya aparece en el feed.");
+      router.replace("/feed");
+    } catch {
+      Alert.alert("Error", "No se pudo publicar tu post.");
+    }
   };
 
   return (
@@ -84,44 +124,63 @@ export default function CreatePostScreen() {
       ) : (
         <Pressable
           style={styles.uploadBox}
-          onPress={() =>
-            setSelectedImage(sampleImages[Math.floor(Math.random() * sampleImages.length)])
-          }
+          onPress={pickMedia}
         >
           <Ionicons name="images-outline" size={34} color="#FF6B35" />
-          <Text style={styles.uploadText}>Tap to choose sample image</Text>
+          <Text style={styles.uploadText}>Subir foto o video</Text>
         </Pressable>
       )}
 
       <Text style={styles.label}>Restaurant</Text>
       <Pressable
         style={styles.selectorButton}
+        disabled={isLoadingRestaurants}
         onPress={() => setShowRestaurantSelector((value) => !value)}
       >
         <Text style={styles.selectorText}>
-          {selectedRestaurant ? selectedRestaurant.name : "Choose a restaurant"}
+          {selectedRestaurant
+            ? selectedRestaurant.name
+            : isLoadingRestaurants
+            ? "Loading restaurants..."
+            : "Choose a restaurant"}
         </Text>
         <Ionicons name="chevron-down" size={18} color="#636E72" />
       </Pressable>
 
       {showRestaurantSelector && (
         <View style={styles.selectorPanel}>
-          {restaurants.map((restaurant) => (
-            <Pressable
-              key={restaurant.id}
-              style={styles.selectorItem}
-              onPress={() => {
-                setRestaurantId(restaurant.id);
-                setShowRestaurantSelector(false);
-              }}
-            >
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={16} color="#B2BEC3" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Buscar restaurante..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+          </View>
+          <ScrollView style={{ maxHeight: 240 }} nestedScrollEnabled>
+            {filteredRestaurants.length === 0 ? (
+                <Text style={styles.noResultsText}>No se encontraron restaurantes</Text>
+            ) : (
+                filteredRestaurants.map((restaurant) => (
+                  <Pressable
+                    key={restaurant.id}
+                    style={styles.selectorItem}
+                    onPress={() => {
+                      setRestaurantId(restaurant.id);
+                      setShowRestaurantSelector(false);
+                      setSearchQuery(""); // clear search on select
+                    }}
+                  >
               <Image source={{ uri: restaurant.image }} style={styles.selectorImage} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.selectorItemTitle}>{restaurant.name}</Text>
                 <Text style={styles.selectorItemSubtitle}>{restaurant.category}</Text>
               </View>
-            </Pressable>
-          ))}
+                  </Pressable>
+                ))
+            )}
+          </ScrollView>
         </View>
       )}
 
@@ -206,6 +265,25 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginTop: 8,
     overflow: "hidden",
+  },
+  searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#DFE6E9",
+    backgroundColor: "#F8F9FA",
+  },
+  searchInput: {
+    flex: 1,
+    height: 44,
+    paddingHorizontal: 8,
+    fontSize: 15,
+  },
+  noResultsText: {
+    padding: 16,
+    color: "#636E72",
+    textAlign: "center",
   },
   selectorItem: {
     flexDirection: "row",
