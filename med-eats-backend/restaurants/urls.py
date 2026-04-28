@@ -4,6 +4,9 @@ from .views import (
     CategoryListAPIView,
     RestaurantDetailAPIView,
     FoodieAssistantAPIView,
+    PostListCreateAPIView,
+    PostCommentListCreateAPIView,
+    PostLikeAPIView,
 )
 
 # ============================================================
@@ -27,4 +30,12 @@ urlpatterns = [
         name="restaurant-detail",
     ),
     path("ai/foodie-chat/", FoodieAssistantAPIView.as_view(), name="foodie-chat"),
+    # Posts endpoints - Feed Social
+    path("posts/", PostListCreateAPIView.as_view(), name="post-list-create"),
+    path(
+        "posts/<int:post_id>/comments/",
+        PostCommentListCreateAPIView.as_view(),
+        name="post-comment-list-create",
+    ),
+    path("posts/<int:post_id>/like/", PostLikeAPIView.as_view(), name="post-like"),
 ]

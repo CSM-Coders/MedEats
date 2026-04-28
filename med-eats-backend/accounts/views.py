@@ -1,5 +1,6 @@
 from django.contrib.auth import authenticate
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -62,7 +63,16 @@ class LoginAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        user = authenticate(request=request, username=username, password=password)
+        user = User.objects.filter(
+            Q(username__iexact=username) | Q(email__iexact=username)
+        ).first()
+        if user is None:
+            return Response(
+                {"detail": "Invalid username or password."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        user = authenticate(request=request, username=user.username, password=password)
         if user is None:
             return Response(
                 {"detail": "Invalid username or password."},
@@ -90,7 +100,9 @@ class MyProfileAPIView(APIView):
 
     def patch(self, request):
         profile, _ = UserProfile.objects.get_or_create(user=request.user)
-        serializer = UserProfileUpdateSerializer(profile, data=request.data, partial=True)
+        serializer = UserProfileUpdateSerializer(
+            profile, data=request.data, partial=True
+        )
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
@@ -104,7 +116,9 @@ class UserProfileDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, username):
-        target_user = get_object_or_404(User.objects.select_related("profile"), username=username)
+        target_user = get_object_or_404(
+            User.objects.select_related("profile"), username=username
+        )
         profile, _ = UserProfile.objects.get_or_create(user=target_user)
         serializer = PublicProfileSerializer(profile, context={"request": request})
         return Response(serializer.data)
@@ -173,16 +187,22 @@ class LogoutAPIView(APIView):
     Invalida el refresh token del usuario añadiéndolo a la lista negra.
     Esto asegura un cierre de sesión seguro a nivel de servidor.
     """
+
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
         try:
             refresh_token = request.data.get("refresh")
             if not refresh_token:
-                return Response({"detail": "Refresh token is required."}, status=status.HTTP_400_BAD_REQUEST)
-            
+                return Response(
+                    {"detail": "Refresh token is required."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
             token = RefreshToken(refresh_token)
             token.blacklist()
-            return Response({"detail": "Successfully logged out."}, status=status.HTTP_200_OK)
+            return Response(
+                {"detail": "Successfully logged out."}, status=status.HTTP_200_OK
+            )
         except Exception as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)

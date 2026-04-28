@@ -102,7 +102,9 @@ class FoodieAssistantAPIView(APIView):
 
         try:
             user_latitude = (
-                float(user_latitude) if user_latitude is not None and user_latitude != "" else None
+                float(user_latitude)
+                if user_latitude is not None and user_latitude != ""
+                else None
             )
             user_longitude = (
                 float(user_longitude)
@@ -154,3 +156,116 @@ class FoodieAssistantAPIView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+# ============================================================
+# VISTAS PARA POSTS (Feed Social)
+# ============================================================
+
+from .models import Post, PostLike, PostComment
+from .serializers import PostSerializer, PostCommentSerializer, PostCreateSerializer
+from rest_framework.permissions import IsAuthenticated
+from .permissions import IsOwnerOrReadOnly
+
+
+class PostListCreateAPIView(generics.ListCreateAPIView):
+    """
+    GET: Lista todos los posts del feed social.
+    POST: Crea un nuevo post (requiere autenticación).
+    Soporta filtrado por username con query parameter ?username=algo.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = (
+            Post.objects.select_related("user", "restaurant")
+            .prefetch_related("likes", "comments")
+            .all()
+        )
+
+        # Filtro opcional por username del usuario que creó el post
+        username = self.request.query_params.get("username", None)
+        if username:
+            queryset = queryset.filter(user__username=username)
+
+        return queryset
+
+    def get_serializer_class(self):
+        """Usa diferente serializer para reads vs writes"""
+        if self.request.method == "POST":
+            return PostCreateSerializer
+        return PostSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+
+class PostCommentListCreateAPIView(generics.ListCreateAPIView):
+    """
+    GET: Lista todos los comentarios de un post específico.
+    POST: Crea un nuevo comentario en el post (requiere autenticación).
+    """
+
+    serializer_class = PostCommentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        post_id = self.kwargs.get("post_id")
+        return PostComment.objects.filter(post_id=post_id).select_related("user")
+
+    def perform_create(self, serializer):
+        post_id = self.kwargs.get("post_id")
+        try:
+            post = Post.objects.get(id=post_id)
+        except Post.DoesNotExist:
+            raise status.HTTP_404_NOT_FOUND
+
+        serializer.save(user=self.request.user, post=post)
+
+
+class PostLikeAPIView(APIView):
+    """
+    POST: Dale un like a un post (requiere autenticación).
+    DELETE: Quita el like del post.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, post_id):
+        """Agregar un like al post"""
+        try:
+            post = Post.objects.get(id=post_id)
+        except Post.DoesNotExist:
+            return Response(
+                {"detail": "Post no encontrado."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Crear el like si no existe, o recuperarlo si ya existe
+        like, created = PostLike.objects.get_or_create(post=post, user=request.user)
+
+        # Retornar los datos del post actualizado
+        serializer = PostSerializer(post, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def delete(self, request, post_id):
+        """Eliminar un like del post"""
+        try:
+            post = Post.objects.get(id=post_id)
+        except Post.DoesNotExist:
+            return Response(
+                {"detail": "Post no encontrado."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Eliminar el like si existe
+        try:
+            like = PostLike.objects.get(post=post, user=request.user)
+            like.delete()
+        except PostLike.DoesNotExist:
+            pass  # Ya no tiene like, nada que eliminar
+
+        # Retornar los datos del post actualizado
+        serializer = PostSerializer(post, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_200_OK)

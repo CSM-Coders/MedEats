@@ -58,6 +58,24 @@ class AuthenticationTests(APITestCase):
         response = self.client.post(self.login_url, login_data, format="json")
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
+    def test_login_is_case_insensitive_for_username(self):
+        """Permite iniciar sesión aunque el username llegue con distinta capitalización"""
+        login_data = {
+            "username": "CLIENTE_MED",
+            "password": "SecurePassword123!",
+        }
+        response = self.client.post(self.login_url, login_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_login_accepts_email_as_identifier(self):
+        """Permite iniciar sesión usando el email registrado"""
+        login_data = {
+            "username": "cliente@medeats.com",
+            "password": "SecurePassword123!",
+        }
+        response = self.client.post(self.login_url, login_data, format="json")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
     def test_login_alternative_flow_wrong_password(self):
         """Flujo Alternativo: Retorna error con clave incorrecta"""
         login_data = {"username": "cliente_med", "password": "ClaveIncorrecta999"}
