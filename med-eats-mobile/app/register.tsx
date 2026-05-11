@@ -24,6 +24,7 @@ export default function RegisterScreen() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [accountType, setAccountType] = useState<"user" | "restaurant">("user");
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
@@ -48,7 +49,7 @@ export default function RegisterScreen() {
     }
 
     try {
-      await register({ username, email, password });
+      await register({ username, email, password, accountType });
       router.replace("/(tabs)/home");
     } catch (error) {
       const message = extractErrorMessage(error);
@@ -77,6 +78,44 @@ export default function RegisterScreen() {
           <Text style={styles.subtitle}>
             Pick a username and register with your email and password.
           </Text>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Tipo de cuenta</Text>
+            <View style={styles.accountTypeRow}>
+              <Pressable
+                style={[
+                  styles.accountTypeButton,
+                  accountType === "user" ? styles.accountTypeButtonActive : null,
+                ]}
+                onPress={() => setAccountType("user")}
+              >
+                <Text
+                  style={[
+                    styles.accountTypeText,
+                    accountType === "user" ? styles.accountTypeTextActive : null,
+                  ]}
+                >
+                  Usuario
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.accountTypeButton,
+                  accountType === "restaurant" ? styles.accountTypeButtonActive : null,
+                ]}
+                onPress={() => setAccountType("restaurant")}
+              >
+                <Text
+                  style={[
+                    styles.accountTypeText,
+                    accountType === "restaurant" ? styles.accountTypeTextActive : null,
+                  ]}
+                >
+                  Restaurante
+                </Text>
+              </Pressable>
+            </View>
+          </View>
 
           <View style={styles.formGroup}>
             <Text style={styles.label}>Username</Text>
@@ -179,6 +218,31 @@ const styles = StyleSheet.create({
   },
   formGroup: {
     marginBottom: 14,
+  },
+  accountTypeRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  accountTypeButton: {
+    flex: 1,
+    height: 42,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#DFE6E9",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#FBFCFD",
+  },
+  accountTypeButtonActive: {
+    borderColor: "#FF6B35",
+    backgroundColor: "#FFF0EA",
+  },
+  accountTypeText: {
+    color: "#636E72",
+    fontWeight: "600",
+  },
+  accountTypeTextActive: {
+    color: "#FF6B35",
   },
   label: {
     marginBottom: 6,

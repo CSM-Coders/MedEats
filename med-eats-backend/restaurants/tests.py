@@ -301,3 +301,126 @@ class CollectionAPITests(APITestCase):
         self.assertEqual(list_response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(list_response.data), 1)
         self.assertEqual(list_response.data[0]["restaurant"]["id"], self.restaurant.id)
+
+
+class RestaurantAccountManagementTests(APITestCase):
+    def setUp(self):
+        from .models import Restaurant
+
+        self.admin = User.objects.create_user(
+            email="admin@medeats.com",
+            username="admin_med",
+            password="SecurePassword123!",
+            is_staff=True,
+            is_superuser=True,
+        )
+        self.owner_user = User.objects.create_user(
+            email="owner@medeats.com",
+            username="owner_med",
+            password="SecurePassword123!",
+        )
+        self.normal_user = User.objects.create_user(
+            email="user@medeats.com",
+            username="user_med",
+            password="SecurePassword123!",
+        )
+
+        self.owner_user.profile.account_type = "restaurant"
+        self.owner_user.profile.save(update_fields=["account_type", "updated_at"])
+
+        self.restaurant = Restaurant.objects.create(
+            owner=self.owner_user,
+            name="Restaurante Dueño",
+            latitude=6.24,
+            longitude=-75.57,
+            location="Laureles",
+            description="Restaurante para pruebas owner/admin",
+        )
+
+        self.admin_list_url = reverse("admin-restaurant-list-create")
+        self.admin_detail_url = reverse(
+            "admin-restaurant-detail", kwargs={"pk": self.restaurant.id}
+        )
+        self.owner_restaurants_url = reverse("owner-restaurant-list-create")
+        self.owner_branches_url = reverse(
+            "owner-restaurant-branch-list-create",
+            kwargs={"restaurant_id": self.restaurant.id},
+        )
+        self.owner_menu_url = reverse(
+            "owner-restaurant-menu-upload",
+            kwargs={"restaurant_id": self.restaurant.id},
+        )
+        self.owner_reviews_url = reverse("owner-restaurant-reviews")
+
+    def test_admin_can_update_restaurant(self):
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.patch(
+            self.admin_detail_url,
+            {"name": "Restaurante Actualizado Admin"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.restaurant.refresh_from_db()
+        self.assertEqual(self.restaurant.name, "Restaurante Actualizado Admin")
+
+    def test_unauthorized_user_is_blocked_from_admin_restaurant_api(self):
+        self.client.force_authenticate(user=self.normal_user)
+        response = self.client.get(self.admin_list_url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_restaurant_account_can_manage_own_branches_and_menu(self):
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        self.client.force_authenticate(user=self.owner_user)
+
+        create_branch_response = self.client.post(
+            self.owner_branches_url,
+            {
+                "name": "Sede Norte",
+                "address": "Cra 80 # 50-10",
+                "latitude": 6.28,
+                "longitude": -75.56,
+                "is_primary": False,
+            },
+            format="json",
+        )
+        self.assertEqual(create_branch_response.status_code, status.HTTP_201_CREATED)
+
+        menu_file = SimpleUploadedFile(
+            "menu.pdf",
+            b"%PDF-1.4 test menu",
+            content_type="application/pdf",
+        )
+        upload_menu_response = self.client.patch(
+            self.owner_menu_url,
+            {"menu_pdf": menu_file},
+            format="multipart",
+        )
+        self.assertEqual(upload_menu_response.status_code, status.HTTP_200_OK)
+        self.assertTrue(upload_menu_response.data["menu_pdf_url"])
+
+        reviews_response = self.client.get(self.owner_reviews_url)
+        self.assertEqual(reviews_response.status_code, status.HTTP_200_OK)
+
+    def test_restaurant_account_cannot_manage_other_owner_restaurant(self):
+        other_owner = User.objects.create_user(
+            email="other-owner@medeats.com",
+            username="other_owner_med",
+            password="SecurePassword123!",
+        )
+        other_owner.profile.account_type = "restaurant"
+        other_owner.profile.save(update_fields=["account_type", "updated_at"])
+
+        self.client.force_authenticate(user=other_owner)
+        response = self.client.post(
+            self.owner_branches_url,
+            {
+                "name": "Sede Prohibida",
+                "address": "Direccion x",
+                "latitude": 6.1,
+                "longitude": -75.5,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

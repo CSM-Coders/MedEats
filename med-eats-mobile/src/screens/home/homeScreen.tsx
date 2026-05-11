@@ -8,7 +8,7 @@
 // - filtros por categoría, rating y distancia
 // ============================================================
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
@@ -25,6 +25,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import MapViewComponent from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";
 import { HomeFilters, Restaurant } from "@/src/models/domain";
 import { useUserLocation } from "@/src/hooks/useUserLocation";
 import {
@@ -67,7 +68,7 @@ function mapApiRestaurant(item: any): Restaurant {
   return {
     id: String(item.id),
     name: item.name,
-    category: item.category,
+    category: item.category || "Restaurante",
     rating: parseFloat(item.rating) || 0,
     image: item.image,
     latitude: item.latitude,
@@ -77,6 +78,22 @@ function mapApiRestaurant(item: any): Restaurant {
     menuHighlights: item.menu_highlights || [],
     whatsapp: item.whatsapp || "",
   };
+}
+
+function getRestaurantMapPoints(restaurant: Restaurant) {
+  if (restaurant.branches?.length) {
+    return restaurant.branches.map((branch) => ({
+      latitude: branch.latitude,
+      longitude: branch.longitude,
+    }));
+  }
+
+  return [
+    {
+      latitude: restaurant.latitude,
+      longitude: restaurant.longitude,
+    },
+  ];
 }
 
 function getDistanceKmBetween(
@@ -197,22 +214,24 @@ export default function HomeScreen() {
   // código exactamente una vez cuando la pantalla se muestra por primera vez.
   // En lugar de usar los fijos de mockData.ts, pedimos a Django la lista por internet.
   // ============================================================
-  useEffect(() => {
-    const loadRestaurants = async () => {
-      try {
-        const data = await fetchRestaurantsApi();
-        setRestaurants(data.length > 0 ? data : mockRestaurants);
-      } catch (error) {
-        console.error("Error conectando con Django:", error);
-        setRestaurants(mockRestaurants);
-      } finally {
-        // Apagamos el circulito de carga de la pantalla, haya funcionado o fallado.
-        setLoading(false);
-      }
-    };
-
-    loadRestaurants();
+  const loadRestaurants = useCallback(async () => {
+    try {
+      const data = await fetchRestaurantsApi();
+      setRestaurants(data.length > 0 ? data : mockRestaurants);
+    } catch (error) {
+      console.error("Error conectando con Django:", error);
+      setRestaurants(mockRestaurants);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  // Refrescar datos cada vez que el usuario vuelve a la pantalla de inicio
+  useFocusEffect(
+    useCallback(() => {
+      loadRestaurants();
+    }, [loadRestaurants])
+  );
 
   // ============================================================
   // FIX: Cuando el usuario borra el texto de búsqueda MANUALMENTE,
@@ -250,17 +269,23 @@ export default function HomeScreen() {
     );
   }, [searchQuery, restaurants]); // <-- ¡Actualizado! Funciona en tiempo real
 
-  const filteredRestaurants = useMemo(() => {
+  const searchResults = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
+    const flattened: any[] = [];
 
-    return restaurants.filter((restaurant) => {
+    restaurants.forEach((restaurant) => {
+      const name = (restaurant.name || "").toLowerCase();
+      const category = (restaurant.category || "").toLowerCase();
+      const location = (restaurant.location || "").toLowerCase();
+
       const directMatch =
         !query ||
-        restaurant.name.toLowerCase().includes(query) ||
-        restaurant.category.toLowerCase().includes(query);
+        name.includes(query) ||
+        category.includes(query) ||
+        location.includes(query);
 
       const semanticMatch = query
-        ? semanticCategoryMatches(query, restaurant.category)
+        ? semanticCategoryMatches(query, restaurant.category || "")
         : false;
 
       const searchMatch = directMatch || semanticMatch;
@@ -271,37 +296,70 @@ export default function HomeScreen() {
       const ratingMatch =
         !filters.minRating || restaurant.rating >= filters.minRating;
 
-      const originLat = userLocation?.latitude ?? MEDELLIN_REGION.latitude;
-      const originLon = userLocation?.longitude ?? MEDELLIN_REGION.longitude;
-      const distance = getDistanceKm(
-        originLat,
-        originLon,
-        restaurant.latitude,
-        restaurant.longitude
-      );
-      const distanceMatch =
-        !filters.maxDistanceKm || distance <= filters.maxDistanceKm;
+      // Solo procesamos si el restaurante base cumple los filtros de categoría/rating
+      if (searchMatch && categoryMatch && ratingMatch) {
+        const originLat = userLocation?.latitude ?? MEDELLIN_REGION.latitude;
+        const originLon = userLocation?.longitude ?? MEDELLIN_REGION.longitude;
 
-      return searchMatch && categoryMatch && ratingMatch && distanceMatch;
+        // 1. Sede Principal
+        const distMain = getDistanceKm(originLat, originLon, restaurant.latitude, restaurant.longitude);
+        if (!filters.maxDistanceKm || distMain <= filters.maxDistanceKm) {
+          flattened.push({
+            id: `main-${restaurant.id}`,
+            restaurant,
+            name: restaurant.name,
+            location: restaurant.location,
+            latitude: restaurant.latitude,
+            longitude: restaurant.longitude,
+            distance: distMain,
+            isBranch: false,
+          });
+        }
+
+        // 2. Sedes Adicionales
+        (restaurant.branches || []).forEach((branch) => {
+          const distBranch = getDistanceKm(originLat, originLon, branch.latitude, branch.longitude);
+          if (!filters.maxDistanceKm || distBranch <= filters.maxDistanceKm) {
+            flattened.push({
+              id: `branch-${branch.id}`,
+              restaurant,
+              name: `${restaurant.name} (Sede)`,
+              location: branch.address,
+              latitude: branch.latitude,
+              longitude: branch.longitude,
+              distance: distBranch,
+              isBranch: true,
+            });
+          }
+        });
+      }
     });
+
+    return flattened.sort((a, b) => a.distance - b.distance);
   }, [filters, searchQuery, userLocation, restaurants]);
+
+  const filteredRestaurants = useMemo(() => {
+    const uniqueMap = new Map();
+    searchResults.forEach(item => {
+      uniqueMap.set(item.restaurant.id, item.restaurant);
+    });
+    return Array.from(uniqueMap.values());
+  }, [searchResults]);
 
 
   const handleSearchSubmit = () => {
     Keyboard.dismiss();
 
-    // Protección: Si no hay resultados, no intentamos mover la cámara
-    // (fitToCoordinates con array vacío causa un crash en iOS).
-    if (filteredRestaurants.length === 0) {
+    if (searchResults.length === 0) {
       return;
     }
 
-    if (filteredRestaurants.length === 1) {
-      const restaurant = filteredRestaurants[0];
+    if (searchResults.length === 1) {
+      const item = searchResults[0];
       mapRef.current?.animateToRegion(
         {
-          latitude: restaurant.latitude,
-          longitude: restaurant.longitude,
+          latitude: item.latitude,
+          longitude: item.longitude,
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
         },
@@ -311,12 +369,13 @@ export default function HomeScreen() {
     }
 
     // Solo animamos si hay 2 o más resultados válidos
-    if (filteredRestaurants.length >= 2) {
+    if (searchResults.length >= 2) {
+      const mapPoints = searchResults.map((item) => ({
+        latitude: item.latitude,
+        longitude: item.longitude,
+      }));
       mapRef.current?.fitToCoordinates(
-        filteredRestaurants.map((restaurant) => ({
-          latitude: restaurant.latitude,
-          longitude: restaurant.longitude,
-        })),
+        mapPoints,
         {
           edgePadding: { top: 160, right: 50, bottom: 60, left: 50 },
           animated: true,
@@ -325,14 +384,14 @@ export default function HomeScreen() {
     }
   };
 
-  const handleRestaurantPreviewPress = (restaurant: Restaurant) => {
+  const handleLocationPreviewPress = (item: any) => {
     Keyboard.dismiss();
     skipResetRef.current = true;
-    setSelectedRestaurant(restaurant);
+    setSelectedRestaurant(item.restaurant);
     mapRef.current?.animateToRegion(
       {
-        latitude: restaurant.latitude,
-        longitude: restaurant.longitude,
+        latitude: item.latitude,
+        longitude: item.longitude,
         latitudeDelta: 0.01,
         longitudeDelta: 0.01,
       },
@@ -397,10 +456,11 @@ export default function HomeScreen() {
       setFoodieRecommendation(recommendation);
       setSelectedRestaurant(restaurant);
 
+      const points = getRestaurantMapPoints(restaurant);
       mapRef.current?.animateToRegion(
         {
-          latitude: restaurant.latitude,
-          longitude: restaurant.longitude,
+          latitude: points[0].latitude,
+          longitude: points[0].longitude,
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
         },
@@ -424,10 +484,11 @@ export default function HomeScreen() {
       if (recommendation) {
         setFoodieRecommendation(recommendation);
         setSelectedRestaurant(recommendation.restaurant);
+        const points = getRestaurantMapPoints(recommendation.restaurant);
         mapRef.current?.animateToRegion(
           {
-            latitude: recommendation.restaurant.latitude,
-            longitude: recommendation.restaurant.longitude,
+            latitude: points[0].latitude,
+            longitude: points[0].longitude,
             latitudeDelta: 0.01,
             longitudeDelta: 0.01,
           },
@@ -545,12 +606,12 @@ export default function HomeScreen() {
 
         <View style={styles.resultsCount}>
           <Text style={styles.resultsText}>
-            {filteredRestaurants.length} resultado{filteredRestaurants.length === 1 ? "" : "s"}
+            {searchResults.length} {searchResults.length === 1 ? "ubicación" : "ubicaciones"}
           </Text>
           {isAiSearch && <Text style={styles.aiBadge}>AI</Text>}
         </View>
 
-        {searchQuery.trim().length > 0 && filteredRestaurants.length > 0 && (
+        {searchQuery.trim().length > 0 && searchResults.length > 0 && (
           <View style={styles.searchResultsPanel}>
             <Text style={styles.searchResultsTitle}>Resultados</Text>
             <ScrollView
@@ -558,21 +619,23 @@ export default function HomeScreen() {
               keyboardShouldPersistTaps="handled"
               nestedScrollEnabled
             >
-              {filteredRestaurants.slice(0, 6).map((restaurant) => (
+              {searchResults.slice(0, 8).map((item) => (
                 <Pressable
-                  key={restaurant.id}
+                  key={item.id}
                   style={styles.searchResultItem}
-                  onPress={() => handleRestaurantPreviewPress(restaurant)}
+                  onPress={() => handleLocationPreviewPress(item)}
                 >
                   <View style={styles.searchResultTextWrap}>
-                    <Text style={styles.searchResultName}>{restaurant.name}</Text>
+                    <Text style={styles.searchResultName}>{item.name}</Text>
                     <Text style={styles.searchResultMeta}>
-                      {restaurant.category} · {restaurant.location}
+                      {item.restaurant.category} · {item.location}
                     </Text>
                   </View>
                   <View style={styles.searchResultRating}>
                     <Ionicons name="star" size={14} color="#FF6B35" />
-                    <Text style={styles.searchResultRatingText}>{restaurant.rating.toFixed(1)}</Text>
+                    <Text style={styles.searchResultRatingText}>
+                      {item.restaurant.rating.toFixed(1)}
+                    </Text>
                   </View>
                 </Pressable>
               ))}

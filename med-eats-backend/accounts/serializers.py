@@ -10,6 +10,11 @@ class RegisterSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150)
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True, min_length=8)
+    account_type = serializers.ChoiceField(
+        choices=UserProfile.ACCOUNT_TYPE_CHOICES,
+        required=False,
+        default=UserProfile.ACCOUNT_TYPE_USER,
+    )
 
     def validate_username(self, value):
         normalized = value.strip()
@@ -24,17 +29,25 @@ class RegisterSerializer(serializers.Serializer):
         return normalized
 
     def create(self, validated_data):
+        account_type = validated_data.pop(
+            "account_type", UserProfile.ACCOUNT_TYPE_USER
+        )
         user = User.objects.create_user(
             username=validated_data["username"],
             email=validated_data["email"],
             password=validated_data["password"],
         )
-        UserProfile.objects.get_or_create(user=user)
+        profile, _ = UserProfile.objects.get_or_create(user=user)
+        if profile.account_type != account_type:
+            profile.account_type = account_type
+            profile.save(update_fields=["account_type", "updated_at"])
         return user
 
 
 class UserSerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()
+    account_type = serializers.CharField(source="profile.account_type", read_only=True)
+    is_restaurant_account = serializers.SerializerMethodField()
     avatar_url = serializers.CharField(source="profile.avatar_url", read_only=True)
     bio = serializers.CharField(source="profile.bio", read_only=True)
     location = serializers.CharField(source="profile.location", read_only=True)
@@ -50,6 +63,8 @@ class UserSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "name",
+            "account_type",
+            "is_restaurant_account",
             "avatar_url",
             "bio",
             "location",
@@ -74,17 +89,26 @@ class UserSerializer(serializers.ModelSerializer):
     def get_following_count(self, obj):
         return obj.following_relationships.count()
 
+    def get_is_restaurant_account(self, obj):
+        profile = getattr(obj, "profile", None)
+        if not profile:
+            return False
+
+        return profile.account_type == UserProfile.ACCOUNT_TYPE_RESTAURANT
+
 
 class UserProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = UserProfile
-        fields = ["display_name", "avatar_url", "bio", "location"]
+        fields = ["display_name", "avatar_url", "bio", "location", "account_type"]
 
 
 class PublicProfileSerializer(serializers.ModelSerializer):
     user_id = serializers.CharField(source="user.id", read_only=True)
     username = serializers.CharField(source="user.username", read_only=True)
     name = serializers.SerializerMethodField()
+    account_type = serializers.CharField(read_only=True)
+    is_restaurant_account = serializers.SerializerMethodField()
     followers_count = serializers.SerializerMethodField()
     following_count = serializers.SerializerMethodField()
     is_following = serializers.SerializerMethodField()
@@ -98,6 +122,8 @@ class PublicProfileSerializer(serializers.ModelSerializer):
             "user_id",
             "username",
             "name",
+            "account_type",
+            "is_restaurant_account",
             "display_name",
             "avatar_url",
             "bio",
@@ -139,6 +165,9 @@ class PublicProfileSerializer(serializers.ModelSerializer):
             return False
 
         return obj.user.follower_relationships.filter(follower=request.user).exists()
+
+    def get_is_restaurant_account(self, obj):
+        return obj.account_type == UserProfile.ACCOUNT_TYPE_RESTAURANT
 
 
 class UserSummarySerializer(serializers.ModelSerializer):

@@ -10,9 +10,11 @@ import {
   View,
   Alert,
   ActivityIndicator,
+  Linking,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCallback, useEffect, useState } from "react";
+import MapView, { Marker } from "react-native-maps";
 import { Restaurant, Review } from "../../models/domain";
 import { useAuth } from "../../context/auth-context";
 import {
@@ -176,7 +178,7 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
               try {
                 await deleteReview(accessToken, reviewId);
                 loadReviews();
-              } catch (error) {
+              } catch {
                 Alert.alert("Error", "No se pudo eliminar la reseña.");
               }
             }
@@ -184,6 +186,21 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
         },
       ]
     );
+  };
+
+  const handleOpenMenuPdf = async () => {
+    if (!restaurant.menuPdfUrl) {
+      Alert.alert("Menú no disponible", "Este restaurante aún no ha cargado su menú PDF.");
+      return;
+    }
+
+    const canOpen = await Linking.canOpenURL(restaurant.menuPdfUrl);
+    if (!canOpen) {
+      Alert.alert("No se pudo abrir", "No fue posible abrir el menú en este dispositivo.");
+      return;
+    }
+
+    await Linking.openURL(restaurant.menuPdfUrl);
   };
 
   return (
@@ -232,10 +249,50 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
 
           <Text style={styles.description}>{restaurant.description}</Text>
 
+          {restaurant.branches?.length ? (
+            <View style={styles.branchesSection}>
+              <Text style={styles.sectionTitle}>Sedes en el mapa</Text>
+              <Text style={styles.branchesHelp}>
+                Aquí verás las sedes registradas por el restaurante. Toca un pin para ubicarlas.
+              </Text>
+              <MapView
+                style={styles.branchesMap}
+                initialRegion={{
+                  latitude: restaurant.branches[0].latitude,
+                  longitude: restaurant.branches[0].longitude,
+                  latitudeDelta: 0.04,
+                  longitudeDelta: 0.04,
+                }}
+              >
+                {restaurant.branches.map((branch) => (
+                  <Marker
+                    key={branch.id}
+                    coordinate={{ latitude: branch.latitude, longitude: branch.longitude }}
+                    title={branch.name}
+                    description={branch.address}
+                    pinColor={branch.isPrimary ? "#FF6B35" : "#1D4ED8"}
+                  />
+                ))}
+              </MapView>
+
+              <View style={styles.branchList}>
+                {restaurant.branches.map((branch) => (
+                  <View key={branch.id} style={styles.branchItem}>
+                    <View style={styles.branchItemHeader}>
+                      <Text style={styles.branchName}>{branch.name}</Text>
+                      {branch.isPrimary ? <Text style={styles.primaryBadge}>Principal</Text> : null}
+                    </View>
+                    <Text style={styles.branchAddress}>{branch.address}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
           {/* View Menu Button */}
-          <Pressable style={styles.viewMenuButton}>
+          <Pressable style={styles.viewMenuButton} onPress={handleOpenMenuPdf}>
             <Ionicons name="list" size={22} color="#FFFFFF" />
-            <Text style={styles.viewMenuText}>Ver Menú</Text>
+            <Text style={styles.viewMenuText}>Ver menú PDF</Text>
           </Pressable>
 
           {/* ================= REVIEWS SECTION ================= */}
@@ -393,6 +450,47 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: "#636E72",
     marginBottom: 28,
+  },
+  branchesSection: {
+    marginBottom: 28,
+  },
+  branchesHelp: {
+    color: "#636E72",
+    fontSize: 13,
+    marginBottom: 12,
+  },
+  branchesMap: {
+    width: "100%",
+    height: 220,
+    borderRadius: 16,
+    marginBottom: 14,
+  },
+  branchList: {
+    gap: 10,
+  },
+  branchItem: {
+    backgroundColor: "#F8F9FA",
+    borderRadius: 12,
+    padding: 12,
+  },
+  branchItemHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  branchName: {
+    fontWeight: "700",
+    color: "#2D3436",
+  },
+  primaryBadge: {
+    color: "#FF6B35",
+    fontWeight: "700",
+    fontSize: 12,
+  },
+  branchAddress: {
+    color: "#636E72",
+    fontSize: 13,
   },
   viewMenuButton: {
     backgroundColor: "#FF6B35",

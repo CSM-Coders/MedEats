@@ -10,6 +10,7 @@ export type RegisterCredentials = {
   username: string;
   email: string;
   password: string;
+  accountType?: "user" | "restaurant";
 };
 
 export type AuthSession = {
@@ -44,6 +45,8 @@ type ApiUser = {
   id: number | string;
   username: string;
   email?: string;
+  account_type?: "user" | "restaurant";
+  is_restaurant_account?: boolean;
   first_name?: string;
   last_name?: string;
   name?: string;
@@ -52,6 +55,9 @@ type ApiUser = {
   location?: string;
   followers_count?: number;
   following_count?: number;
+  posts_count?: number;
+  saved_count?: number;
+  visited_count?: number;
 };
 
 type AuthResponse = {
@@ -159,6 +165,7 @@ export async function registerWithEmailAndPassword(
       username: credentials.username.trim(),
       email: credentials.email.trim().toLowerCase(),
       password: credentials.password,
+      account_type: credentials.accountType ?? "user",
     }),
   });
 
@@ -195,22 +202,33 @@ export async function fetchMyPublicProfile(accessToken: string): Promise<AppUser
     user_id: string | number;
     username: string;
     name?: string;
+    account_type?: "user" | "restaurant";
+    is_restaurant_account?: boolean;
     avatar_url?: string;
     bio?: string;
     location?: string;
     followers_count?: number;
     following_count?: number;
+    posts_count?: number;
+    saved_count?: number;
+    visited_count?: number;
   };
 
   return {
     id: String(payload.user_id),
     username: payload.username,
     name: payload.name || payload.username,
+    accountType: payload.account_type ?? "user",
+    isRestaurantAccount:
+      payload.is_restaurant_account ?? payload.account_type === "restaurant",
     avatarUrl: payload.avatar_url,
     bio: payload.bio ?? "",
     location: payload.location ?? "",
     followers: Number(payload.followers_count) || 0,
     following: Number(payload.following_count) || 0,
+    posts: Number(payload.posts_count) || 0,
+    savedCount: Number(payload.saved_count) || 0,
+    visitedCount: Number(payload.visited_count) || 0,
   };
 }
 
@@ -238,11 +256,16 @@ export async function updateMyProfile(
         user_id?: string | number;
         username?: string;
         name?: string;
+        account_type?: "user" | "restaurant";
+        is_restaurant_account?: boolean;
         avatar_url?: string;
         bio?: string;
         location?: string;
         followers_count?: number;
         following_count?: number;
+          posts_count?: number;
+          saved_count?: number;
+          visited_count?: number;
       }
     | null;
 
@@ -254,11 +277,17 @@ export async function updateMyProfile(
     id: String(parsed.user_id),
     username: parsed.username,
     name: parsed.name || parsed.username,
+    accountType: parsed.account_type ?? "user",
+    isRestaurantAccount:
+      parsed.is_restaurant_account ?? parsed.account_type === "restaurant",
     avatarUrl: parsed.avatar_url,
     bio: parsed.bio ?? "",
     location: parsed.location ?? "",
     followers: Number(parsed.followers_count) || 0,
     following: Number(parsed.following_count) || 0,
+    posts: Number(parsed.posts_count) || 0,
+    savedCount: Number(parsed.saved_count) || 0,
+    visitedCount: Number(parsed.visited_count) || 0,
   };
 }
 
@@ -411,11 +440,17 @@ function normalizeUser(user: ApiUser): AppUser {
     username: user.username,
     name: user.name || displayName || user.username,
     email: user.email,
+    accountType: user.account_type ?? "user",
+    isRestaurantAccount:
+      user.is_restaurant_account ?? user.account_type === "restaurant",
     avatarUrl: user.avatar_url,
     bio: user.bio ?? "",
     location: user.location ?? "",
     followers: Number(user.followers_count) || 0,
     following: Number(user.following_count) || 0,
+    posts: Number(user.posts_count) || 0,
+    savedCount: Number(user.saved_count) || 0,
+    visitedCount: Number(user.visited_count) || 0,
   };
 }
 

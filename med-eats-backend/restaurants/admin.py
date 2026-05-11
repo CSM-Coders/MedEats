@@ -5,6 +5,7 @@ from .models import (
     PostComment,
     PostLike,
     Restaurant,
+    RestaurantBranch,
     Review,
     SavedRestaurant,
     VisitedRestaurant,
@@ -34,13 +35,20 @@ class CategoryAdmin(admin.ModelAdmin):
 @admin.register(Restaurant)
 class RestaurantAdmin(admin.ModelAdmin):
     # En un restaurante nos interesa ver un resumen rápido antes de entrar al detalle.
-    list_display = ("name", "category", "rating", "location")
+    list_display = ("name", "owner", "category", "rating", "location")
 
     # list_filter: Crea un panel lateral que te permite filtrar (ej: "Mostrar solo comida italiana").
-    list_filter = ("category",)
+    list_filter = ("category", "owner")
 
     # search_fields: Permite buscar restaurantes escribiendo su nombre o ubicación.
-    search_fields = ("name", "location")
+    search_fields = ("name", "location", "owner__username")
+
+
+@admin.register(RestaurantBranch)
+class RestaurantBranchAdmin(admin.ModelAdmin):
+    list_display = ("restaurant", "address", "is_primary")
+    list_filter = ("is_primary", "restaurant")
+    search_fields = ("address", "restaurant__name")
 
 
 @admin.register(Review)

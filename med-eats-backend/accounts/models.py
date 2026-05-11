@@ -6,10 +6,23 @@ from django.dispatch import receiver
 
 
 class UserProfile(models.Model):
+    ACCOUNT_TYPE_USER = "user"
+    ACCOUNT_TYPE_RESTAURANT = "restaurant"
+    ACCOUNT_TYPE_CHOICES = [
+        (ACCOUNT_TYPE_USER, "User"),
+        (ACCOUNT_TYPE_RESTAURANT, "Restaurant"),
+    ]
+
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="profile",
+    )
+    account_type = models.CharField(
+        max_length=20,
+        choices=ACCOUNT_TYPE_CHOICES,
+        default=ACCOUNT_TYPE_USER,
+        db_index=True,
     )
     display_name = models.CharField(max_length=150, blank=True)
     avatar_url = models.URLField(max_length=500, blank=True)

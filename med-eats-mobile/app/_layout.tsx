@@ -37,7 +37,7 @@ function AuthGate() {
     }
 
     if (isAuthenticated && isPublicRoute) {
-      router.replace('/(tabs)/home');
+      router.replace('/home');
     }
   }, [isAuthenticated, isHydrating, pathname, router]);
 

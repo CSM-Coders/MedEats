@@ -1,4 +1,4 @@
-import { forwardRef } from "react";
+import React, { forwardRef } from "react";
 import { StyleSheet } from "react-native";
 import MapViewComponent, { Marker } from "react-native-maps";
 import { Restaurant } from "@/src/models/domain";
@@ -42,17 +42,35 @@ const MapView = forwardRef<MapViewComponent, Props>(
         {/* La key incluye restaurants.length para forzar a iOS a redibujar
             los marcadores cuando cambia la lista (fix de bug de react-native-maps) */}
         {restaurants.map((restaurant) => (
-          <Marker
-            key={`${restaurant.id}-${restaurants.length}`}
-            coordinate={{
-              latitude: restaurant.latitude,
-              longitude: restaurant.longitude,
-            }}
-            title={restaurant.name}
-            description={restaurant.category}
-            pinColor="#FF6B35"
-            onPress={() => onMarkerPress(restaurant)}
-          />
+          <React.Fragment key={`group-${restaurant.id}-${restaurants.length}`}>
+            {/* 1. Marcador Principal del Restaurante */}
+            <Marker
+              key={`main-${restaurant.id}`}
+              coordinate={{
+                latitude: restaurant.latitude,
+                longitude: restaurant.longitude,
+              }}
+              title={restaurant.name}
+              description={restaurant.location}
+              pinColor="#FF6B35"
+              onPress={() => onMarkerPress(restaurant)}
+            />
+
+            {/* 2. Marcadores de sus Sedes Adicionales */}
+            {(restaurant.branches || []).map((branch) => (
+              <Marker
+                key={`branch-${branch.id}`}
+                coordinate={{
+                  latitude: branch.latitude,
+                  longitude: branch.longitude,
+                }}
+                title={`${restaurant.name} (Sede)`}
+                description={branch.address}
+                pinColor="#1D4ED8"
+                onPress={() => onMarkerPress(restaurant)}
+              />
+            ))}
+          </React.Fragment>
         ))}
       </MapViewComponent>
     );

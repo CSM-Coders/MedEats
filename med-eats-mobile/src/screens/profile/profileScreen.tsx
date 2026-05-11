@@ -30,7 +30,6 @@ export default function ProfileScreen() {
   const [activeTab, setActiveTab] = useState<TabType>("posts");
   const [savedRestaurants, setSavedRestaurants] = useState<SavedRestaurantRecord[]>([]);
   const [visitedRestaurants, setVisitedRestaurants] = useState<VisitedRestaurantRecord[]>([]);
-  const [collectionsLoading, setCollectionsLoading] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -40,7 +39,6 @@ export default function ProfileScreen() {
           return;
         }
 
-        setCollectionsLoading(true);
         try {
           await refreshProfile();
           const [saved, visited] = await Promise.all([
@@ -53,8 +51,6 @@ export default function ProfileScreen() {
         } catch {
           setSavedRestaurants([]);
           setVisitedRestaurants([]);
-        } finally {
-          setCollectionsLoading(false);
         }
       };
 
@@ -121,9 +117,18 @@ export default function ProfileScreen() {
           <Pressable style={styles.secondaryButton} onPress={() => router.push("/profile")}>
             <Text style={styles.secondaryButtonText}>Edit Profile</Text>
           </Pressable>
-          <Pressable style={styles.secondaryButton}>
-            <Text style={styles.secondaryButtonText}>Share Profile</Text>
-          </Pressable>
+          {user.isRestaurantAccount ? (
+            <Pressable
+              style={styles.secondaryButton}
+              onPress={() => router.push("/my-restaurant")}
+            >
+              <Text style={styles.secondaryButtonText}>Mi Restaurante</Text>
+            </Pressable>
+          ) : (
+            <Pressable style={styles.secondaryButton}>
+              <Text style={styles.secondaryButtonText}>Share Profile</Text>
+            </Pressable>
+          )}
         </View>
 
         <View style={styles.tabsBar}>
