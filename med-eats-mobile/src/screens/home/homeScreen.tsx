@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -186,6 +187,9 @@ function rankLocalFoodieMatch(
 export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [navigationData, setNavigationData] = useState<{ distance: number; duration: number } | null>(null);
+  const [navigationState, setNavigationState] = useState<"discovery" | "preview" | "active">("discovery");
   const [showFilters, setShowFilters] = useState(false);
   // `filters` = filtros APLICADOS al mapa (solo cambian al presionar "Buscar")
   // `stagedFilters` = filtros SELECCIONADOS en el panel (pueden cambiar sin afectar el mapa)
@@ -384,19 +388,71 @@ export default function HomeScreen() {
     }
   };
 
-  const handleLocationPreviewPress = (item: any) => {
+  const handleShowRoute = (restaurant: Restaurant) => {
     Keyboard.dismiss();
-    skipResetRef.current = true;
-    setSelectedRestaurant(item.restaurant);
-    mapRef.current?.animateToRegion(
+    setNavigationState("preview");
+    
+    const destLat = selectedLocation?.latitude ?? restaurant.latitude;
+    const destLon = selectedLocation?.longitude ?? restaurant.longitude;
+    
+    if (!selectedLocation) {
+      setSelectedLocation({ latitude: destLat, longitude: destLon });
+    }
+
+    const userLat = userLocation?.latitude ?? MEDELLIN_REGION.latitude;
+    const userLon = userLocation?.longitude ?? MEDELLIN_REGION.longitude;
+
+    mapRef.current?.fitToCoordinates(
+      [
+        { latitude: userLat, longitude: userLon },
+        { latitude: destLat, longitude: destLon }
+      ],
       {
-        latitude: item.latitude,
-        longitude: item.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
-      },
-      700
+        edgePadding: { top: 100, right: 100, bottom: 400, left: 100 },
+        animated: true,
+      }
     );
+  };
+
+  const handleStartNavigation = () => {
+    setNavigationState("active");
+    const userLat = userLocation?.latitude ?? MEDELLIN_REGION.latitude;
+    const userLon = userLocation?.longitude ?? MEDELLIN_REGION.longitude;
+
+    // En modo navegación real, el usuario suele estar un poco más abajo del centro
+    // para ver más camino adelante. Ajustamos ligeramente la latitud visual.
+    mapRef.current?.animateCamera({
+      center: { 
+        latitude: userLat + 0.001, // Desplazamos la cámara un poco hacia adelante
+        longitude: userLon 
+      },
+      pitch: 60,
+      heading: 0,
+      altitude: 500,
+      zoom: 19,
+    }, { duration: 1000 });
+  };
+
+  const handleExitNavigation = () => {
+    // Primero detenemos cualquier animación de navegación
+    const latitude = userLocation?.latitude ?? MEDELLIN_REGION.latitude;
+    const longitude = userLocation?.longitude ?? MEDELLIN_REGION.longitude;
+
+    if (mapRef.current) {
+      mapRef.current.animateCamera({
+        center: { latitude, longitude },
+        pitch: 0,
+        heading: 0,
+        altitude: 15000,
+        zoom: 13,
+      }, { duration: 800 });
+    }
+
+    // Limpiamos los estados de navegación
+    setNavigationState("discovery");
+    setNavigationData(null);
+    setSelectedRestaurant(null);
+    setSelectedLocation(null);
   };
 
   const runFoodieSearch = async (question: string): Promise<FoodieRecommendation | null> => {
@@ -530,6 +586,7 @@ export default function HomeScreen() {
 
   const clearSearchAndFilters = () => {
     setSelectedRestaurant(null);
+    setSelectedLocation(null);
     setFoodieRecommendation(null);
     Keyboard.dismiss();
     setSearchQuery("");
@@ -551,7 +608,14 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.container}>
-      <Pressable style={styles.container} onPress={() => setSelectedRestaurant(null)}>
+      <Pressable 
+        style={styles.container} 
+        onPress={() => {
+          if (navigationState === "discovery") {
+            setSelectedRestaurant(null);
+          }
+        }}
+      >
         {/* Cuando hay filtros activos, mostramos solo los restaurantes que coincidan.
             Cuando no hay filtros, mostramos TODOS para que ninún pin desaparezca. */}
         <MapView
@@ -561,12 +625,25 @@ export default function HomeScreen() {
               ? filteredRestaurants
               : restaurants
           }
-          onMarkerPress={setSelectedRestaurant}
+          onMarkerPress={(restaurant, location) => {
+            if (navigationState === "active") return;
+            setSelectedRestaurant(restaurant);
+            setSelectedLocation(location || { latitude: restaurant.latitude, longitude: restaurant.longitude });
+          }}
+          origin={userLocation}
+          destination={selectedLocation}
+          onDirectionsReady={(result) => {
+            setNavigationData({
+              distance: result.distance,
+              duration: result.duration
+            });
+          }}
         />
       </Pressable>
 
-      <View style={[styles.searchContainer, { top: insets.top + 8 }]}>
-        <View style={styles.searchBar}>
+      {navigationState === "discovery" && (
+        <View style={[styles.searchContainer, { top: insets.top + 8 }]}>
+          <View style={styles.searchBar}>
           <Ionicons name="search" size={20} color="#636E72" />
           <TextInput
             style={styles.searchInput}
@@ -760,33 +837,104 @@ export default function HomeScreen() {
           </View>
         )}
       </View>
+    )}
 
       <Pressable
-        style={styles.locationButton}
+        style={[
+          styles.locationButton,
+          navigationState === "active" 
+            ? { top: insets.top + 20, right: 20, bottom: undefined } 
+            : { bottom: 32, right: 16 }
+        ]}
         onPress={() => {
           const latitude = userLocation?.latitude ?? MEDELLIN_REGION.latitude;
           const longitude = userLocation?.longitude ?? MEDELLIN_REGION.longitude;
 
-          mapRef.current?.animateToRegion(
-            {
-              latitude,
-              longitude,
-              latitudeDelta: 0.015,
-              longitudeDelta: 0.015,
-            },
-            700
-          );
+          if (navigationState === "active") {
+            handleStartNavigation(); // Recentra la vista de conducción
+          } else {
+            mapRef.current?.animateToRegion(
+              {
+                latitude,
+                longitude,
+                latitudeDelta: 0.015,
+                longitudeDelta: 0.015,
+              },
+              700
+            );
+          }
         }}
       >
-        <Ionicons name="navigate" size={22} color="#FF6B35" />
+        <Ionicons 
+          name={navigationState === "active" ? "locate" : "navigate"} 
+          size={24} 
+          color="#FF6B35" 
+        />
       </Pressable>
 
-      {selectedRestaurant && (
+      {selectedRestaurant && navigationState === "discovery" && (
         <View style={styles.cardContainer}>
           <RestaurantCard
             restaurant={selectedRestaurant}
-            onClose={() => setSelectedRestaurant(null)}
+            onClose={() => {
+              setSelectedRestaurant(null);
+              setSelectedLocation(null);
+              setNavigationData(null);
+            }}
+            onShowRoute={() => handleShowRoute(selectedRestaurant)}
           />
+        </View>
+      )}
+
+      {/* PREVIEW HUD - LA PRIMERA IMAGEN (TODA LA RUTA) */}
+      {selectedRestaurant && selectedLocation && navigationState === "preview" && (
+        <View style={[styles.navHud, { bottom: insets.bottom + 20 }]}>
+          {!navigationData ? (
+            <View style={styles.navLoading}>
+              <ActivityIndicator size="small" color="#FF6B35" />
+              <Text style={styles.navLoadingText}>Trazando ruta...</Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.navInfo}>
+                <View>
+                  <Text style={styles.navTime}>{Math.round(navigationData.duration)} min</Text>
+                  <Text style={styles.navDistance}>{navigationData.distance.toFixed(1)} km</Text>
+                </View>
+                <View style={styles.navDestWrap}>
+                  <Text style={styles.navDestLabel}>Hacia</Text>
+                  <Text style={styles.navDestName} numberOfLines={1}>{selectedRestaurant.name}</Text>
+                </View>
+              </View>
+
+              <View style={styles.navActions}>
+                <Pressable style={styles.startNavBtn} onPress={handleStartNavigation}>
+                  <Ionicons name="navigate" size={24} color="#fff" />
+                  <Text style={styles.startNavText}>Iniciar viaje</Text>
+                </Pressable>
+                
+                <Pressable style={styles.exitNavBtn} onPress={handleExitNavigation}>
+                  <Text style={styles.exitNavText}>Cancelar</Text>
+                </Pressable>
+              </View>
+            </>
+          )}
+        </View>
+      )}
+
+      {/* ACTIVE NAVIGATION HUD - LA SEGUNDA IMAGEN (NAVEGANDO) */}
+      {selectedRestaurant && navigationData && navigationState === "active" && (
+        <View style={[styles.activeNavHud, { bottom: insets.bottom + 20 }]}>
+          <View style={styles.activeNavContent}>
+             <View style={styles.activeNavStats}>
+                <Text style={styles.activeNavTime}>{Math.round(navigationData.duration)} min</Text>
+                <Text style={styles.activeNavDistance}>{navigationData.distance.toFixed(1)} km</Text>
+             </View>
+             
+             <Pressable style={styles.activeExitBtn} onPress={handleExitNavigation}>
+                <Text style={styles.activeExitText}>Salir</Text>
+             </Pressable>
+          </View>
         </View>
       )}
 
@@ -978,6 +1126,168 @@ const styles = StyleSheet.create({
   chipTextActive: {
     color: "#FF6B35",
     fontWeight: "600",
+  },
+  exitNavText: {
+    color: "#FF6B35",
+    fontWeight: "700",
+    fontSize: 16,
+  },
+  // NAVEGACIÓN HUD
+  navHud: {
+    position: "absolute",
+    left: 20,
+    right: 20,
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  navInfo: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F2F6",
+    paddingBottom: 15,
+  },
+  navTime: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#2D3436",
+  },
+  navDistance: {
+    fontSize: 16,
+    color: "#636E72",
+    fontWeight: "600",
+  },
+  navDestWrap: {
+    alignItems: "flex-end",
+    flex: 1,
+    marginLeft: 20,
+  },
+  navDestLabel: {
+    fontSize: 12,
+    color: "#B2BEC3",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  navDestName: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#FF6B35",
+  },
+  navLoading: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 10,
+    gap: 12,
+  },
+  navLoadingText: {
+    fontSize: 16,
+    color: "#636E72",
+    fontWeight: "500",
+  },
+  navActions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  startNavBtn: {
+    flex: 2,
+    backgroundColor: "#FF6B35",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 15,
+    borderRadius: 16,
+    gap: 8,
+  },
+  startNavText: {
+    color: "#fff",
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  exitNavBtn: {
+    flex: 1,
+    backgroundColor: "#FFF1EC",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 15,
+    borderRadius: 16,
+  },
+  exitNavBtnSmall: {
+    backgroundColor: "#FAB1A0",
+  },
+  navProgress: {
+    flex: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F1F2F6",
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    gap: 10,
+  },
+  navProgressPulse: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: "#00B894",
+  },
+  navProgressText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#2D3436",
+  },
+  // ACTIVE NAV HUD (GOOGLE MAPS STYLE)
+  activeNavHud: {
+    position: "absolute",
+    left: 20,
+    right: 20,
+    backgroundColor: "#fff",
+    borderRadius: 40,
+    paddingHorizontal: 25,
+    paddingVertical: 15,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  activeNavContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  activeNavStats: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 15,
+  },
+  activeNavTime: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#2D3436",
+  },
+  activeNavDistance: {
+    fontSize: 18,
+    color: "#636E72",
+    fontWeight: "600",
+  },
+  activeExitBtn: {
+    backgroundColor: "#FF4757",
+    paddingHorizontal: 25,
+    paddingVertical: 12,
+    borderRadius: 25,
+  },
+  activeExitText: {
+    color: "#fff",
+    fontWeight: "800",
+    fontSize: 15,
   },
   locationButton: {
     position: "absolute",

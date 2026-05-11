@@ -1,18 +1,28 @@
 import React, { forwardRef } from "react";
 import { StyleSheet } from "react-native";
-import MapViewComponent, { Marker } from "react-native-maps";
+import MapViewComponent, { Marker, Polyline } from "react-native-maps";
+import MapViewDirections from "react-native-maps-directions";
 import { Restaurant } from "@/src/models/domain";
 import { MEDELLIN_REGION } from "@/src/services/mockData";
+import { GOOGLE_MAPS_API_KEY } from "@/src/config/maps";
 
 // ============================================================
 // Props: datos que este componente recibe desde su padre
 // ============================================================
 // - restaurants: la lista de restaurantes a mostrar como marcadores
 // - onMarkerPress: función que se ejecuta al tocar un marcador
+// - origin: coordenadas de origen (opcional)
+// - destination: coordenadas de destino (opcional)
 // ============================================================
 type Props = {
   restaurants: Restaurant[];
-  onMarkerPress: (restaurant: Restaurant) => void;
+  onMarkerPress: (
+    restaurant: Restaurant,
+    location?: { latitude: number; longitude: number }
+  ) => void;
+  origin?: { latitude: number; longitude: number } | null;
+  destination?: { latitude: number; longitude: number } | null;
+  onDirectionsReady?: (result: any) => void;
 };
 
 // ============================================================
@@ -27,17 +37,31 @@ type Props = {
 //   mapRef.current.animateToRegion(nuevaRegion);
 // ============================================================
 const MapView = forwardRef<MapViewComponent, Props>(
-  ({ restaurants, onMarkerPress }, ref) => {
+  ({ restaurants, onMarkerPress, origin, destination, onDirectionsReady }, ref) => {
     return (
       <MapViewComponent
         ref={ref}
         style={styles.map}
-        // Región inicial: centrada en Medellín
         initialRegion={MEDELLIN_REGION}
-        // Muestra el botón "Mi Ubicación" (requiere permisos)
         showsUserLocation
         showsMyLocationButton={false}
       >
+        {/* Trazado de la ruta al estilo Whoosh */}
+        {origin && destination && (
+          <MapViewDirections
+            origin={origin}
+            destination={destination}
+            apikey={GOOGLE_MAPS_API_KEY}
+            strokeWidth={4}
+            strokeColor="#FF6B35"
+            optimizeWaypoints={true}
+            onReady={(result) => {
+              if (onDirectionsReady) onDirectionsReady(result);
+              console.log(`Distancia: ${result.distance} km`);
+              console.log(`Duración: ${result.duration} min.`);
+            }}
+          />
+        )}
         {/* Recorremos cada restaurante y creamos un marcador en el mapa */}
         {/* La key incluye restaurants.length para forzar a iOS a redibujar
             los marcadores cuando cambia la lista (fix de bug de react-native-maps) */}
@@ -53,7 +77,10 @@ const MapView = forwardRef<MapViewComponent, Props>(
               title={restaurant.name}
               description={restaurant.location}
               pinColor="#FF6B35"
-              onPress={() => onMarkerPress(restaurant)}
+              onPress={() => onMarkerPress(restaurant, {
+                latitude: restaurant.latitude,
+                longitude: restaurant.longitude
+              })}
             />
 
             {/* 2. Marcadores de sus Sedes Adicionales */}
@@ -67,7 +94,10 @@ const MapView = forwardRef<MapViewComponent, Props>(
                 title={`${restaurant.name} (Sede)`}
                 description={branch.address}
                 pinColor="#1D4ED8"
-                onPress={() => onMarkerPress(restaurant)}
+                onPress={() => onMarkerPress(restaurant, {
+                  latitude: branch.latitude,
+                  longitude: branch.longitude
+                })}
               />
             ))}
           </React.Fragment>

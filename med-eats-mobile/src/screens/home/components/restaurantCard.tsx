@@ -9,6 +9,7 @@ import { Restaurant } from "@/src/models/domain";
 type Props = {
   restaurant: Restaurant;
   onClose: () => void;
+  onShowRoute: () => void;
 };
 
 // Función helper para renderizar las estrellas de rating
@@ -38,7 +39,7 @@ function RatingStars({ rating }: { rating: number }) {
   );
 }
 
-export default function RestaurantCard({ restaurant, onClose }: Props) {
+export default function RestaurantCard({ restaurant, onClose, onShowRoute }: Props) {
   return (
     <View style={styles.card}>
       {/* Imagen del restaurante */}
@@ -54,16 +55,27 @@ export default function RestaurantCard({ restaurant, onClose }: Props) {
         <RatingStars rating={restaurant.rating} />
         <Text style={styles.category}>{restaurant.category}</Text>
 
-        {/* Botón "Ver Detalles" — navega a la pantalla del restaurante */}
-        <Pressable
-          style={styles.detailsButton}
-          onPress={() => {
-            onClose(); // Cerramos la tarjeta primero
-            router.push(`/restaurant/${restaurant.id}`);
-          }}
-        >
-          <Text style={styles.detailsButtonText}>Ver Detalles</Text>
-        </Pressable>
+        <View style={styles.buttonGroup}>
+          {/* Botón "Ver Detalles" — navega a la pantalla del restaurante */}
+          <Pressable
+            style={styles.detailsButton}
+            onPress={() => {
+              onClose(); // Cerramos la tarjeta primero
+              router.push(`/restaurant/${restaurant.id}`);
+            }}
+          >
+            <Text style={styles.detailsButtonText}>Ver Detalles</Text>
+          </Pressable>
+
+          {/* Botón "Cómo llegar" — abre mapas externos */}
+          <Pressable
+            style={styles.navigationButton}
+            onPress={onShowRoute}
+          >
+            <Ionicons name="navigate-circle" size={20} color="#FFFFFF" />
+            <Text style={styles.navigationButtonText}>Cómo llegar</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -110,6 +122,9 @@ const styles = StyleSheet.create({
     color: "#636E72",
     marginBottom: 12,
   },
+  buttonGroup: {
+    gap: 8,                         // Espacio entre los dos botones
+  },
   detailsButton: {
     backgroundColor: "#FF6B35",
     paddingVertical: 12,
@@ -117,6 +132,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   detailsButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  navigationButton: {
+    backgroundColor: "#2D3436",     // Color oscuro elegante para diferenciar
+    paddingVertical: 12,
+    borderRadius: 24,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  navigationButtonText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
