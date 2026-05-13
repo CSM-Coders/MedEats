@@ -18,16 +18,29 @@ type PostApiItem = {
 };
 
 function mapPost(item: PostApiItem): Post {
+  const userAvatar = item.user_avatar
+    ? /^https?:\/\//i.test(item.user_avatar)
+      ? item.user_avatar
+      : item.user_avatar.startsWith("/")
+      ? `${API_BASE_URL}${item.user_avatar}`
+      : `${API_BASE_URL}/${item.user_avatar}`
+    : "";
+
+  // Normalize image: if relative path, prefix API
+  let imageUrl = item.image || "";
+  if (imageUrl && !/^https?:\/\//i.test(imageUrl)) {
+    imageUrl = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
+    imageUrl = `${API_BASE_URL}${imageUrl}`;
+  }
+
   return {
     id: String(item.id),
     userId: String(item.user_id),
     username: item.username,
-    userAvatar:
-      item.user_avatar ||
-      "https://images.unsplash.com/photo-1614436201459-156d322d38c6?w=200",
+    userAvatar,
     restaurantId: String(item.restaurant_id),
     restaurantName: item.restaurant_name,
-    image: item.image,
+    image: imageUrl,
     rating: Number(item.rating) || 0,
     caption: item.caption,
     likes: Number(item.likes_count) || 0,
@@ -177,7 +190,7 @@ export async function fetchPostComments(
   return payload.map((item) => ({
     id: String(item.id),
     username: item.username,
-    userAvatar: item.user_avatar || "https://ui-avatars.com/api/?name=" + item.username,
+    userAvatar: item.user_avatar || "",
     content: item.content,
     date: item.created_at?.slice(0, 10) || "",
   }));
@@ -202,7 +215,7 @@ export async function addCommentApi(
   return {
     id: String(item.id),
     username: item.username,
-    userAvatar: item.user_avatar || "https://ui-avatars.com/api/?name=" + item.username,
+    userAvatar: item.user_avatar || "",
     content: item.content,
     date: item.created_at?.slice(0, 10) || "",
   };

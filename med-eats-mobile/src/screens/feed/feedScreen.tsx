@@ -92,7 +92,15 @@ export default function FeedScreen() {
               style={styles.userRow} 
               onPress={() => handleUserPress(item.username)}
             >
-              <Image source={{ uri: item.userAvatar }} style={styles.avatar} />
+              {item.userAvatar ? (
+                <Image source={{ uri: item.userAvatar }} style={styles.avatar} />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <Text style={styles.avatarText}>
+                    {(item.username || "U").charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
               <View style={{ flex: 1 }}>
                 <Text style={styles.username}>{item.username}</Text>
                 <Text style={styles.date}>{item.date}</Text>
@@ -172,6 +180,19 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   avatar: { width: 40, height: 40, borderRadius: 20 },
+  avatarPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#EAECEF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: {
+    color: "#636E72",
+    fontWeight: "700",
+    fontSize: 14,
+  },
   username: { fontWeight: "700", color: "#2D3436" },
   date: { color: "#8C8C8C", fontSize: 12 },
   postImage: { width: "100%", height: 330, backgroundColor: "#EFEFEF" },
