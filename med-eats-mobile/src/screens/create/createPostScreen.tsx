@@ -11,7 +11,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import {
   Alert,
   Image,
@@ -54,6 +53,15 @@ export default function CreatePostScreen() {
       r.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [restaurants, searchQuery]);
+
+  const resetForm = () => {
+    setSelectedImage(null);
+    setRestaurantId("");
+    setRating(0);
+    setCaption("");
+    setShowRestaurantSelector(false);
+    setSearchQuery("");
+  };
 
   const pickMedia = async () => {
     // Solicitar abrir galería
@@ -99,8 +107,8 @@ export default function CreatePostScreen() {
         image: selectedImage,
       });
 
-      Alert.alert("Post publicado", "Tu experiencia ya aparece en el feed.");
-      router.replace("/feed");
+      resetForm();
+      Alert.alert("Post publicado", "Tu experiencia se publicó y el formulario se limpió.");
     } catch {
       Alert.alert("Error", "No se pudo publicar tu post.");
     }
