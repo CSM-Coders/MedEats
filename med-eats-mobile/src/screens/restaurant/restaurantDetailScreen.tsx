@@ -72,6 +72,23 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingReview, setEditingReview] = useState<Review | null>(null);
 
+  const safeImageUri =
+    typeof restaurant.image === "string" && /^(https?:\/\/|file:\/\/)/i.test(restaurant.image)
+      ? restaurant.image
+      : "";
+
+  const safeName = typeof restaurant.name === "string" ? restaurant.name : "Restaurante";
+  const safeCategory = typeof restaurant.category === "string" && restaurant.category.trim()
+    ? restaurant.category
+    : "Restaurante";
+  const safeLocation = typeof restaurant.location === "string" ? restaurant.location : "Ubicación no disponible";
+  const safeDescription = typeof restaurant.description === "string" ? restaurant.description : "";
+  const safeRating = Number.isFinite(Number(restaurant.rating)) ? Number(restaurant.rating) : 0;
+
+  const validBranches = (Array.isArray(restaurant.branches) ? restaurant.branches : []).filter(
+    (branch) => branch && Number.isFinite(branch.latitude) && Number.isFinite(branch.longitude)
+  );
+
   const loadReviews = useCallback(async () => {
     setReviewsLoading(true);
     try {
@@ -209,7 +226,11 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
         
         {/* ================= HERO IMAGE & HEADER STRIP ================= */}
         <View style={styles.heroContainer}>
-          <Image source={{ uri: restaurant.image }} style={styles.heroImage} />
+          {safeImageUri ? (
+            <Image source={{ uri: safeImageUri }} style={styles.heroImage} />
+          ) : (
+            <View style={[styles.heroImage, styles.heroFallback]} />
+          )}
           
           <View style={[styles.headerActions, { top: insets.top + 8 }]}>
             <Pressable style={styles.iconCircle} onPress={() => router.back()}>
@@ -233,23 +254,23 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
 
         {/* ================= MAIN RESTAURANT INFO ================= */}
         <View style={styles.content}>
-          <Text style={styles.title}>{restaurant.name}</Text>
+          <Text style={styles.title}>{safeName}</Text>
           
           <View style={styles.ratingCategoryRow}>
-            <RatingStars rating={restaurant.rating} size={15} />
-            <Text style={styles.ratingNumber}>{restaurant.rating}</Text>
+            <RatingStars rating={safeRating} size={15} />
+            <Text style={styles.ratingNumber}>{safeRating}</Text>
             <Text style={styles.dotSeparator}>·</Text>
-            <Text style={styles.categoryText}>{restaurant.category}</Text>
+            <Text style={styles.categoryText}>{safeCategory}</Text>
           </View>
 
           <View style={styles.locationRow}>
             <Ionicons name="location-outline" size={18} color="#FF6B35" />
-            <Text style={styles.locationText}>{restaurant.location}</Text>
+            <Text style={styles.locationText}>{safeLocation}</Text>
           </View>
 
-          <Text style={styles.description}>{restaurant.description}</Text>
+          <Text style={styles.description}>{safeDescription}</Text>
 
-          {restaurant.branches?.length ? (
+          {validBranches.length ? (
             <View style={styles.branchesSection}>
               <Text style={styles.sectionTitle}>Sedes en el mapa</Text>
               <Text style={styles.branchesHelp}>
@@ -258,17 +279,17 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
               <MapView
                 style={styles.branchesMap}
                 initialRegion={{
-                  latitude: restaurant.branches[0].latitude,
-                  longitude: restaurant.branches[0].longitude,
+                  latitude: validBranches[0].latitude,
+                  longitude: validBranches[0].longitude,
                   latitudeDelta: 0.04,
                   longitudeDelta: 0.04,
                 }}
               >
-                {restaurant.branches.map((branch) => (
+                {validBranches.map((branch) => (
                   <Marker
                     key={branch.id}
                     coordinate={{ latitude: branch.latitude, longitude: branch.longitude }}
-                    title={branch.name}
+                    title={branch.name || "Sede"}
                     description={branch.address}
                     pinColor={branch.isPrimary ? "#FF6B35" : "#1D4ED8"}
                   />
@@ -276,10 +297,10 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
               </MapView>
 
               <View style={styles.branchList}>
-                {restaurant.branches.map((branch) => (
+                {validBranches.map((branch) => (
                   <View key={branch.id} style={styles.branchItem}>
                     <View style={styles.branchItemHeader}>
-                      <Text style={styles.branchName}>{branch.name}</Text>
+                      <Text style={styles.branchName}>{branch.name || "Sede"}</Text>
                       {branch.isPrimary ? <Text style={styles.primaryBadge}>Principal</Text> : null}
                     </View>
                     <Text style={styles.branchAddress}>{branch.address}</Text>
@@ -314,7 +335,7 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
                 <View key={review.id} style={styles.reviewCard}>
                   <View style={styles.reviewHeader}>
                     <Image
-                      source={{ uri: review.avatar || "https://ui-avatars.com/api/?name=" + review.username }}
+                      source={{ uri: review.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(review.username)}` }}
                       style={styles.reviewAvatar}
                     />
                     <View style={styles.reviewMetaContainer}>
@@ -373,6 +394,9 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     resizeMode: "cover",
+  },
+  heroFallback: {
+    backgroundColor: "#E9ECEF",
   },
   headerActions: {
     position: "absolute",

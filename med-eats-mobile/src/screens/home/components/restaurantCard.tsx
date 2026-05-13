@@ -60,7 +60,6 @@ export default function RestaurantCard({ restaurant, onClose, onShowRoute }: Pro
           <Pressable
             style={styles.detailsButton}
             onPress={() => {
-              onClose(); // Cerramos la tarjeta primero
               router.push(`/restaurant/${restaurant.id}`);
             }}
           >

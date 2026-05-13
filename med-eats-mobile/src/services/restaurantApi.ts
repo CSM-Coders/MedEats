@@ -31,34 +31,54 @@ type RestaurantApiItem = {
 };
 
 function mapRestaurant(item: RestaurantApiItem): Restaurant {
+  // Normalize image URL: if backend returned a relative path (e.g. '/media/...')
+  // convert it to absolute using API_BASE_URL so React Native Image can load it reliably.
+  let imageUrl = item.image ?? "";
+  if (imageUrl && !/^https?:\/\//i.test(imageUrl)) {
+    // ensure leading slash
+    imageUrl = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
+    imageUrl = `${API_BASE_URL}${imageUrl}`;
+  }
+
+  const branches = (item.branches ?? []).map((branch) => {
+    const lat = Number(branch.latitude);
+    const lon = Number(branch.longitude);
+    return {
+      id: String(branch.id),
+      name: branch.name || branch.address || "Sede",
+      address: branch.address,
+      latitude: Number.isFinite(lat) ? lat : NaN,
+      longitude: Number.isFinite(lon) ? lon : NaN,
+      isPrimary: Boolean(branch.is_primary),
+    };
+  });
+
+  let menuPdfUrl = item.menu_pdf_url ?? "";
+  if (menuPdfUrl && !/^https?:\/\//i.test(menuPdfUrl)) {
+    menuPdfUrl = menuPdfUrl.startsWith("/") ? `${API_BASE_URL}${menuPdfUrl}` : `${API_BASE_URL}/${menuPdfUrl}`;
+  }
+
   return {
     id: String(item.id),
     name: item.name,
     category: item.category || "Restaurante",
     rating: Number(item.rating) || 0,
-    image: item.image ?? "",
-    latitude: item.latitude,
-    longitude: item.longitude,
+    image: imageUrl,
+    latitude: Number(item.latitude),
+    longitude: Number(item.longitude),
     location: item.location,
     description: item.description,
     menuHighlights: item.menu_highlights ?? [],
     whatsapp: item.whatsapp ?? "",
     ownerId: item.owner_id ? String(item.owner_id) : undefined,
     ownerUsername: item.owner_username ?? undefined,
-    menuPdfUrl: item.menu_pdf_url ?? "",
+    menuPdfUrl,
     reviewsCount: Number(item.reviews_count) || 0,
     averageRating:
       item.average_rating === null || item.average_rating === undefined
         ? null
         : Number(item.average_rating) || 0,
-    branches: (item.branches ?? []).map((branch) => ({
-      id: String(branch.id),
-      name: branch.name,
-      address: branch.address,
-      latitude: branch.latitude,
-      longitude: branch.longitude,
-      isPrimary: Boolean(branch.is_primary),
-    })),
+    branches,
   };
 }
 
