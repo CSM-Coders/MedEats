@@ -6,8 +6,14 @@ import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/src/context/auth-context";
 import { fetchUserProfileByUsername, followUser, unfollowUser } from "@/src/services/userApi";
 import { fetchUserPosts } from "@/src/services/postApi";
-import { AppUser, Post } from "@/src/models/domain";
+import {
+  fetchSavedRestaurants,
+  fetchVisitedRestaurants,
+} from "@/src/services/userCollectionsApi";
+import { AppUser, Post, SavedRestaurantRecord, VisitedRestaurantRecord } from "@/src/models/domain";
 import { router } from "expo-router";
+
+type TabType = "posts" | "saved" | "visited";
 
 export default function UserProfileScreen() {
   const { username } = useLocalSearchParams<{ username: string }>();
@@ -16,6 +22,9 @@ export default function UserProfileScreen() {
   
   const [userProfile, setUserProfile] = useState<(AppUser & { isFollowing: boolean }) | null>(null);
   const [userPosts, setUserPosts] = useState<Post[]>([]);
+  const [savedRestaurants, setSavedRestaurants] = useState<SavedRestaurantRecord[]>([]);
+  const [visitedRestaurants, setVisitedRestaurants] = useState<VisitedRestaurantRecord[]>([]);
+  const [activeTab, setActiveTab] = useState<TabType>("posts");
   const [loading, setLoading] = useState(true);
   const [interactionLoading, setInteractionLoading] = useState(false);
   const [isPrivateProfile, setIsPrivateProfile] = useState(false);
@@ -26,12 +35,16 @@ export default function UserProfileScreen() {
 
     try {
       setIsPrivateProfile(false);
-      const [profileData, postsData] = await Promise.all([
+      const [profileData, postsData, savedData, visitedData] = await Promise.all([
         fetchUserProfileByUsername(accessToken, username),
         fetchUserPosts(accessToken, username),
+        fetchSavedRestaurants(accessToken, username),
+        fetchVisitedRestaurants(accessToken, username),
       ]);
       setUserProfile(profileData);
       setUserPosts(postsData);
+      setSavedRestaurants(savedData);
+      setVisitedRestaurants(visitedData);
     } catch (error) {
       const statusCode = typeof error === "object" && error !== null && "statusCode" in error
         ? Number((error as { statusCode?: number }).statusCode)
@@ -41,6 +54,8 @@ export default function UserProfileScreen() {
         setIsPrivateProfile(true);
         setUserProfile(null);
         setUserPosts([]);
+        setSavedRestaurants([]);
+        setVisitedRestaurants([]);
       }
 
       console.error("Error loading profile:", error);
@@ -203,43 +218,106 @@ export default function UserProfileScreen() {
 
         {/* Tabs Bar */}
         <View style={styles.tabsBar}>
-          <View style={[styles.tabItem, styles.activeTab]}>
+          <Pressable style={[styles.tabItem, activeTab === "posts" && styles.activeTab]} onPress={() => setActiveTab("posts")}>
             <Ionicons name="grid" size={24} color="#2D3436" />
-          </View>
-          <View style={styles.tabItem}>
+          </Pressable>
+          <Pressable style={[styles.tabItem, activeTab === "saved" && styles.activeTab]} onPress={() => setActiveTab("saved")}>
             <Ionicons name="bookmark-outline" size={24} color="#636E72" />
-          </View>
-          <View style={styles.tabItem}>
+          </Pressable>
+          <Pressable style={[styles.tabItem, activeTab === "visited" && styles.activeTab]} onPress={() => setActiveTab("visited")}>
             <Ionicons name="person-outline" size={24} color="#636E72" />
-          </View>
+          </Pressable>
         </View>
 
-        {/* Grid de Posts */}
-        <View style={styles.gridContainer}>
-          {userPosts.length === 0 ? (
-            <View style={styles.emptyFeed}>
-              <Ionicons name="images-outline" size={48} color="#B2BEC3" />
-              <Text style={styles.emptyFeedText}>No posts yet</Text>
-            </View>
-          ) : (
-            <FlatList
-              data={userPosts}
-              keyExtractor={(item) => item.id}
-              numColumns={3}
-              scrollEnabled={false}
-              renderItem={({ item }) => (
-                <Pressable
-                  style={styles.gridItem}
-                  onPress={() => router.push(`/post/${item.id}`)}
-                >
-                  <Image source={{ uri: item.image }} style={styles.gridImage} />
-                  {/* Icon for carousel if we had multiple images */}
-                  {/* <View style={styles.gridIcon}><Ionicons name="copy" size={16} color="white" /></View> */}
-                </Pressable>
-              )}
-            />
-          )}
-        </View>
+        {activeTab === "posts" && (
+          <View style={styles.gridContainer}>
+            {userPosts.length === 0 ? (
+              <View style={styles.emptyFeed}>
+                <Ionicons name="images-outline" size={48} color="#B2BEC3" />
+                <Text style={styles.emptyFeedText}>No posts yet</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={userPosts}
+                keyExtractor={(item) => item.id}
+                numColumns={3}
+                scrollEnabled={false}
+                renderItem={({ item }) => (
+                  <Pressable
+                    style={styles.gridItem}
+                    onPress={() => router.push(`/post/${item.id}`)}
+                  >
+                    <Image source={{ uri: item.image }} style={styles.gridImage} />
+                  </Pressable>
+                )}
+              />
+            )}
+          </View>
+        )}
+
+        {activeTab === "saved" && (
+          <View style={styles.collectionSection}>
+            {savedRestaurants.length === 0 ? (
+              <View style={styles.emptyFeed}>
+                <Ionicons name="bookmark-outline" size={48} color="#B2BEC3" />
+                <Text style={styles.emptyFeedText}>No saved restaurants yet</Text>
+              </View>
+            ) : (
+              savedRestaurants.map((record) => {
+                const restaurant = record.restaurant;
+                if (!restaurant) return null;
+
+                return (
+                  <Pressable
+                    key={record.id}
+                    style={styles.restaurantCard}
+                    onPress={() => router.push(`/restaurant/${restaurant.id}`)}
+                  >
+                    <Image source={{ uri: restaurant.image }} style={styles.restaurantImage} />
+                    <View style={styles.restaurantInfo}>
+                      <Text style={styles.restaurantName} numberOfLines={1}>{restaurant.name}</Text>
+                      <Text style={styles.restaurantMeta} numberOfLines={1}>{restaurant.category}</Text>
+                    </View>
+                    <Ionicons name="bookmark" size={20} color="#FF6B35" />
+                  </Pressable>
+                );
+              })
+            )}
+          </View>
+        )}
+
+        {activeTab === "visited" && (
+          <View style={styles.collectionSection}>
+            {visitedRestaurants.length === 0 ? (
+              <View style={styles.emptyFeed}>
+                <Ionicons name="restaurant-outline" size={48} color="#B2BEC3" />
+                <Text style={styles.emptyFeedText}>No visited restaurants yet</Text>
+              </View>
+            ) : (
+              visitedRestaurants.map((record) => {
+                const restaurant = record.restaurant;
+                if (!restaurant) return null;
+
+                return (
+                  <Pressable
+                    key={record.id}
+                    style={styles.restaurantCard}
+                    onPress={() => router.push(`/restaurant/${restaurant.id}`)}
+                  >
+                    <Image source={{ uri: restaurant.image }} style={styles.restaurantImage} />
+                    <View style={styles.restaurantInfo}>
+                      <Text style={styles.restaurantName} numberOfLines={1}>{restaurant.name}</Text>
+                      <Text style={styles.restaurantMeta} numberOfLines={1}>
+                        {restaurant.category} · {record.rating}★
+                      </Text>
+                    </View>
+                    <Ionicons name="restaurant" size={20} color="#2D3436" />
+                  </Pressable>
+                );
+              })
+            )}
+          </View>
+        )}
       </ScrollView>
     </View>
   );
@@ -361,6 +439,19 @@ const styles = StyleSheet.create({
     borderTopWidth: 2,
     borderTopColor: "#2D3436",
   },
+  collectionSection: { paddingHorizontal: 16, paddingTop: 12, gap: 10 },
+  restaurantCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 10,
+    borderRadius: 14,
+    backgroundColor: "#F8F9FA",
+  },
+  restaurantImage: { width: 58, height: 58, borderRadius: 12, backgroundColor: "#F3F4F6" },
+  restaurantInfo: { flex: 1 },
+  restaurantName: { fontSize: 14, fontWeight: "700", color: "#2D3436" },
+  restaurantMeta: { fontSize: 12, color: "#636E72", marginTop: 2 },
   emptyFeed: {
     flex: 1,
     justifyContent: "center",
