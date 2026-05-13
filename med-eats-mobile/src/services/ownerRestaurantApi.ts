@@ -45,6 +45,16 @@ type ReviewApiItem = {
   is_owner?: boolean;
 };
 
+export type FoodCategory = {
+  id: number;
+  name: string;
+};
+
+type CategoryApiItem = {
+  id: number;
+  name: string;
+};
+
 function authHeaders(accessToken: string) {
   return {
     Authorization: `Bearer ${accessToken}`,
@@ -195,6 +205,20 @@ export async function fetchMyRestaurants(accessToken: string): Promise<Restauran
 
   const payload = (await response.json()) as RestaurantApiItem[];
   return payload.map(mapRestaurant);
+}
+
+export async function fetchFoodCategories(): Promise<FoodCategory[]> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/categories/`);
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response, "Unable to load categories"));
+  }
+
+  const payload = (await response.json()) as CategoryApiItem[];
+  return payload.map((item) => ({
+    id: Number(item.id),
+    name: item.name,
+  }));
 }
 
 export async function createMyRestaurant(

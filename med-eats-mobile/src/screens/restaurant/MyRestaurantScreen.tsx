@@ -25,8 +25,10 @@ import {
   addRestaurantBranch,
   createMyRestaurant,
   deleteRestaurantBranch,
+  fetchFoodCategories,
   fetchMyRestaurants,
   fetchOwnerReviews,
+  FoodCategory,
   updateMyRestaurant,
   uploadRestaurantMenuPdf,
 } from "@/src/services/ownerRestaurantApi";
@@ -35,6 +37,7 @@ type RestaurantFormState = {
   name: string;
   location: string;
   description: string;
+  categoryId: number | null;
   category: string;
   manualLat: number | null;
   manualLon: number | null;
@@ -58,6 +61,7 @@ function getDefaultRestaurantForm(restaurant?: Restaurant | null): RestaurantFor
     name: restaurant?.name ?? "",
     location: restaurant?.location ?? "",
     description: restaurant?.description ?? "",
+    categoryId: null,
     category: restaurant?.category ?? "Burgers & Grill",
     manualLat: restaurant?.latitude ?? null,
     manualLon: restaurant?.longitude ?? null,
@@ -84,6 +88,7 @@ export default function MyRestaurantScreen() {
     longitude: null,
   });
   const [ownerReviews, setOwnerReviews] = useState<Review[]>([]);
+  const [foodCategories, setFoodCategories] = useState<FoodCategory[]>([]);
 
   const loadData = useCallback(async () => {
     const token = await getAccessToken();
@@ -113,6 +118,16 @@ export default function MyRestaurantScreen() {
     }
   }, [getAccessToken]);
 
+  const loadCategories = useCallback(async () => {
+    try {
+      const categories = await fetchFoodCategories();
+      setFoodCategories(categories);
+    } catch (error) {
+      console.warn("No se pudieron cargar categorías:", error);
+      setFoodCategories([]);
+    }
+  }, []);
+
   const handleMapPress = (e: any) => {
     const { latitude, longitude } = e.nativeEvent.coordinate;
     setBranchForm(prev => ({
@@ -125,8 +140,9 @@ export default function MyRestaurantScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      loadCategories().catch(() => undefined);
       loadData().catch(() => undefined);
-    }, [loadData])
+    }, [loadCategories, loadData])
   );
 
   const hasRestaurant = Boolean(restaurant);
@@ -135,6 +151,7 @@ export default function MyRestaurantScreen() {
     !!form.name.trim() &&
     !!form.location.trim() &&
     !!form.description.trim() &&
+    (!!form.categoryId || hasRestaurant) &&
     !!form.whatsapp.trim();
 
   const canCreateBranch =
@@ -166,6 +183,9 @@ export default function MyRestaurantScreen() {
       formData.append("location", form.location.trim());
       formData.append("description", form.description.trim());
       formData.append("whatsapp", form.whatsapp.trim());
+      if (form.categoryId) {
+        formData.append("category_id", String(form.categoryId));
+      }
 
       // Usar coordenadas manuales del mapa (el usuario tocó el mapa)
       if (form.manualLat && form.manualLon) {
@@ -419,6 +439,33 @@ export default function MyRestaurantScreen() {
             multiline
           />
           <Text style={styles.fieldHelp}>Resume el concepto del restaurante en 1 o 2 líneas.</Text>
+
+          <Text style={styles.fieldLabel}>Categoría de comida</Text>
+          <View style={styles.categoriesWrap}>
+            {foodCategories.map((category) => {
+              const isSelected = form.categoryId === category.id;
+              return (
+                <Pressable
+                  key={category.id}
+                  style={[styles.categoryChip, isSelected && styles.categoryChipSelected]}
+                  onPress={() =>
+                    setForm((prev) => ({
+                      ...prev,
+                      categoryId: category.id,
+                      category: category.name,
+                    }))
+                  }
+                >
+                  <Text style={[styles.categoryChipText, isSelected && styles.categoryChipTextSelected]}>
+                    {category.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          {!hasRestaurant && !form.categoryId ? (
+            <Text style={[styles.fieldHelp, { color: '#E74C3C' }]}>⚠️ Selecciona una categoría para crear el restaurante</Text>
+          ) : null}
 
           <Text style={styles.fieldLabel}>Foto del restaurante</Text>
           {form.imageUri ? (
@@ -674,6 +721,32 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     marginTop: -2,
+  },
+  categoriesWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 2,
+  },
+  categoryChip: {
+    borderWidth: 1,
+    borderColor: "#DFE6E9",
+    backgroundColor: "#FBFCFD",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  categoryChipSelected: {
+    borderColor: "#FF6B35",
+    backgroundColor: "#FFF3EC",
+  },
+  categoryChipText: {
+    color: "#636E72",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  categoryChipTextSelected: {
+    color: "#FF6B35",
   },
   input: {
     height: 44,

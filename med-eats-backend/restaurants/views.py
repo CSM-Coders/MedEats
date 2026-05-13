@@ -9,7 +9,9 @@ from rest_framework.permissions import (
 )
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.exceptions import PermissionDenied
 from django.utils import timezone
+from accounts.views import can_view_profile
 from .models import (
     Restaurant,
     RestaurantBranch,
@@ -44,6 +46,17 @@ from .permissions import (
 )
 
 User = get_user_model()
+
+DEFAULT_FOOD_CATEGORIES = [
+    "Colombian Traditional",
+    "Japanese & Sushi",
+    "Burgers & Grill",
+    "Italian & Pizza",
+    "Healthy Food",
+    "Mexican",
+    "Café & Bakery",
+    "Peruvian",
+]
 
 # ============================================================
 # VISTAS DE LA API (Endponits REST)
@@ -100,9 +113,13 @@ class CategoryListAPIView(generics.ListAPIView):
     (Ayudará muchísimo para crear los filtros automáticos en tu HomeScreen).
     """
 
-    queryset = Category.objects.all()
     serializer_class = CategorySerializer
     permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        for category_name in DEFAULT_FOOD_CATEGORIES:
+            Category.objects.get_or_create(name=category_name)
+        return Category.objects.all().order_by("name")
 
 
 class RestaurantDetailAPIView(generics.RetrieveAPIView):
@@ -400,7 +417,11 @@ class PostListCreateAPIView(generics.ListCreateAPIView):
         # Filtro opcional por username del usuario que creó el post
         username = self.request.query_params.get("username", None)
         if username:
-            queryset = queryset.filter(user__username=username)
+            target_user = get_object_or_404(User, username__iexact=username)
+            if not can_view_profile(self.request.user, target_user):
+                raise PermissionDenied("This profile is private.")
+
+            queryset = queryset.filter(user=target_user)
 
         return queryset
 
@@ -545,6 +566,11 @@ class SavedRestaurantListCreateAPIView(APIView):
         username = request.query_params.get("username")
         if username:
             target_user = get_object_or_404(User, username__iexact=username)
+            if not can_view_profile(request.user, target_user):
+                return Response(
+                    {"detail": "This profile is private."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
         else:
             target_user = request.user
 
@@ -597,6 +623,11 @@ class VisitedRestaurantListCreateAPIView(APIView):
         username = request.query_params.get("username")
         if username:
             target_user = get_object_or_404(User, username__iexact=username)
+            if not can_view_profile(request.user, target_user):
+                return Response(
+                    {"detail": "This profile is private."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
         else:
             target_user = request.user
 
