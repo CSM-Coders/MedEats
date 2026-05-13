@@ -266,6 +266,14 @@ class ReviewSerializer(serializers.ModelSerializer):
         if not profile:
             return ""
 
+        # Prefer uploaded image file URL when available, otherwise fallback to stored avatar_url
+        if getattr(profile, "avatar_image", None):
+            request = self.context.get("request")
+            try:
+                return request.build_absolute_uri(profile.avatar_image.url) if request else profile.avatar_image.url
+            except Exception:
+                return str(profile.avatar_image)
+
         return profile.avatar_url
 
     def get_is_owner(self, obj):
@@ -373,6 +381,14 @@ class PostSerializer(serializers.ModelSerializer):
         profile = getattr(obj.user, "profile", None)
         if not profile:
             return ""
+
+        # Prefer uploaded image file URL when available, otherwise fallback to stored avatar_url
+        if getattr(profile, "avatar_image", None):
+            request = self.context.get("request")
+            try:
+                return request.build_absolute_uri(profile.avatar_image.url) if request else profile.avatar_image.url
+            except Exception:
+                return str(profile.avatar_image)
 
         return profile.avatar_url
 
