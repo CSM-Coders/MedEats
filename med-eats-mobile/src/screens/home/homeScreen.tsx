@@ -32,7 +32,6 @@ import { useUserLocation } from "@/src/hooks/useUserLocation";
 import {
   getDistanceKm,
   MEDELLIN_REGION,
-  restaurants as mockRestaurants,
   semanticCategoryMatches,
 } from "@/src/services/mockData";
 import MapView from "./components/mapView";
@@ -221,10 +220,10 @@ export default function HomeScreen() {
   const loadRestaurants = useCallback(async () => {
     try {
       const data = await fetchRestaurantsApi();
-      setRestaurants(data.length > 0 ? data : mockRestaurants);
+      setRestaurants(data);
     } catch (error) {
       console.error("Error conectando con Django:", error);
-      setRestaurants(mockRestaurants);
+      setRestaurants([]);
     } finally {
       setLoading(false);
     }
@@ -406,6 +405,28 @@ export default function HomeScreen() {
       [
         { latitude: userLat, longitude: userLon },
         { latitude: destLat, longitude: destLon }
+      ],
+      {
+        edgePadding: { top: 100, right: 100, bottom: 400, left: 100 },
+        animated: true,
+      }
+    );
+  };
+
+  const handleLocationPreviewPress = (item: any) => {
+    Keyboard.dismiss();
+    setSelectedRestaurant(item.restaurant);
+    setSelectedLocation({ latitude: item.latitude, longitude: item.longitude });
+    setNavigationState("discovery");
+    setNavigationData(null);
+
+    const userLat = userLocation?.latitude ?? MEDELLIN_REGION.latitude;
+    const userLon = userLocation?.longitude ?? MEDELLIN_REGION.longitude;
+
+    mapRef.current?.fitToCoordinates(
+      [
+        { latitude: userLat, longitude: userLon },
+        { latitude: item.latitude, longitude: item.longitude },
       ],
       {
         edgePadding: { top: 100, right: 100, bottom: 400, left: 100 },
