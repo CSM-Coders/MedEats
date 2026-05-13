@@ -119,8 +119,8 @@ export default function PostCommentModal({
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
-              placeholder="Añade un comentario..."
-              placeholderTextColor="#B2BEC3"
+              placeholder="Escribe un comentario aquí"
+              placeholderTextColor="rgba(45,52,54,0.35)"
               value={newComment}
               onChangeText={setNewComment}
               multiline
