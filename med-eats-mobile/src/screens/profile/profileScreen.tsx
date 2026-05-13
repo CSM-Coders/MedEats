@@ -104,6 +104,16 @@ export default function ProfileScreen() {
 
         <View style={styles.bioBlock}>
           <Text style={styles.name}>{user.name}</Text>
+          <Text style={styles.metaLine}>
+            {user.gender === "male"
+              ? "Hombre"
+              : user.gender === "female"
+              ? "Mujer"
+              : user.gender === "other"
+              ? "Otro"
+              : "Prefiere no decir"}
+            · {user.isPublic === false ? "Perfil privado" : "Perfil público"}
+          </Text>
           {user.bio ? <Text style={styles.bio}>{user.bio}</Text> : null}
           {user.location ? (
             <View style={styles.locationRow}>
@@ -114,8 +124,8 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.actionsRow}>
-          <Pressable style={styles.secondaryButton} onPress={() => router.push("/profile")}>
-            <Text style={styles.secondaryButtonText}>Edit Profile</Text>
+          <Pressable style={styles.secondaryButton} onPress={() => router.push("/edit-profile") }>
+            <Text style={styles.secondaryButtonText}>Editar perfil</Text>
           </Pressable>
           {user.isRestaurantAccount ? (
             <Pressable
@@ -179,53 +189,53 @@ export default function ProfileScreen() {
             />
           )
         ) : activeTab === "saved" ? (
-          <FlatList
-            key="profile-saved-list"
-            data={savedRestaurants}
-            keyExtractor={(item) => item.id}
-            scrollEnabled={false}
-            ListEmptyComponent={
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>No saved restaurants yet.</Text>
+          <View style={styles.collectionSection}>
+            {savedRestaurants.length === 0 ? (
+              <View style={styles.emptyFeed}>
+                <Ionicons name="bookmark-outline" size={48} color="#B2BEC3" />
+                <Text style={styles.emptyFeedText}>No saved restaurants yet</Text>
               </View>
-            }
-            renderItem={({ item }) => (
-              <Pressable
-                style={styles.visitedCard}
-                onPress={() => router.push(`/restaurant/${item.restaurant.id}`)}
-              >
-                <Image source={{ uri: item.restaurant.image }} style={styles.visitedImage} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.visitedName}>{item.restaurant.name}</Text>
-                  <Text style={styles.visitedMeta}>{item.restaurant.category}</Text>
-                </View>
-              </Pressable>
+            ) : (
+              savedRestaurants.map((item) => (
+                <Pressable
+                  key={item.id}
+                  style={styles.restaurantCard}
+                  onPress={() => router.push(`/restaurant/${item.restaurant.id}`)}
+                >
+                  <Image source={{ uri: item.restaurant.image }} style={styles.restaurantImage} />
+                  <View style={styles.restaurantInfo}>
+                    <Text style={styles.restaurantName} numberOfLines={1}>{item.restaurant.name}</Text>
+                    <Text style={styles.restaurantMeta} numberOfLines={1}>{item.restaurant.category}</Text>
+                  </View>
+                  <Ionicons name="bookmark" size={20} color="#FF6B35" />
+                </Pressable>
+              ))
             )}
-          />
+          </View>
         ) : (
-          <FlatList
-            key="profile-visited-list"
-            data={visitedRestaurants}
-            keyExtractor={(item) => item.id}
-            scrollEnabled={false}
-            ListEmptyComponent={
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyText}>No visited restaurants yet.</Text>
+          <View style={styles.collectionSection}>
+            {visitedRestaurants.length === 0 ? (
+              <View style={styles.emptyFeed}>
+                <Ionicons name="restaurant-outline" size={48} color="#B2BEC3" />
+                <Text style={styles.emptyFeedText}>No visited restaurants yet</Text>
               </View>
-            }
-            renderItem={({ item }) => (
-              <Pressable
-                style={styles.visitedCard}
-                onPress={() => router.push(`/restaurant/${item.restaurant.id}`)}
-              >
-                <Image source={{ uri: item.restaurant.image }} style={styles.visitedImage} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.visitedName}>{item.restaurant.name}</Text>
-                  <Text style={styles.visitedMeta}>My Rating: {item.rating} ⭐</Text>
-                </View>
-              </Pressable>
+            ) : (
+              visitedRestaurants.map((item) => (
+                <Pressable
+                  key={item.id}
+                  style={styles.restaurantCard}
+                  onPress={() => router.push(`/restaurant/${item.restaurant.id}`)}
+                >
+                  <Image source={{ uri: item.restaurant.image }} style={styles.restaurantImage} />
+                  <View style={styles.restaurantInfo}>
+                    <Text style={styles.restaurantName} numberOfLines={1}>{item.restaurant.name}</Text>
+                    <Text style={styles.restaurantMeta} numberOfLines={1}>My Rating: {item.rating} ★</Text>
+                  </View>
+                  <Ionicons name="restaurant" size={20} color="#2D3436" />
+                </Pressable>
+              ))
             )}
-          />
+          </View>
         )}
       </ScrollView>
     </View>
@@ -290,6 +300,7 @@ const styles = StyleSheet.create({
   statLabel: { color: "#2D3436", fontSize: 13 },
   bioBlock: { paddingHorizontal: 16, paddingTop: 12 },
   name: { fontSize: 15, fontWeight: "700", color: "#2D3436" },
+  metaLine: { color: "#8A8A8A", marginTop: 2, fontSize: 12 },
   bio: { color: "#2D3436", marginTop: 2, fontSize: 14, lineHeight: 18 },
   locationRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
   location: { color: "#636E72", fontSize: 13 },
@@ -340,9 +351,30 @@ const styles = StyleSheet.create({
     borderTopWidth: 2,
     borderTopColor: "#2D3436",
   },
+  collectionSection: { paddingHorizontal: 16, paddingTop: 12, gap: 10 },
+  restaurantCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 10,
+    borderRadius: 14,
+    backgroundColor: "#F8F9FA",
+  },
+  restaurantImage: { width: 58, height: 58, borderRadius: 12, backgroundColor: "#F3F4F6" },
+  restaurantInfo: { flex: 1 },
+  restaurantName: { fontSize: 14, fontWeight: "700", color: "#2D3436" },
+  restaurantMeta: { fontSize: 12, color: "#636E72", marginTop: 2 },
   emptyState: { alignItems: "center", marginTop: 52, paddingHorizontal: 24 },
   emptyTitle: { fontSize: 20, fontWeight: "700", color: "#2D3436" },
   emptyText: { color: "#636E72", marginTop: 8, textAlign: "center" },
+  emptyFeed: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 40,
+    gap: 12,
+  },
+  emptyFeedText: { color: "#B2BEC3", fontSize: 16 },
   ctaButton: {
     backgroundColor: "#FF6B35",
     borderRadius: 999,
@@ -353,16 +385,4 @@ const styles = StyleSheet.create({
   ctaText: { color: "#FFFFFF", fontWeight: "700" },
   gridItem: { width: "33.333%", aspectRatio: 1, padding: 1 },
   gridImage: { width: "100%", height: "100%", backgroundColor: "#F3F4F6" },
-  visitedCard: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 14,
-    backgroundColor: "#F8F9FA",
-    flexDirection: "row",
-    gap: 10,
-    padding: 10,
-  },
-  visitedImage: { width: 64, height: 64, borderRadius: 10 },
-  visitedName: { fontWeight: "700", color: "#2D3436" },
-  visitedMeta: { color: "#636E72", fontSize: 12, marginTop: 2 },
 });
