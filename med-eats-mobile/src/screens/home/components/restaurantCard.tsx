@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, Pressable, Image } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Restaurant } from "@/src/models/domain";
+import { colors, radii } from "@/src/theme/designTokens";
 
 // ============================================================
 // Props: recibe un restaurante completo y una función para cerrar
@@ -31,7 +32,7 @@ function RatingStars({ rating }: { rating: number }) {
               : "star-outline"   // Estrella vacía
           }
           size={16}
-          color="#FF6B35"
+          color={colors.primary}
         />
       ))}
       <Text style={styles.ratingText}>{rating}</Text>
@@ -71,7 +72,7 @@ export default function RestaurantCard({ restaurant, onClose, onShowRoute }: Pro
             style={styles.navigationButton}
             onPress={onShowRoute}
           >
-            <Ionicons name="navigate-circle" size={20} color="#FFFFFF" />
+            <Ionicons name="navigate-circle" size={20} color={colors.background} />
             <Text style={styles.navigationButtonText}>Cómo llegar</Text>
           </Pressable>
         </View>
@@ -82,8 +83,8 @@ export default function RestaurantCard({ restaurant, onClose, onShowRoute }: Pro
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
+    backgroundColor: colors.background,
+    borderRadius: radii.lg,
     overflow: "hidden",             // Para que la imagen respete el borderRadius
     // Sombras para darle elevación (como en el mockup)
     shadowColor: "#000",
@@ -102,7 +103,7 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#2D3436",
+    color: colors.text,
     marginBottom: 6,
   },
   starsRow: {
@@ -114,38 +115,38 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     fontSize: 14,
     fontWeight: "600",
-    color: "#2D3436",
+    color: colors.text,
   },
   category: {
     fontSize: 14,
-    color: "#636E72",
+    color: colors.textMuted,
     marginBottom: 12,
   },
   buttonGroup: {
     gap: 8,                         // Espacio entre los dos botones
   },
   detailsButton: {
-    backgroundColor: "#FF6B35",
+    backgroundColor: colors.primary,
     paddingVertical: 12,
-    borderRadius: 24,               // Muy redondeado como en el mockup
+    borderRadius: radii.pill,
     alignItems: "center",
   },
   detailsButtonText: {
-    color: "#fff",
+    color: colors.background,
     fontSize: 16,
     fontWeight: "600",
   },
   navigationButton: {
-    backgroundColor: "#2D3436",     // Color oscuro elegante para diferenciar
+    backgroundColor: colors.darkSurface,
     paddingVertical: 12,
-    borderRadius: 24,
+    borderRadius: radii.pill,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
   },
   navigationButtonText: {
-    color: "#fff",
+    color: colors.background,
     fontSize: 16,
     fontWeight: "600",
   },

@@ -30,6 +30,7 @@ import {
   markRestaurantVisited,
 } from "../../services/userCollectionsApi";
 import ReviewModal from "../../components/ReviewModal";
+import { colors } from "@/src/theme/designTokens";
 
 type Props = {
   restaurant: Restaurant;
@@ -234,7 +235,7 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
           
           <View style={[styles.headerActions, { top: insets.top + 8 }]}>
             <Pressable style={styles.iconCircle} onPress={() => router.back()}>
-              <Ionicons name="arrow-back" size={20} color="#2D3436" />
+              <Ionicons name="arrow-back" size={20} color={colors.text} />
             </Pressable>
             
             <View style={styles.rightActions}>
@@ -242,11 +243,11 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
                 <Ionicons
                   name={isSaved ? "heart" : "heart-outline"}
                   size={20}
-                  color={isSaved ? "#E63946" : "#2D3436"}
+                  color={isSaved ? colors.primaryDark : colors.text}
                 />
               </Pressable>
               <Pressable style={styles.iconCircle}>
-                <Ionicons name="share-social-outline" size={20} color="#2D3436" />
+                <Ionicons name="share-social-outline" size={20} color={colors.text} />
               </Pressable>
             </View>
           </View>
@@ -264,7 +265,7 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
           </View>
 
           <View style={styles.locationRow}>
-            <Ionicons name="location-outline" size={18} color="#FF6B35" />
+            <Ionicons name="location-outline" size={18} color={colors.primary} />
             <Text style={styles.locationText}>{safeLocation}</Text>
           </View>
 
@@ -327,7 +328,7 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
             </View>
 
             {reviewsLoading ? (
-              <ActivityIndicator size="small" color="#FF6B35" style={{ marginTop: 20 }} />
+                <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: 20 }} />
             ) : reviews.length === 0 ? (
               <Text style={styles.emptyReview}>Aún no hay reseñas. ¡Sé el primero!</Text>
             ) : (

@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { fetchPostComments, addCommentApi } from "@/src/services/postApi";
 import { PostComment } from "@/src/models/domain";
 import { useAuth } from "@/src/context/auth-context";
+import { colors, radii } from "@/src/theme/designTokens";
 
 type PostCommentModalProps = {
   visible: boolean;
@@ -85,13 +86,13 @@ export default function PostCommentModal({
           <View style={styles.header}>
             <Text style={styles.title}>Comentarios</Text>
             <Pressable onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color="#2D3436" />
+              <Ionicons name="close" size={24} color={colors.text} />
             </Pressable>
           </View>
 
           {loading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#FF6B35" />
+              <ActivityIndicator size="large" color={colors.primary} />
             </View>
           ) : (
             <FlatList
@@ -150,9 +151,9 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: colors.background,
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
     height: "80%",
   },
   header: {
@@ -161,12 +162,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
+    borderBottomColor: colors.border,
   },
   title: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#2D3436",
+    color: colors.text,
   },
   closeButton: {
     padding: 4,
@@ -189,24 +190,24 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#EFEFEF",
+    backgroundColor: colors.chip,
   },
   commentTextContainer: {
     flex: 1,
   },
   username: {
     fontWeight: "700",
-    color: "#2D3436",
+    color: colors.text,
     fontSize: 14,
   },
   commentContent: {
-    color: "#2D3436",
+    color: colors.text,
     fontSize: 14,
     marginTop: 2,
     lineHeight: 18,
   },
   date: {
-    color: "#B2BEC3",
+    color: colors.placeholder,
     fontSize: 12,
     marginTop: 4,
   },
@@ -215,7 +216,7 @@ const styles = StyleSheet.create({
     marginTop: 40,
   },
   emptyText: {
-    color: "#636E72",
+    color: colors.textMuted,
     fontSize: 14,
   },
   inputContainer: {
@@ -223,22 +224,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: 12,
     borderTopWidth: 1,
-    borderTopColor: "#F3F4F6",
-    backgroundColor: "#FFFFFF",
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
     paddingBottom: Platform.OS === "ios" ? 32 : 12,
   },
   input: {
     flex: 1,
-    backgroundColor: "#F8F9FA",
-    borderRadius: 20,
+    backgroundColor: colors.input,
+    borderRadius: radii.pill,
     paddingHorizontal: 16,
     paddingVertical: 8,
     maxHeight: 100,
-    color: "#2D3436",
+    color: colors.text,
     marginRight: 10,
   },
   sendButton: {
-    backgroundColor: "#FF6B35",
+    backgroundColor: colors.primary,
     width: 40,
     height: 40,
     borderRadius: 20,
@@ -246,6 +247,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   disabledButton: {
-    backgroundColor: "#B2BEC3",
+    backgroundColor: colors.placeholder,
   },
 });

@@ -17,6 +17,7 @@ import { useFeed } from "@/src/context/feed-context";
 import PostCommentModal from "@/src/components/PostCommentModal";
 import { useState } from "react";
 import { useAuth } from "@/src/context/auth-context";
+import { colors, radii } from "@/src/theme/designTokens";
 
 function stars(rating: number) {
   return [1, 2, 3, 4, 5].map((star) => (
@@ -24,7 +25,7 @@ function stars(rating: number) {
       key={star}
       name={star <= Math.round(rating) ? "star" : "star-outline"}
       size={13}
-      color="#FF6B35"
+      color={colors.primary}
     />
   ));
 }
@@ -114,13 +115,13 @@ export default function FeedScreen() {
                 <Ionicons
                   name={item.isLiked ? "heart" : "heart-outline"}
                   size={22}
-                  color={item.isLiked ? "#E63946" : "#2D3436"}
+                  color={item.isLiked ? colors.primaryDark : colors.text}
                 />
                 <Text style={styles.actionText}>{item.likes}</Text>
               </Pressable>
 
               <Pressable style={styles.actionButton} onPress={() => openComments(item.id)}>
-                <Ionicons name="chatbubble-outline" size={21} color="#2D3436" />
+                <Ionicons name="chatbubble-outline" size={21} color={colors.text} />
                 <Text style={styles.actionText}>{item.comments}</Text>
               </Pressable>
             </View>
@@ -133,7 +134,7 @@ export default function FeedScreen() {
                 <Text style={styles.restaurantName}>{item.restaurantName}</Text>
                 <View style={styles.starsRow}>{stars(item.rating)}</View>
               </View>
-              <Ionicons name="chevron-forward" size={18} color="#636E72" />
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
             </Pressable>
 
             <Text style={styles.caption}>
@@ -156,19 +157,19 @@ export default function FeedScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFFFFF" },
+  container: { flex: 1, backgroundColor: colors.background },
   header: {
     borderBottomWidth: 1,
-    borderBottomColor: "#F1F2F6",
+    borderBottomColor: colors.border,
     paddingHorizontal: 16,
     paddingBottom: 12,
   },
-  title: { fontSize: 28, fontWeight: "700", color: "#2D3436" },
-  subtitle: { color: "#636E72", marginTop: 2 },
+  title: { fontSize: 28, fontWeight: "700", color: colors.text },
+  subtitle: { color: colors.textMuted, marginTop: 2 },
   listContent: { paddingBottom: 24 },
   card: {
     borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
+    borderBottomColor: colors.border,
     paddingBottom: 14,
     marginBottom: 4,
   },
@@ -184,18 +185,18 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#EAECEF",
+    backgroundColor: colors.chip,
     alignItems: "center",
     justifyContent: "center",
   },
   avatarText: {
-    color: "#636E72",
+    color: colors.textMuted,
     fontWeight: "700",
     fontSize: 14,
   },
-  username: { fontWeight: "700", color: "#2D3436" },
-  date: { color: "#8C8C8C", fontSize: 12 },
-  postImage: { width: "100%", height: 330, backgroundColor: "#EFEFEF" },
+  username: { fontWeight: "700", color: colors.text },
+  date: { color: colors.textFaint, fontSize: 12 },
+  postImage: { width: "100%", height: 330, backgroundColor: colors.chip },
   actionsRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -204,19 +205,19 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   actionButton: { flexDirection: "row", alignItems: "center", gap: 4 },
-  actionText: { color: "#2D3436", fontWeight: "600" },
+  actionText: { color: colors.text, fontWeight: "600" },
   restaurantBox: {
     marginHorizontal: 12,
     marginBottom: 8,
-    backgroundColor: "#FFF3EC",
-    borderRadius: 12,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radii.md,
     paddingHorizontal: 12,
     paddingVertical: 10,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  restaurantName: { fontWeight: "700", color: "#2D3436" },
+  restaurantName: { fontWeight: "700", color: colors.text },
   starsRow: { flexDirection: "row", gap: 2, marginTop: 4 },
-  caption: { paddingHorizontal: 12, color: "#2D3436", fontSize: 14 },
+  caption: { paddingHorizontal: 12, color: colors.text, fontSize: 14 },
 });

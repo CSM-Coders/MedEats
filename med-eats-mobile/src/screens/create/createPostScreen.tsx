@@ -26,6 +26,7 @@ import { Restaurant } from "@/src/models/domain";
 import { useFeed } from "@/src/context/feed-context";
 import { fetchRestaurants } from "@/src/services/restaurantApi";
 import * as ImagePicker from "expo-image-picker";
+import { colors, radii } from "@/src/theme/designTokens";
 
 // We won't use sample images anymore
 
@@ -126,7 +127,7 @@ export default function CreatePostScreen() {
         <View style={styles.imageWrapper}>
           <Image source={{ uri: selectedImage }} style={styles.image} />
           <Pressable style={styles.removeImageButton} onPress={() => setSelectedImage(null)}>
-            <Ionicons name="close" size={18} color="#FFFFFF" />
+            <Ionicons name="close" size={18} color={colors.background} />
           </Pressable>
         </View>
       ) : (
@@ -134,7 +135,7 @@ export default function CreatePostScreen() {
           style={styles.uploadBox}
           onPress={pickMedia}
         >
-          <Ionicons name="images-outline" size={34} color="#FF6B35" />
+          <Ionicons name="images-outline" size={34} color={colors.primary} />
           <Text style={styles.uploadText}>Subir foto o video</Text>
         </Pressable>
       )}
@@ -152,13 +153,13 @@ export default function CreatePostScreen() {
             ? "Loading restaurants..."
             : "Choose a restaurant"}
         </Text>
-        <Ionicons name="chevron-down" size={18} color="#636E72" />
+        <Ionicons name="chevron-down" size={18} color={colors.textMuted} />
       </Pressable>
 
       {showRestaurantSelector && (
         <View style={styles.selectorPanel}>
           <View style={styles.searchContainer}>
-            <Ionicons name="search" size={16} color="#B2BEC3" />
+            <Ionicons name="search" size={16} color={colors.placeholder} />
             <TextInput
               style={styles.searchInput}
               placeholder="Buscar restaurante..."
@@ -199,7 +200,7 @@ export default function CreatePostScreen() {
             <Ionicons
               name={star <= rating ? "star" : "star-outline"}
               size={36}
-              color="#FF6B35"
+              color={colors.primary}
             />
           </Pressable>
         ))}
@@ -218,7 +219,7 @@ export default function CreatePostScreen() {
         style={[styles.publishButton, !canPublish && styles.publishButtonDisabled]}
         onPress={handlePublish}
       >
-        <Ionicons name="cloud-upload-outline" size={18} color="#FFFFFF" />
+        <Ionicons name="cloud-upload-outline" size={18} color={colors.background} />
         <Text style={styles.publishText}>Publish</Text>
       </Pressable>
     </ScrollView>
@@ -226,20 +227,20 @@ export default function CreatePostScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFFFFF" },
+  container: { flex: 1, backgroundColor: colors.background },
   content: { paddingHorizontal: 16, paddingBottom: 30 },
   header: { marginBottom: 16 },
-  title: { fontSize: 28, fontWeight: "700", color: "#2D3436" },
-  subtitle: { color: "#636E72" },
-  label: { fontWeight: "700", color: "#2D3436", marginBottom: 8, marginTop: 12 },
-  imageWrapper: { borderRadius: 16, overflow: "hidden" },
+  title: { fontSize: 28, fontWeight: "700", color: colors.text },
+  subtitle: { color: colors.textMuted },
+  label: { fontWeight: "700", color: colors.text, marginBottom: 8, marginTop: 12 },
+  imageWrapper: { borderRadius: radii.lg, overflow: "hidden" },
   image: { width: "100%", height: 260 },
   removeImageButton: {
     position: "absolute",
     top: 10,
     right: 10,
     backgroundColor: "rgba(0,0,0,0.55)",
-    borderRadius: 14,
+    borderRadius: radii.md,
     width: 28,
     height: 28,
     alignItems: "center",
@@ -250,27 +251,27 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 2,
     borderStyle: "dashed",
-    borderColor: "#DFE6E9",
+    borderColor: colors.borderSoft,
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
   },
-  uploadText: { color: "#636E72" },
+  uploadText: { color: colors.textMuted },
   selectorButton: {
     borderWidth: 1,
-    borderColor: "#DFE6E9",
-    borderRadius: 12,
+    borderColor: colors.borderSoft,
+    borderRadius: radii.md,
     paddingHorizontal: 12,
     paddingVertical: 13,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  selectorText: { color: "#2D3436", fontWeight: "500" },
+  selectorText: { color: colors.text, fontWeight: "500" },
   selectorPanel: {
     borderWidth: 1,
-    borderColor: "#DFE6E9",
-    borderRadius: 12,
+    borderColor: colors.borderSoft,
+    borderRadius: radii.md,
     marginTop: 8,
     overflow: "hidden",
   },
@@ -279,8 +280,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#DFE6E9",
-    backgroundColor: "#F8F9FA",
+    borderBottomColor: colors.borderSoft,
+    backgroundColor: colors.surface,
   },
   searchInput: {
     flex: 1,
@@ -290,7 +291,7 @@ const styles = StyleSheet.create({
   },
   noResultsText: {
     padding: 16,
-    color: "#636E72",
+    color: colors.textMuted,
     textAlign: "center",
   },
   selectorItem: {
@@ -299,25 +300,25 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "#F1F2F6",
+    borderBottomColor: colors.border,
   },
   selectorImage: { width: 44, height: 44, borderRadius: 10 },
-  selectorItemTitle: { fontWeight: "600", color: "#2D3436" },
-  selectorItemSubtitle: { fontSize: 12, color: "#636E72" },
+  selectorItemTitle: { fontWeight: "600", color: colors.text },
+  selectorItemSubtitle: { fontSize: 12, color: colors.textMuted },
   starsRow: { flexDirection: "row", gap: 6 },
   captionInput: {
     minHeight: 110,
     borderWidth: 1,
-    borderColor: "#DFE6E9",
-    borderRadius: 12,
+    borderColor: colors.borderSoft,
+    borderRadius: radii.md,
     paddingHorizontal: 12,
     paddingVertical: 10,
     textAlignVertical: "top",
   },
   publishButton: {
     marginTop: 18,
-    backgroundColor: "#FF6B35",
-    borderRadius: 12,
+    backgroundColor: colors.primary,
+    borderRadius: radii.md,
     height: 48,
     alignItems: "center",
     justifyContent: "center",
@@ -325,5 +326,5 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   publishButtonDisabled: { opacity: 0.6 },
-  publishText: { color: "#FFFFFF", fontWeight: "700", fontSize: 16 },
+  publishText: { color: colors.background, fontWeight: "700", fontSize: 16 },
 });

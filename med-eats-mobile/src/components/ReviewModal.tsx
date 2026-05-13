@@ -11,6 +11,7 @@ import {
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { colors, radii } from "@/src/theme/designTokens";
 
 type ReviewModalProps = {
   visible: boolean;
@@ -83,7 +84,7 @@ export default function ReviewModal({
               {isEditing ? "Editar Reseña" : "Escribir una Reseña"}
             </Text>
             <Pressable onPress={onClose} disabled={loading}>
-              <Ionicons name="close" size={24} color="#636E72" />
+              <Ionicons name="close" size={24} color={colors.textMuted} />
             </Pressable>
           </View>
 
@@ -93,7 +94,7 @@ export default function ReviewModal({
                 <Ionicons
                   name={i <= rating ? "star" : "star-outline"}
                   size={40}
-                  color={i <= rating ? "#FFB300" : "#B2BEC3"}
+                  color={i <= rating ? colors.accent : colors.placeholder}
                 />
               </Pressable>
             ))}
@@ -141,9 +142,9 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: "#FFF",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: colors.background,
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
     padding: 24,
     paddingBottom: Platform.OS === "ios" ? 40 : 24,
   },
@@ -156,7 +157,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: "800",
-    color: "#2D3436",
+    color: colors.text,
   },
   starsContainer: {
     flexDirection: "row",
@@ -170,35 +171,35 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#2D3436",
+    color: colors.text,
     marginBottom: 10,
   },
   textInput: {
-    backgroundColor: "#F8F9FA",
-    borderRadius: 12,
+    backgroundColor: colors.input,
+    borderRadius: radii.md,
     padding: 16,
     height: 120,
-    color: "#2D3436",
+    color: colors.text,
     fontSize: 15,
   },
   errorText: {
-    color: "#E63946",
+    color: colors.danger,
     fontSize: 14,
     marginBottom: 16,
     textAlign: "center",
   },
   submitButton: {
-    backgroundColor: "#FF6B35",
+    backgroundColor: colors.primary,
     height: 54,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
   disabledButton: {
-    backgroundColor: "#B2BEC3",
+    backgroundColor: colors.placeholder,
   },
   submitButtonText: {
-    color: "#FFF",
+    color: colors.background,
     fontSize: 16,
     fontWeight: "700",
   },
