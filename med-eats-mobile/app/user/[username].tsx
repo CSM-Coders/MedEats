@@ -6,8 +6,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/src/context/auth-context";
 import { fetchUserProfileByUsername, followUser, unfollowUser } from "@/src/services/userApi";
 import { fetchUserPosts } from "@/src/services/postApi";
-import { fetchSavedRestaurants, fetchVisitedRestaurants } from "@/src/services/restaurantApi";
-import { AppUser, Post, Restaurant } from "@/src/models/domain";
+import { AppUser, Post } from "@/src/models/domain";
 import { router } from "expo-router";
 
 export default function UserProfileScreen() {
@@ -17,27 +16,33 @@ export default function UserProfileScreen() {
   
   const [userProfile, setUserProfile] = useState<(AppUser & { isFollowing: boolean }) | null>(null);
   const [userPosts, setUserPosts] = useState<Post[]>([]);
-  const [savedRestaurants, setSavedRestaurants] = useState<Restaurant[]>([]);
-  const [visitedRestaurants, setVisitedRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
   const [interactionLoading, setInteractionLoading] = useState(false);
+  const [isPrivateProfile, setIsPrivateProfile] = useState(false);
 
   const loadProfile = useCallback(async () => {
     const accessToken = await getAccessToken();
     if (!accessToken || !username) return;
 
     try {
-      const [profileData, postsData, savedData, visitedData] = await Promise.all([
+      setIsPrivateProfile(false);
+      const [profileData, postsData] = await Promise.all([
         fetchUserProfileByUsername(accessToken, username),
         fetchUserPosts(accessToken, username),
-        fetchSavedRestaurants(accessToken, username),
-        fetchVisitedRestaurants(accessToken, username),
       ]);
       setUserProfile(profileData);
       setUserPosts(postsData);
-      setSavedRestaurants(savedData);
-      setVisitedRestaurants(visitedData);
     } catch (error) {
+      const statusCode = typeof error === "object" && error !== null && "statusCode" in error
+        ? Number((error as { statusCode?: number }).statusCode)
+        : undefined;
+
+      if (statusCode === 403) {
+        setIsPrivateProfile(true);
+        setUserProfile(null);
+        setUserPosts([]);
+      }
+
       console.error("Error loading profile:", error);
     } finally {
       setLoading(false);
@@ -77,6 +82,28 @@ export default function UserProfileScreen() {
   }
 
   if (!userProfile) {
+    if (isPrivateProfile) {
+      return (
+        <View style={styles.privateContainer}>
+          <View style={[styles.header, { paddingTop: insets.top + 8 }]}> 
+            <Pressable onPress={() => router.back()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color="#2D3436" />
+            </Pressable>
+            <Text style={styles.headerTitle}>@{username}</Text>
+            <View style={{ width: 24 }} />
+          </View>
+
+          <View style={styles.privateCard}>
+            <Ionicons name="lock-closed-outline" size={42} color="#FF6B35" />
+            <Text style={styles.privateTitle}>Perfil privado</Text>
+            <Text style={styles.privateText}>
+              La cuenta de @{username} es privada. Sigue la cuenta para ver sus posts y actividad.
+            </Text>
+          </View>
+        </View>
+      );
+    }
+
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>Usuario no encontrado</Text>
@@ -168,53 +195,11 @@ export default function UserProfileScreen() {
               </Pressable>
             </>
           ) : (
-            <Pressable style={styles.secondaryButton} onPress={() => router.push("/profile")}>
-              <Text style={styles.secondaryButtonText}>Edit Profile</Text>
+            <Pressable style={styles.secondaryButton} onPress={() => router.push("/edit-profile")}>
+              <Text style={styles.secondaryButtonText}>Editar perfil</Text>
             </Pressable>
           )}
         </View>
-
-        {/* Highlights Section (Favorites & Visited) */}
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false} 
-          style={styles.highlightsContainer}
-          contentContainerStyle={styles.highlightsContent}
-        >
-          {/* Favorites Highlight */}
-          {savedRestaurants.length > 0 && (
-            <View style={styles.highlightItem}>
-              <View style={[styles.highlightCircle, { borderColor: "#FF6B35" }]}>
-                <Ionicons name="heart" size={28} color="#FF6B35" />
-              </View>
-              <Text style={styles.highlightLabel}>Favorites</Text>
-            </View>
-          )}
-          
-          {/* Visited Highlight */}
-          {visitedRestaurants.length > 0 && (
-            <View style={styles.highlightItem}>
-              <View style={[styles.highlightCircle, { borderColor: "#2D3436" }]}>
-                <Ionicons name="restaurant" size={28} color="#2D3436" />
-              </View>
-              <Text style={styles.highlightLabel}>Visited</Text>
-            </View>
-          )}
-
-          {/* Individual Restaurant Highlights (Mocking some) */}
-          {visitedRestaurants.slice(0, 3).map((rest, index) => (
-            <Pressable 
-              key={index} 
-              style={styles.highlightItem}
-              onPress={() => router.push(`/restaurant/${rest.id}`)}
-            >
-              <View style={styles.highlightCircle}>
-                <Image source={{ uri: rest.image }} style={styles.highlightImage} />
-              </View>
-              <Text style={styles.highlightLabel} numberOfLines={1}>{rest.name.split(" ")[0]}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
 
         {/* Tabs Bar */}
         <View style={styles.tabsBar}>
@@ -269,6 +254,20 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   errorContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   errorText: { color: "#636E72", fontSize: 16 },
+  privateContainer: { flex: 1, backgroundColor: "#FFFFFF" },
+  privateCard: {
+    flex: 1,
+    marginHorizontal: 16,
+    marginTop: 48,
+    borderRadius: 20,
+    backgroundColor: "#FFF4F0",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    gap: 12,
+  },
+  privateTitle: { fontSize: 22, fontWeight: "800", color: "#2D3436" },
+  privateText: { color: "#636E72", textAlign: "center", lineHeight: 22 },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -346,22 +345,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  highlightsContainer: { marginTop: 20, paddingLeft: 16 },
-  highlightsContent: { paddingRight: 32, gap: 18 },
-  highlightItem: { alignItems: "center", gap: 6 },
-  highlightCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 1,
-    borderColor: "#E1E1E1",
-    padding: 3,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FFFFFF"
-  },
-  highlightImage: { width: "100%", height: "100%", borderRadius: 30 },
-  highlightLabel: { fontSize: 12, color: "#2D3436", maxWidth: 70 },
   tabsBar: {
     flexDirection: "row",
     marginTop: 24,
