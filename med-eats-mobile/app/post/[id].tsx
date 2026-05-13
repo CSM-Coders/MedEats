@@ -184,7 +184,10 @@ export default function PostDetailScreen() {
               </View>
 
               <View style={styles.divider} />
-              <Text style={styles.commentsTitle}>Comentarios</Text>
+              <View style={styles.commentsHeaderRow}>
+                <Text style={styles.commentsTitle}>Comentarios</Text>
+                <Text style={styles.commentsCount}>{comments.length}</Text>
+              </View>
             </View>
           }
           renderItem={({ item }) => (
@@ -214,7 +217,8 @@ export default function PostDetailScreen() {
           />
           <TextInput
             style={styles.textInput}
-            placeholder="Añade un comentario..."
+            placeholder="Escribe un comentario aquí"
+            placeholderTextColor="#B2BEC3"
             value={newComment}
             onChangeText={setNewComment}
             multiline
@@ -286,7 +290,16 @@ const styles = StyleSheet.create({
   restaurantBadgeText: { color: "#FF6B35", fontWeight: "700", fontSize: 12 },
   dateText: { color: "#B2BEC3", fontSize: 11, textTransform: "uppercase" },
   divider: { height: 1, backgroundColor: "#F3F4F6", marginHorizontal: 12 },
-  commentsTitle: { fontSize: 16, fontWeight: "700", color: "#2D3436", margin: 12 },
+  commentsHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginHorizontal: 12,
+    marginTop: 12,
+    marginBottom: 12,
+  },
+  commentsTitle: { fontSize: 16, fontWeight: "700", color: "#2D3436" },
+  commentsCount: { fontSize: 14, fontWeight: "600", color: "#FF6B35" },
   commentItem: {
     flexDirection: "row",
     paddingHorizontal: 12,
