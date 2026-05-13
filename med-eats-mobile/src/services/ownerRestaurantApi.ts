@@ -51,6 +51,52 @@ function authHeaders(accessToken: string) {
   };
 }
 
+function extractFirstErrorMessage(payload: any): string | null {
+  if (!payload) return null;
+
+  if (typeof payload === "string") {
+    return payload.trim() || null;
+  }
+
+  if (Array.isArray(payload)) {
+    for (const item of payload) {
+      const nested = extractFirstErrorMessage(item);
+      if (nested) return nested;
+    }
+    return null;
+  }
+
+  if (typeof payload === "object") {
+    if (typeof payload.detail === "string" && payload.detail.trim()) return payload.detail.trim();
+    if (typeof payload.message === "string" && payload.message.trim()) return payload.message.trim();
+
+    for (const value of Object.values(payload)) {
+      const nested = extractFirstErrorMessage(value);
+      if (nested) return nested;
+    }
+  }
+
+  return null;
+}
+
+async function parseApiError(response: Response, fallbackMessage: string): Promise<string> {
+  const textBody = await response.text().catch(() => "");
+
+  if (textBody) {
+    try {
+      const json = JSON.parse(textBody);
+      const parsed = extractFirstErrorMessage(json);
+      if (parsed) return parsed;
+      return `${fallbackMessage} (HTTP ${response.status})`;
+    } catch {
+      const compact = textBody.replace(/\s+/g, " ").trim();
+      if (compact) return `${fallbackMessage} (HTTP ${response.status}): ${compact.slice(0, 180)}`;
+    }
+  }
+
+  return `${fallbackMessage} (HTTP ${response.status})`;
+}
+
 function mapBranch(item: RestaurantBranchApiItem): RestaurantBranch {
   return {
     id: String(item.id),
@@ -63,14 +109,34 @@ function mapBranch(item: RestaurantBranchApiItem): RestaurantBranch {
 }
 
 function mapRestaurant(item: RestaurantApiItem): Restaurant {
+  // Normalize image and branch coordinates similarly to public restaurant API
+  let imageUrl = item.image ?? "";
+  if (imageUrl && !/^https?:\/\//i.test(imageUrl)) {
+    imageUrl = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
+    imageUrl = `${API_BASE_URL}${imageUrl}`;
+  }
+
+  const branches = (item.branches ?? []).map((b) => {
+    const lat = Number(b.latitude);
+    const lon = Number(b.longitude);
+    return {
+      id: String(b.id),
+      name: b.name,
+      address: b.address,
+      latitude: Number.isFinite(lat) ? lat : NaN,
+      longitude: Number.isFinite(lon) ? lon : NaN,
+      isPrimary: Boolean(b.is_primary),
+    };
+  });
+
   return {
     id: String(item.id),
     name: item.name,
     category: item.category ?? "",
     rating: Number(item.rating) || 0,
-    image: item.image ?? "",
-    latitude: item.latitude,
-    longitude: item.longitude,
+    image: imageUrl,
+    latitude: Number(item.latitude),
+    longitude: Number(item.longitude),
     location: item.location,
     description: item.description,
     menuHighlights: [],
@@ -83,7 +149,7 @@ function mapRestaurant(item: RestaurantApiItem): Restaurant {
       item.average_rating === null || item.average_rating === undefined
         ? null
         : Number(item.average_rating) || 0,
-    branches: (item.branches ?? []).map(mapBranch),
+    branches,
   };
 }
 
@@ -93,7 +159,12 @@ function mapReview(item: ReviewApiItem): Review {
     restaurantId: "",
     restaurantName: item.restaurant_name,
     username: item.username,
-    avatar: item.avatar,
+    avatar: (() => {
+      const raw = item.avatar || "";
+      if (!raw) return "";
+      if (/^https?:\/\//i.test(raw)) return raw;
+      return raw.startsWith("/") ? `${API_BASE_URL}${raw}` : `${API_BASE_URL}/${raw}`;
+    })(),
     rating: Number(item.rating) || 0,
     comment: item.comment,
     date: item.created_at?.slice(0, 10) || "",
@@ -140,8 +211,7 @@ export async function createMyRestaurant(
   });
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    const message = errorData.detail || errorData.message || JSON.stringify(errorData) || "Unable to create restaurant";
+    const message = await parseApiError(response, "Unable to create restaurant");
     throw new Error(message);
   }
 
@@ -167,8 +237,7 @@ export async function updateMyRestaurant(
   );
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    const message = errorData.detail || errorData.message || JSON.stringify(errorData) || "Unable to update restaurant";
+    const message = await parseApiError(response, "Unable to update restaurant");
     throw new Error(message);
   }
 
@@ -204,7 +273,7 @@ export async function addRestaurantBranch(
   );
 
   if (!response.ok) {
-    throw new Error("Unable to create branch");
+    throw new Error(await parseApiError(response, "Unable to create branch"));
   }
 
   const payload = (await response.json()) as RestaurantBranchApiItem;
@@ -253,7 +322,7 @@ export async function uploadRestaurantMenuPdf(
   );
 
   if (!response.ok) {
-    throw new Error("Unable to upload menu PDF");
+    throw new Error(await parseApiError(response, "Unable to upload menu PDF"));
   }
 
   const payload = (await response.json()) as RestaurantApiItem;

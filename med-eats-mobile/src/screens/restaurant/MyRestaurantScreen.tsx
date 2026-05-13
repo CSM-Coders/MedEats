@@ -166,7 +166,6 @@ export default function MyRestaurantScreen() {
       formData.append("location", form.location.trim());
       formData.append("description", form.description.trim());
       formData.append("whatsapp", form.whatsapp.trim());
-      formData.append("category_id", "3"); // Default: Burgers & Grill
 
       // Usar coordenadas manuales del mapa (el usuario tocó el mapa)
       if (form.manualLat && form.manualLon) {

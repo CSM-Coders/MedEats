@@ -155,6 +155,15 @@ class RestaurantOwnerWriteSerializer(serializers.ModelSerializer):
 
         return value
 
+    def validate_category_id(self, value):
+        if value in (None, ""):
+            return None
+
+        if not Category.objects.filter(id=value).exists():
+            raise serializers.ValidationError("La categoría seleccionada no existe.")
+
+        return value
+
     def validate(self, attrs):
         request = self.context.get("request")
         user = getattr(request, "user", None)
