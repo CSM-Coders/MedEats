@@ -30,7 +30,7 @@ import {
   markRestaurantVisited,
 } from "../../services/userCollectionsApi";
 import ReviewModal from "../../components/ReviewModal";
-import { colors } from "@/src/theme/designTokens";
+import { colors, radii, spacing } from "@/src/theme/designTokens";
 
 type Props = {
   restaurant: Restaurant;
@@ -54,7 +54,7 @@ function RatingStars({ rating, size = 16 }: { rating: number; size?: number }) {
               : "star-outline"
           }
           size={size}
-          color="#FFB300" // Amarillo dorado exacto del mockup para estrellas
+          color={colors.accent} // Amarillo dorado exacto del mockup para estrellas
         />
       ))}
     </View>
@@ -292,7 +292,7 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
                     coordinate={{ latitude: branch.latitude, longitude: branch.longitude }}
                     title={branch.name || "Sede"}
                     description={branch.address}
-                    pinColor={branch.isPrimary ? "#FF6B35" : "#1D4ED8"}
+                    pinColor={branch.isPrimary ? colors.primary : colors.accent}
                   />
                 ))}
               </MapView>
@@ -313,7 +313,7 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
 
           {/* View Menu Button */}
           <Pressable style={styles.viewMenuButton} onPress={handleOpenMenuPdf}>
-            <Ionicons name="list" size={22} color="#FFFFFF" />
+            <Ionicons name="list" size={22} color={colors.background} />
             <Text style={styles.viewMenuText}>Ver menú PDF</Text>
           </Pressable>
 
@@ -322,7 +322,7 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
             <View style={styles.reviewsHeader}>
               <Text style={styles.sectionTitle}>Reseñas y Calificaciones</Text>
               <Pressable style={styles.addReviewButton} onPress={handleOpenCreateModal}>
-                <Ionicons name="add-circle-outline" size={20} color="#FF6B35" />
+                <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
                 <Text style={styles.addReviewText}>Escribir</Text>
               </Pressable>
             </View>
@@ -345,10 +345,10 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
                         {review.isOwner && (
                           <View style={styles.ownerActions}>
                             <Pressable onPress={() => handleOpenEditModal(review)}>
-                              <Ionicons name="pencil-outline" size={16} color="#636E72" />
+                              <Ionicons name="pencil-outline" size={16} color={colors.textMuted} />
                             </Pressable>
                             <Pressable onPress={() => handleDeleteReview(review.id)}>
-                              <Ionicons name="trash-outline" size={16} color="#E63946" />
+                              <Ionicons name="trash-outline" size={16} color={colors.danger} />
                             </Pressable>
                           </View>
                         )}
@@ -384,7 +384,7 @@ export default function RestaurantDetailScreen({ restaurant }: Props) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.background,
   },
   heroContainer: {
     position: "relative",
@@ -397,12 +397,12 @@ const styles = StyleSheet.create({
     resizeMode: "cover",
   },
   heroFallback: {
-    backgroundColor: "#E9ECEF",
+    backgroundColor: colors.border,
   },
   headerActions: {
     position: "absolute",
-    left: 16,
-    right: 16,
+    left: spacing.lg,
+    right: spacing.lg,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -410,13 +410,13 @@ const styles = StyleSheet.create({
   },
   rightActions: {
     flexDirection: "row",
-    gap: 12,
+    gap: spacing.md,
   },
   iconCircle: {
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.background,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#000",
@@ -426,19 +426,19 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   content: {
-    paddingHorizontal: 24,
-    paddingTop: 24,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
   },
   title: {
     fontSize: 28,
     fontWeight: "800",
-    color: "#2D3436",
-    marginBottom: 10,
+    color: colors.text,
+    marginBottom: spacing.sm + 2,
   },
   ratingCategoryRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 14,
+    marginBottom: spacing.lg,
   },
   starsContainer: {
     flexDirection: "row",
@@ -446,89 +446,89 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   ratingNumber: {
-    marginLeft: 8,
+    marginLeft: spacing.sm,
     fontSize: 15,
     fontWeight: "700",
-    color: "#2D3436",
+    color: colors.text,
   },
   dotSeparator: {
-    marginHorizontal: 8,
-    color: "#B2BEC3",
+    marginHorizontal: spacing.sm,
+    color: colors.placeholder,
     fontWeight: "800",
   },
   categoryText: {
     fontSize: 14,
-    color: "#636E72",
+    color: colors.textMuted,
   },
   locationRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 18,
+    marginBottom: spacing.xl,
   },
   locationText: {
-    marginLeft: 8,
+    marginLeft: spacing.sm,
     fontSize: 14,
-    color: "#636E72",
+    color: colors.textMuted,
   },
   description: {
     fontSize: 15,
     lineHeight: 24,
-    color: "#636E72",
-    marginBottom: 28,
+    color: colors.textMuted,
+    marginBottom: spacing.xxl,
   },
   branchesSection: {
-    marginBottom: 28,
+    marginBottom: spacing.xxl,
   },
   branchesHelp: {
-    color: "#636E72",
+    color: colors.textMuted,
     fontSize: 13,
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   branchesMap: {
     width: "100%",
     height: 220,
-    borderRadius: 16,
-    marginBottom: 14,
+    borderRadius: radii.lg,
+    marginBottom: spacing.lg,
   },
   branchList: {
-    gap: 10,
+    gap: spacing.sm,
   },
   branchItem: {
-    backgroundColor: "#F8F9FA",
-    borderRadius: 12,
-    padding: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radii.md,
+    padding: spacing.md,
   },
   branchItemHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   branchName: {
     fontWeight: "700",
-    color: "#2D3436",
+    color: colors.text,
   },
   primaryBadge: {
-    color: "#FF6B35",
+    color: colors.primary,
     fontWeight: "700",
     fontSize: 12,
   },
   branchAddress: {
-    color: "#636E72",
+    color: colors.textMuted,
     fontSize: 13,
   },
   viewMenuButton: {
-    backgroundColor: "#FF6B35",
+    backgroundColor: colors.primary,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     height: 54,
-    borderRadius: 12,
-    gap: 10,
+    borderRadius: radii.md,
+    gap: spacing.sm,
     marginBottom: 36,
   },
   viewMenuText: {
-    color: "#FFFFFF",
+    color: colors.background,
     fontSize: 16,
     fontWeight: "700",
   },
@@ -539,51 +539,51 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 18,
+    marginBottom: spacing.xl,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: "800",
-    color: "#2D3436",
+    color: colors.text,
   },
   addReviewButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: spacing.xs,
     paddingVertical: 4,
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.sm,
   },
   addReviewText: {
-    color: "#FF6B35",
+    color: colors.primary,
     fontSize: 14,
     fontWeight: "700",
   },
   emptyReview: {
-    color: "#636E72",
+    color: colors.textMuted,
     fontStyle: "italic",
     textAlign: "center",
-    marginTop: 10,
+    marginTop: spacing.sm,
   },
   reviewCard: {
-    backgroundColor: "#F8F9FA",
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 16,
+    backgroundColor: colors.surface,
+    borderRadius: radii.lg,
+    padding: spacing.xl,
+    marginBottom: spacing.lg,
   },
   reviewHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   reviewAvatar: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    marginRight: 14,
+    marginRight: spacing.lg,
   },
   reviewMetaContainer: {
     flex: 1,
-    gap: 4,
+    gap: spacing.xs,
   },
   reviewUserRow: {
     flexDirection: "row",
@@ -593,11 +593,11 @@ const styles = StyleSheet.create({
   reviewUser: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#2D3436",
+    color: colors.text,
   },
   ownerActions: {
     flexDirection: "row",
-    gap: 12,
+    gap: spacing.md,
   },
   reviewStarsDate: {
     flexDirection: "row",
@@ -606,11 +606,12 @@ const styles = StyleSheet.create({
   },
   reviewDate: {
     fontSize: 13,
-    color: "#B2BEC3",
+    color: colors.placeholder,
   },
   reviewComment: {
     fontSize: 14,
     lineHeight: 22,
-    color: "#636E72",
+    color: colors.textMuted,
   },
 });
+

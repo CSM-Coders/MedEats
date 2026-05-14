@@ -26,7 +26,7 @@ import { Restaurant } from "@/src/models/domain";
 import { useFeed } from "@/src/context/feed-context";
 import { fetchRestaurants } from "@/src/services/restaurantApi";
 import * as ImagePicker from "expo-image-picker";
-import { colors, radii } from "@/src/theme/designTokens";
+import { colors, radii, spacing } from "@/src/theme/designTokens";
 
 // We won't use sample images anymore
 
@@ -163,6 +163,7 @@ export default function CreatePostScreen() {
             <TextInput
               style={styles.searchInput}
               placeholder="Buscar restaurante..."
+              placeholderTextColor={colors.placeholder}
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
@@ -213,6 +214,7 @@ export default function CreatePostScreen() {
         value={caption}
         onChangeText={setCaption}
         placeholder="What did you like?"
+        placeholderTextColor={colors.placeholder}
       />
 
       <Pressable
@@ -228,17 +230,17 @@ export default function CreatePostScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  content: { paddingHorizontal: 16, paddingBottom: 30 },
-  header: { marginBottom: 16 },
+  content: { paddingHorizontal: spacing.lg, paddingBottom: 30 },
+  header: { marginBottom: spacing.lg },
   title: { fontSize: 28, fontWeight: "700", color: colors.text },
   subtitle: { color: colors.textMuted },
-  label: { fontWeight: "700", color: colors.text, marginBottom: 8, marginTop: 12 },
+  label: { fontWeight: "700", color: colors.text, marginBottom: spacing.sm, marginTop: spacing.md },
   imageWrapper: { borderRadius: radii.lg, overflow: "hidden" },
   image: { width: "100%", height: 260 },
   removeImageButton: {
     position: "absolute",
-    top: 10,
-    right: 10,
+    top: spacing.sm,
+    right: spacing.sm,
     backgroundColor: "rgba(0,0,0,0.55)",
     borderRadius: radii.md,
     width: 28,
@@ -248,20 +250,20 @@ const styles = StyleSheet.create({
   },
   uploadBox: {
     height: 220,
-    borderRadius: 16,
+    borderRadius: radii.lg,
     borderWidth: 2,
     borderStyle: "dashed",
     borderColor: colors.borderSoft,
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: spacing.sm,
   },
   uploadText: { color: colors.textMuted },
   selectorButton: {
     borderWidth: 1,
     borderColor: colors.borderSoft,
     borderRadius: radii.md,
-    paddingHorizontal: 12,
+    paddingHorizontal: spacing.md,
     paddingVertical: 13,
     flexDirection: "row",
     alignItems: "center",
@@ -272,13 +274,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.borderSoft,
     borderRadius: radii.md,
-    marginTop: 8,
+    marginTop: spacing.sm,
     overflow: "hidden",
   },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
+    paddingHorizontal: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderSoft,
     backgroundColor: colors.surface,
@@ -286,45 +288,48 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     height: 44,
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.sm,
     fontSize: 15,
+    color: colors.text,
   },
   noResultsText: {
-    padding: 16,
+    padding: spacing.lg,
     color: colors.textMuted,
     textAlign: "center",
   },
   selectorItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    padding: 10,
+    gap: spacing.md,
+    padding: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
   selectorImage: { width: 44, height: 44, borderRadius: 10 },
   selectorItemTitle: { fontWeight: "600", color: colors.text },
   selectorItemSubtitle: { fontSize: 12, color: colors.textMuted },
-  starsRow: { flexDirection: "row", gap: 6 },
+  starsRow: { flexDirection: "row", gap: spacing.sm },
   captionInput: {
     minHeight: 110,
     borderWidth: 1,
     borderColor: colors.borderSoft,
     borderRadius: radii.md,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
     textAlignVertical: "top",
+    color: colors.text,
   },
   publishButton: {
-    marginTop: 18,
+    marginTop: spacing.xl,
     backgroundColor: colors.primary,
     borderRadius: radii.md,
     height: 48,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
-    gap: 8,
+    gap: spacing.sm,
   },
   publishButtonDisabled: { opacity: 0.6 },
   publishText: { color: colors.background, fontWeight: "700", fontSize: 16 },
 });
+

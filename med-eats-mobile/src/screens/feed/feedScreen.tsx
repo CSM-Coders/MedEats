@@ -11,13 +11,13 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useCallback } from "react";
 import { useFocusEffect } from "@react-navigation/native";
-import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFeed } from "@/src/context/feed-context";
 import PostCommentModal from "@/src/components/PostCommentModal";
 import { useState } from "react";
 import { useAuth } from "@/src/context/auth-context";
-import { colors, radii } from "@/src/theme/designTokens";
+import { colors, radii, spacing } from "@/src/theme/designTokens";
 
 function stars(rating: number) {
   return [1, 2, 3, 4, 5].map((star) => (
@@ -59,17 +59,18 @@ export default function FeedScreen() {
   if (isLoadingPosts) {
     return (
       <View style={[styles.container, { alignItems: "center", justifyContent: "center" }]}>
-        <Text style={styles.subtitle}>Loading feed...</Text>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.subtitle, { marginTop: spacing.sm }]}>Loading feed...</Text>
       </View>
     );
   }
 
   if (feedError) {
     return (
-      <View style={[styles.container, { alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }]}> 
+      <View style={[styles.container, { alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.xl }]}> 
         <Text style={styles.title}>Feed unavailable</Text>
-        <Text style={[styles.subtitle, { textAlign: "center", marginTop: 8 }]}>{feedError}</Text>
-        <Pressable style={[styles.restaurantBox, { marginTop: 14 }]} onPress={() => refreshPosts()}>
+        <Text style={[styles.subtitle, { textAlign: "center", marginTop: spacing.sm }]}>{feedError}</Text>
+        <Pressable style={[styles.restaurantBox, { marginTop: spacing.lg }]} onPress={() => refreshPosts()}>
           <Text style={styles.restaurantName}>Retry</Text>
         </Pressable>
       </View>
@@ -161,24 +162,24 @@ const styles = StyleSheet.create({
   header: {
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
   },
   title: { fontSize: 28, fontWeight: "700", color: colors.text },
   subtitle: { color: colors.textMuted, marginTop: 2 },
-  listContent: { paddingBottom: 24 },
+  listContent: { paddingBottom: spacing.xxl },
   card: {
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    paddingBottom: 14,
-    marginBottom: 4,
+    paddingBottom: spacing.md + 2,
+    marginBottom: spacing.xs,
   },
   userRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 10,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    gap: spacing.md,
   },
   avatar: { width: 40, height: 40, borderRadius: 20 },
   avatarPlaceholder: {
@@ -200,24 +201,25 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
   },
   actionButton: { flexDirection: "row", alignItems: "center", gap: 4 },
   actionText: { color: colors.text, fontWeight: "600" },
   restaurantBox: {
-    marginHorizontal: 12,
-    marginBottom: 8,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
     backgroundColor: colors.surfaceAlt,
     borderRadius: radii.md,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
   restaurantName: { fontWeight: "700", color: colors.text },
   starsRow: { flexDirection: "row", gap: 2, marginTop: 4 },
-  caption: { paddingHorizontal: 12, color: colors.text, fontSize: 14 },
+  caption: { paddingHorizontal: spacing.md, color: colors.text, fontSize: 14 },
 });
+

@@ -16,7 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { fetchPostComments, addCommentApi } from "@/src/services/postApi";
 import { PostComment } from "@/src/models/domain";
 import { useAuth } from "@/src/context/auth-context";
-import { colors, radii } from "@/src/theme/designTokens";
+import { colors, radii, spacing } from "@/src/theme/designTokens";
 
 type PostCommentModalProps = {
   visible: boolean;
@@ -121,7 +121,7 @@ export default function PostCommentModal({
             <TextInput
               style={styles.input}
               placeholder="Escribe un comentario aquí"
-              placeholderTextColor="rgba(45,52,54,0.35)"
+              placeholderTextColor={colors.placeholder}
               value={newComment}
               onChangeText={setNewComment}
               multiline
@@ -132,9 +132,9 @@ export default function PostCommentModal({
               disabled={!newComment.trim() || submitting}
             >
               {submitting ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
+                <ActivityIndicator color={colors.background} size="small" />
               ) : (
-                <Ionicons name="send" size={20} color="#FFFFFF" />
+                <Ionicons name="send" size={20} color={colors.background} />
               )}
             </Pressable>
           </View>
@@ -160,7 +160,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 16,
+    padding: spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
@@ -178,13 +178,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   listContent: {
-    padding: 16,
+    padding: spacing.lg,
     paddingBottom: 40,
   },
   commentCard: {
     flexDirection: "row",
-    marginBottom: 20,
-    gap: 12,
+    marginBottom: spacing.xl,
+    gap: spacing.md,
   },
   avatar: {
     width: 36,
@@ -222,21 +222,21 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 12,
+    padding: spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     backgroundColor: colors.background,
-    paddingBottom: Platform.OS === "ios" ? 32 : 12,
+    paddingBottom: Platform.OS === "ios" ? 32 : spacing.md,
   },
   input: {
     flex: 1,
     backgroundColor: colors.input,
     borderRadius: radii.pill,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
     maxHeight: 100,
     color: colors.text,
-    marginRight: 10,
+    marginRight: spacing.sm + 2,
   },
   sendButton: {
     backgroundColor: colors.primary,
@@ -250,3 +250,4 @@ const styles = StyleSheet.create({
     backgroundColor: colors.placeholder,
   },
 });
+

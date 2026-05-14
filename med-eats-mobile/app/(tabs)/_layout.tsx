@@ -9,6 +9,8 @@ import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet } from "react-native";
 
+import { colors } from "@/src/theme/designTokens";
+
 function TabIcon({
   name,
   color,
@@ -26,8 +28,8 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#FF6B35",
-        tabBarInactiveTintColor: "#A0A8B2",
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.placeholder,
         tabBarStyle: styles.tabBar,
         tabBarItemStyle: styles.tabBarItem,
         tabBarLabelStyle: styles.tabBarLabel,
@@ -104,9 +106,9 @@ const styles = StyleSheet.create({
     height: 80,
     paddingTop: 12,
     paddingBottom: 10,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.background,
     borderTopWidth: 1,
-    borderTopColor: "#EAEDEF",
+    borderTopColor: colors.border,
   },
   tabBarItem: {
     paddingVertical: 4,
@@ -117,3 +119,4 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
 });
+

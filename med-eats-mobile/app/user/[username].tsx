@@ -9,9 +9,9 @@ import { fetchUserPosts } from "@/src/services/postApi";
 import {
   fetchSavedRestaurants,
   fetchVisitedRestaurants,
-} from "@/src/services/userCollectionsApi";
-import { AppUser, Post, SavedRestaurantRecord, VisitedRestaurantRecord } from "@/src/models/domain";
-import { colors, radii } from "@/src/theme/designTokens";
+} from "../../src/services/userCollectionsApi";
+import { AppUser, Post, SavedRestaurantRecord, VisitedRestaurantRecord } from "../../src/models/domain";
+import { colors, radii } from "../../src/theme/designTokens";
 import { router } from "expo-router";
 
 type TabType = "posts" | "saved" | "visited";
@@ -92,7 +92,7 @@ export default function UserProfileScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FF6B35" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -103,14 +103,14 @@ export default function UserProfileScreen() {
         <View style={styles.privateContainer}>
           <View style={[styles.header, { paddingTop: insets.top + 8 }]}> 
             <Pressable onPress={() => router.back()} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color="#2D3436" />
+              <Ionicons name="arrow-back" size={24} color={colors.text} />
             </Pressable>
             <Text style={styles.headerTitle}>@{username}</Text>
             <View style={{ width: 24 }} />
           </View>
 
           <View style={styles.privateCard}>
-            <Ionicons name="lock-closed-outline" size={42} color="#FF6B35" />
+            <Ionicons name="lock-closed-outline" size={42} color={colors.primary} />
             <Text style={styles.privateTitle}>Perfil privado</Text>
             <Text style={styles.privateText}>
               La cuenta de @{username} es privada. Sigue la cuenta para ver sus posts y actividad.
@@ -134,7 +134,7 @@ export default function UserProfileScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#2D3436" />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>@{userProfile.username}</Text>
         <Ionicons name="notifications-outline" size={24} color={colors.text} />

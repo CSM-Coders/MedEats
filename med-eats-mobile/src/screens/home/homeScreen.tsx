@@ -33,11 +33,12 @@ import {
   getDistanceKm,
   MEDELLIN_REGION,
   semanticCategoryMatches,
-} from "@/src/services/mockData";
+} from "../../services/mockData";
 import MapView from "./components/mapView";
 import RestaurantCard from "./components/restaurantCard";
-import { API_BASE_URL } from "@/src/config/api";
-import { fetchRestaurants as fetchRestaurantsApi } from "@/src/services/restaurantApi";
+import { API_BASE_URL } from "../../config/api";
+import { fetchRestaurants as fetchRestaurantsApi } from "../../services/restaurantApi";
+import { colors, radii, spacing } from "../../theme/designTokens";
 
 const initialFilters: HomeFilters = {
   category: null,
@@ -621,8 +622,8 @@ export default function HomeScreen() {
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
-        <ActivityIndicator size="large" color="#FF6B35" />
-        <Text style={{ marginTop: 12, color: "#636E72" }}>Cargando restaurantes desde PostgreSQL...</Text>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ marginTop: 12, color: colors.textMuted }}>Cargando restaurantes desde PostgreSQL...</Text>
       </View>
     );
   }
@@ -665,11 +666,11 @@ export default function HomeScreen() {
       {navigationState === "discovery" && (
         <View style={[styles.searchContainer, { top: insets.top + 8 }]}>
           <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color="#636E72" />
+          <Ionicons name="search" size={20} color={colors.textMuted} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search by name or food type"
-            placeholderTextColor="#B2BEC3"
+            placeholderTextColor={colors.placeholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
             onSubmitEditing={handleSearchSubmit}
@@ -681,12 +682,12 @@ export default function HomeScreen() {
             hitSlop={8}
             style={styles.iconButton}
           >
-            <Ionicons name="options-outline" size={20} color="#636E72" />
+            <Ionicons name="options-outline" size={20} color={colors.textMuted} />
           </Pressable>
 
           {(searchQuery.length > 0 || filters.category || filters.minRating || filters.maxDistanceKm) && (
             <Pressable onPress={clearSearchAndFilters} hitSlop={8}>
-              <Ionicons name="close-circle" size={20} color="#B2BEC3" />
+              <Ionicons name="close-circle" size={20} color={colors.placeholder} />
             </Pressable>
           )}
         </View>
@@ -696,7 +697,7 @@ export default function HomeScreen() {
           onPress={handleOpenFoodieChat}
           disabled={foodieLoading}
         >
-          <Ionicons name="sparkles" size={16} color="#fff" />
+          <Ionicons name="sparkles" size={16} color={colors.background} />
           <Text style={styles.foodieAskButtonText}>
             {foodieLoading ? "Foodie AI está pensando..." : "Preguntarle a Foodie AI"}
           </Text>
@@ -730,7 +731,7 @@ export default function HomeScreen() {
                     </Text>
                   </View>
                   <View style={styles.searchResultRating}>
-                    <Ionicons name="star" size={14} color="#FF6B35" />
+                    <Ionicons name="star" size={14} color={colors.primary} />
                     <Text style={styles.searchResultRatingText}>
                       {item.restaurant.rating.toFixed(1)}
                     </Text>
@@ -889,7 +890,7 @@ export default function HomeScreen() {
         <Ionicons 
           name={navigationState === "active" ? "locate" : "navigate"} 
           size={24} 
-          color="#FF6B35" 
+          color={colors.primary} 
         />
       </Pressable>
 
@@ -912,7 +913,7 @@ export default function HomeScreen() {
         <View style={[styles.navHud, { bottom: insets.bottom + 20 }]}>
           {!navigationData ? (
             <View style={styles.navLoading}>
-              <ActivityIndicator size="small" color="#FF6B35" />
+              <ActivityIndicator size="small" color={colors.primary} />
               <Text style={styles.navLoadingText}>Trazando ruta...</Text>
             </View>
           ) : (
@@ -930,7 +931,7 @@ export default function HomeScreen() {
 
               <View style={styles.navActions}>
                 <Pressable style={styles.startNavBtn} onPress={handleStartNavigation}>
-                  <Ionicons name="navigate" size={24} color="#fff" />
+                  <Ionicons name="navigate" size={24} color={colors.background} />
                   <Text style={styles.startNavText}>Iniciar viaje</Text>
                 </Pressable>
                 
@@ -973,7 +974,7 @@ export default function HomeScreen() {
             <View style={styles.chatHeader}>
               <Text style={styles.chatTitle}>Foodie AI</Text>
               <Pressable onPress={() => setIsFoodieChatOpen(false)}>
-                <Ionicons name="close" size={22} color="#2D3436" />
+                <Ionicons name="close" size={22} color={colors.text} />
               </Pressable>
             </View>
 
@@ -1013,7 +1014,7 @@ export default function HomeScreen() {
               <TextInput
                 style={[styles.chatInput, { height: Math.max(42, chatInputHeight) }]}
                 placeholder="Ej: Quiero pizza para parche"
-                placeholderTextColor="#B2BEC3"
+                placeholderTextColor={colors.placeholder}
                 value={chatInput}
                 onChangeText={setChatInput}
                 onSubmitEditing={handleSendFoodieMessage}
@@ -1031,7 +1032,7 @@ export default function HomeScreen() {
                 disabled={!chatInput.trim() || foodieLoading}
                 onPress={handleSendFoodieMessage}
               >
-                <Ionicons name="send" size={16} color="#fff" />
+                <Ionicons name="send" size={16} color={colors.background} />
               </Pressable>
             </View>
           </View>
@@ -1047,62 +1048,62 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     position: "absolute",
-    left: 16,
-    right: 16,
+    left: spacing.lg,
+    right: spacing.lg,
     zIndex: 10,
   },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 28,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    backgroundColor: colors.background,
+    borderRadius: radii.round,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
-    gap: 8,
+    gap: spacing.sm,
   },
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: "#2D3436",
+    color: colors.text,
   },
   iconButton: {
     paddingHorizontal: 4,
   },
   resultsCount: {
-    marginTop: 8,
-    backgroundColor: "#2D3436",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    marginTop: spacing.sm,
+    backgroundColor: colors.text,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: radii.lg,
     alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: spacing.sm,
   },
   resultsText: {
-    color: "#fff",
+    color: colors.background,
     fontSize: 13,
     fontWeight: "500",
   },
   aiBadge: {
-    color: "#FF6B35",
+    color: colors.primary,
     fontSize: 12,
     fontWeight: "700",
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    paddingHorizontal: 8,
+    backgroundColor: colors.background,
+    borderRadius: radii.sm + 2,
+    paddingHorizontal: spacing.sm,
     paddingVertical: 2,
   },
   filterPanel: {
-    marginTop: 10,
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 12,
+    marginTop: spacing.sm,
+    backgroundColor: colors.background,
+    borderRadius: radii.lg,
+    padding: spacing.md,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -1112,55 +1113,55 @@ const styles = StyleSheet.create({
   filterTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#2D3436",
-    marginBottom: 8,
+    color: colors.text,
+    marginBottom: spacing.sm,
   },
   filterLabel: {
     fontSize: 13,
-    color: "#636E72",
-    marginBottom: 8,
-    marginTop: 8,
+    color: colors.textMuted,
+    marginBottom: spacing.sm,
+    marginTop: spacing.sm,
   },
   chipsRow: {
     flexGrow: 0,
   },
   inlineRow: {
     flexDirection: "row",
-    gap: 8,
+    gap: spacing.sm,
   },
   chip: {
     borderWidth: 1,
-    borderColor: "#DFE6E9",
-    borderRadius: 16,
-    paddingHorizontal: 10,
+    borderColor: colors.borderSoft,
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing.md,
     paddingVertical: 6,
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
   chipActive: {
-    borderColor: "#FF6B35",
-    backgroundColor: "#FFF1EC",
+    borderColor: colors.primary,
+    backgroundColor: colors.surfaceAlt,
   },
   chipText: {
     fontSize: 12,
-    color: "#636E72",
+    color: colors.textMuted,
   },
   chipTextActive: {
-    color: "#FF6B35",
+    color: colors.primary,
     fontWeight: "600",
   },
   exitNavText: {
-    color: "#FF6B35",
+    color: colors.primary,
     fontWeight: "700",
     fontSize: 16,
   },
   // NAVEGACIÓN HUD
   navHud: {
     position: "absolute",
-    left: 20,
-    right: 20,
-    backgroundColor: "#fff",
-    borderRadius: 24,
-    padding: 20,
+    left: spacing.xl,
+    right: spacing.xl,
+    backgroundColor: colors.background,
+    borderRadius: radii.xl + 4,
+    padding: spacing.xl,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.2,
@@ -1171,106 +1172,111 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: spacing.xl,
     borderBottomWidth: 1,
-    borderBottomColor: "#F1F2F6",
-    paddingBottom: 15,
+    borderBottomColor: colors.border,
+    paddingBottom: spacing.lg,
   },
   navTime: {
     fontSize: 28,
     fontWeight: "800",
-    color: "#2D3436",
+    color: colors.text,
   },
   navDistance: {
     fontSize: 16,
-    color: "#636E72",
+    color: colors.textMuted,
     fontWeight: "600",
   },
   navDestWrap: {
     alignItems: "flex-end",
     flex: 1,
-    marginLeft: 20,
+    marginLeft: spacing.xl,
   },
   navDestLabel: {
     fontSize: 12,
-    color: "#B2BEC3",
+    color: colors.placeholder,
     textTransform: "uppercase",
     letterSpacing: 1,
   },
   navDestName: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#FF6B35",
+    color: colors.primary,
   },
   navLoading: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 10,
-    gap: 12,
+    paddingVertical: spacing.sm,
+    gap: spacing.md,
   },
   navLoadingText: {
     fontSize: 16,
-    color: "#636E72",
+    color: colors.textMuted,
     fontWeight: "500",
   },
   navActions: {
     flexDirection: "row",
-    gap: 12,
+    gap: spacing.md,
   },
   startNavBtn: {
     flex: 2,
-    backgroundColor: "#FF6B35",
+    backgroundColor: colors.primary,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 15,
-    borderRadius: 16,
-    gap: 8,
+    borderRadius: radii.lg,
+    gap: spacing.sm,
   },
   startNavText: {
-    color: "#fff",
+    color: colors.background,
     fontSize: 18,
     fontWeight: "800",
   },
   exitNavBtn: {
     flex: 1,
-    backgroundColor: "#FFF1EC",
+    backgroundColor: colors.surfaceAlt,
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 15,
-    borderRadius: 16,
+    borderRadius: radii.lg,
   },
   exitNavBtnSmall: {
-    backgroundColor: "#FAB1A0",
+    backgroundColor: colors.danger,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.lg,
+    justifyContent: "center",
+    alignItems: "center",
   },
   navProgress: {
     flex: 2,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F1F2F6",
-    borderRadius: 16,
-    paddingHorizontal: 20,
-    gap: 10,
+    backgroundColor: colors.border,
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing.xl,
+    gap: spacing.sm,
   },
   navProgressPulse: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: "#00B894",
+    backgroundColor: colors.success,
   },
   navProgressText: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#2D3436",
+    color: colors.text,
   },
   // ACTIVE NAV HUD (GOOGLE MAPS STYLE)
   activeNavHud: {
     position: "absolute",
-    left: 20,
-    right: 20,
-    backgroundColor: "#fff",
-    borderRadius: 40,
+    left: spacing.xl,
+    right: spacing.xl,
+    backgroundColor: colors.background,
+    borderRadius: radii.round,
     paddingHorizontal: 25,
     paddingVertical: 15,
     shadowColor: "#000",
@@ -1292,21 +1298,21 @@ const styles = StyleSheet.create({
   activeNavTime: {
     fontSize: 24,
     fontWeight: "800",
-    color: "#2D3436",
+    color: colors.text,
   },
   activeNavDistance: {
     fontSize: 18,
-    color: "#636E72",
+    color: colors.textMuted,
     fontWeight: "600",
   },
   activeExitBtn: {
-    backgroundColor: "#FF4757",
+    backgroundColor: colors.danger,
     paddingHorizontal: 25,
     paddingVertical: 12,
-    borderRadius: 25,
+    borderRadius: radii.round,
   },
   activeExitText: {
-    color: "#fff",
+    color: colors.background,
     fontWeight: "800",
     fontSize: 15,
   },
@@ -1314,7 +1320,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 32,
     right: 16,
-    backgroundColor: "#fff",
+    backgroundColor: colors.background,
     width: 48,
     height: 48,
     borderRadius: 24,
@@ -1330,91 +1336,91 @@ const styles = StyleSheet.create({
   cardContainer: {
     position: "absolute",
     bottom: 32,
-    left: 24,
-    right: 24,
+    left: spacing.xl,
+    right: spacing.xl,
     zIndex: 20,
   },
   filterActions: {
     flexDirection: "row",
     justifyContent: "space-between",
-    gap: 10,
-    marginTop: 16,
+    gap: spacing.sm,
+    marginTop: spacing.lg,
   },
   filterClearBtn: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 14,
+    borderRadius: radii.lg,
     borderWidth: 1.5,
-    borderColor: "#DFE6E9",
+    borderColor: colors.borderSoft,
     alignItems: "center",
   },
   filterClearText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#636E72",
+    color: colors.textMuted,
   },
   filterApplyBtn: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 14,
-    backgroundColor: "#FF6B35",
+    borderRadius: radii.lg,
+    backgroundColor: colors.primary,
     alignItems: "center",
   },
   filterApplyText: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#fff",
+    color: colors.background,
   },
   foodieAskButton: {
-    marginTop: 8,
+    marginTop: spacing.sm,
     alignSelf: "flex-start",
-    backgroundColor: "#2D3436",
-    borderRadius: 18,
+    backgroundColor: colors.text,
+    borderRadius: radii.lg + 2,
     paddingHorizontal: 14,
     paddingVertical: 10,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: spacing.sm,
   },
   foodieAskButtonDisabled: {
     opacity: 0.65,
   },
   foodieAskButtonText: {
-    color: "#fff",
+    color: colors.background,
     fontSize: 13,
     fontWeight: "700",
   },
   foodieAnswerCard: {
-    marginTop: 10,
-    backgroundColor: "#fff",
-    borderRadius: 14,
+    marginTop: spacing.sm,
+    backgroundColor: colors.background,
+    borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: "#FFE5D8",
-    padding: 12,
+    borderColor: colors.surfaceAlt,
+    padding: spacing.md,
   },
   foodieAnswerTitle: {
-    color: "#D35400",
+    color: colors.primaryDark,
     fontSize: 12,
     fontWeight: "700",
     marginBottom: 4,
     textTransform: "uppercase",
   },
   foodieAnswerRestaurant: {
-    color: "#2D3436",
+    color: colors.text,
     fontSize: 15,
     fontWeight: "700",
     marginBottom: 2,
   },
   foodieAnswerText: {
-    color: "#636E72",
+    color: colors.textMuted,
     fontSize: 13,
     lineHeight: 18,
   },
   searchResultsPanel: {
-    marginTop: 10,
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 12,
+    marginTop: spacing.sm,
+    backgroundColor: colors.background,
+    borderRadius: radii.lg,
+    padding: spacing.md,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -1424,8 +1430,8 @@ const styles = StyleSheet.create({
   searchResultsTitle: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#2D3436",
-    marginBottom: 8,
+    color: colors.text,
+    marginBottom: spacing.sm,
   },
   searchResultsList: {
     maxHeight: 210,
@@ -1434,10 +1440,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 12,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: "#F1F2F6",
-    gap: 10,
+    borderBottomColor: colors.border,
+    gap: spacing.sm,
   },
   searchResultTextWrap: {
     flex: 1,
@@ -1445,22 +1451,22 @@ const styles = StyleSheet.create({
   searchResultName: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#2D3436",
+    color: colors.text,
   },
   searchResultMeta: {
     fontSize: 12,
-    color: "#636E72",
+    color: colors.textMuted,
     marginTop: 2,
   },
   searchResultRating: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: spacing.xs,
   },
   searchResultRatingText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#2D3436",
+    color: colors.text,
   },
   chatOverlay: {
     flex: 1,
@@ -1468,9 +1474,9 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   chatSheet: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: colors.background,
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
     minHeight: "55%",
     maxHeight: "82%",
   },
@@ -1478,73 +1484,73 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: "#F1F2F6",
+    borderBottomColor: colors.border,
   },
   chatTitle: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#2D3436",
+    color: colors.text,
   },
   chatMessagesContainer: {
     flex: 1,
   },
   chatMessagesContent: {
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 10,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
   },
   chatBubble: {
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
     maxWidth: "88%",
   },
   chatBubbleAssistant: {
     alignSelf: "flex-start",
-    backgroundColor: "#F6F7FB",
+    backgroundColor: colors.surfaceAlt,
   },
   chatBubbleUser: {
     alignSelf: "flex-end",
-    backgroundColor: "#2D3436",
+    backgroundColor: colors.text,
   },
   chatBubbleText: {
     fontSize: 13,
     lineHeight: 18,
   },
   chatBubbleTextAssistant: {
-    color: "#2D3436",
+    color: colors.text,
   },
   chatBubbleTextUser: {
-    color: "#fff",
+    color: colors.background,
   },
   chatComposer: {
     borderTopWidth: 1,
-    borderTopColor: "#F1F2F6",
+    borderTopColor: colors.border,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 12,
-    gap: 8,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm + 2,
+    paddingBottom: spacing.md,
+    gap: spacing.sm,
   },
   chatInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: "#DFE6E9",
-    borderRadius: 18,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderColor: colors.borderSoft,
+    borderRadius: radii.xl,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
     fontSize: 14,
-    color: "#2D3436",
+    color: colors.text,
   },
   chatSendBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: "#FF6B35",
+    backgroundColor: colors.primary,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1552,3 +1558,4 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 });
+

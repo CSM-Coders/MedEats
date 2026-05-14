@@ -125,146 +125,141 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.actionsRow}>
-          <Pressable style={styles.secondaryButton} onPress={() => router.push("/edit-profile") }>
-            const styles = StyleSheet.create({
-              container: { flex: 1, backgroundColor: colors.background },
-              header: {
-                flexDirection: "row",
-                justifyContent: "space-between",
-                alignItems: "center",
-                paddingHorizontal: 16,
-                paddingBottom: 10,
-              },
-              headerTitle: { fontSize: 18, fontWeight: "700", color: colors.text },
-              headerRight: { flexDirection: "row", alignItems: "center" },
-              logoutButton: {
-                flexDirection: "row",
-                alignItems: "center",
-                backgroundColor: colors.surfaceAlt,
-                paddingHorizontal: 12,
-                paddingVertical: 6,
-                borderRadius: radii.sm,
-                gap: 6,
-              },
-              logoutText: {
-                color: colors.danger,
-                fontWeight: "600",
-                fontSize: 13,
-              },
-              profileBlock: {
-                flexDirection: "row",
-                alignItems: "center",
-                paddingHorizontal: 16,
-                paddingTop: 16,
-                justifyContent: "space-between",
-              },
-              avatarContainer: {
-                width: 86,
-                height: 86,
-                borderRadius: 43,
-                padding: 3,
-                borderWidth: 1,
-                borderColor: colors.borderSoft,
-                alignItems: "center",
-                justifyContent: "center",
-              },
-              avatarImage: { width: "100%", height: "100%", borderRadius: 40 },
-              avatarPlaceholder: {
-                width: "100%",
-                height: "100%",
-                borderRadius: 40,
-                backgroundColor: colors.chip,
-                alignItems: "center",
-                justifyContent: "center",
-              },
-              avatarText: { color: colors.text, fontSize: 32, fontWeight: "700" },
-              statsRow: { flexDirection: "row", flex: 1, justifyContent: "space-around", marginLeft: 10 },
-              statItem: { alignItems: "center" },
-              statValue: { fontSize: 18, fontWeight: "700", color: colors.text },
-              statLabel: { color: colors.text, fontSize: 13 },
-              bioBlock: { paddingHorizontal: 16, paddingTop: 12 },
-              name: { fontSize: 15, fontWeight: "700", color: colors.text },
-              metaLine: { color: colors.textFaint, marginTop: 2, fontSize: 12 },
-              bio: { color: colors.text, marginTop: 2, fontSize: 14, lineHeight: 18 },
-              locationRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
-              location: { color: colors.textMuted, fontSize: 13 },
-              actionsRow: { 
-                flexDirection: "row", 
-                paddingHorizontal: 16, 
-                marginTop: 18, 
-                gap: 8 
-              },
-              secondaryButton: {
-                flex: 1,
-                backgroundColor: colors.chip,
-                height: 34,
-                borderRadius: radii.sm,
-                justifyContent: "center",
-                alignItems: "center",
-              },
-              secondaryButtonText: { color: colors.text, fontWeight: "700", fontSize: 14 },
-              highlightsContainer: { marginTop: 20, paddingLeft: 16 },
-              highlightsContent: { paddingRight: 32, gap: 18 },
-              highlightItem: { alignItems: "center", gap: 6 },
-              highlightCircle: {
-                width: 64,
-                height: 64,
-                borderRadius: 32,
-                borderWidth: 1,
-                borderColor: colors.borderSoft,
-                padding: 3,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: colors.background
-              },
-              highlightImage: { width: "100%", height: "100%", borderRadius: 30 },
-              highlightLabel: { fontSize: 12, color: colors.text, maxWidth: 70 },
-              tabsBar: {
-                flexDirection: "row",
-                marginTop: 24,
-                borderTopWidth: 1,
-                borderTopColor: colors.border,
-              },
-              tabItem: {
-                flex: 1,
-                height: 48,
-                alignItems: "center",
-                justifyContent: "center",
-              },
-              activeTab: {
-                borderTopWidth: 2,
-                borderTopColor: colors.text,
-              },
-              collectionSection: { paddingHorizontal: 16, paddingTop: 12, gap: 10 },
-              restaurantCard: {
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 12,
-                padding: 10,
-                borderRadius: radii.md,
-                backgroundColor: colors.surface,
-              },
-              restaurantImage: { width: 58, height: 58, borderRadius: 12, backgroundColor: colors.chip },
-              restaurantInfo: { flex: 1 },
-              restaurantName: { fontSize: 14, fontWeight: "700", color: colors.text },
-              restaurantMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
-              emptyFeed: {
-                flex: 1,
-                justifyContent: "center",
-                alignItems: "center",
-                marginTop: 40,
-                gap: 12,
-              },
-              emptyFeedText: { color: colors.placeholder, fontSize: 16 },
-              gridContainer: { flex: 1 },
-              gridItem: { width: itemSize, height: itemSize, padding: 1 },
-              gridImage: { flex: 1, backgroundColor: colors.chip },
-            });
-    borderRadius: 8,
+          <Pressable style={styles.secondaryButton} onPress={() => router.push("/edit-profile")}>
+            <Text style={styles.secondaryButtonText}>Editar perfil</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.tabsBar}>
+          <Pressable style={[styles.tabItem, activeTab === "posts" && styles.activeTab]} onPress={() => setActiveTab("posts")}>
+            <Ionicons name="grid" size={24} color={colors.text} />
+          </Pressable>
+          <Pressable style={[styles.tabItem, activeTab === "saved" && styles.activeTab]} onPress={() => setActiveTab("saved")}>
+            <Ionicons name="bookmark-outline" size={24} color={colors.textMuted} />
+          </Pressable>
+          <Pressable style={[styles.tabItem, activeTab === "visited" && styles.activeTab]} onPress={() => setActiveTab("visited")}>
+            <Ionicons name="person-outline" size={24} color={colors.textMuted} />
+          </Pressable>
+        </View>
+
+        {activeTab === "posts" && (
+          <View style={styles.gridContainer}>
+            {userPosts.length === 0 ? (
+              <View style={styles.emptyFeed}>
+                <Ionicons name="images-outline" size={48} color={colors.placeholder} />
+                <Text style={styles.emptyFeedText}>Aún no hay posts</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={userPosts}
+                keyExtractor={(item) => item.id}
+                numColumns={3}
+                scrollEnabled={false}
+                renderItem={({ item }) => (
+                  <Pressable
+                    style={styles.gridItem}
+                    onPress={() => router.push(`/post/${item.id}`)}
+                  >
+                    <Image source={{ uri: item.image }} style={styles.gridImage} />
+                  </Pressable>
+                )}
+              />
+            )}
+          </View>
+        )}
+
+        {activeTab === "saved" && (
+          <View style={styles.collectionSection}>
+            {savedRestaurants.length === 0 ? (
+              <View style={styles.emptyFeed}>
+                <Ionicons name="bookmark-outline" size={48} color={colors.placeholder} />
+                <Text style={styles.emptyFeedText}>No hay restaurantes guardados</Text>
+              </View>
+            ) : (
+              savedRestaurants.map((record) => {
+                const restaurant = record.restaurant;
+                if (!restaurant) return null;
+
+                return (
+                  <Pressable
+                    key={record.id}
+                    style={styles.restaurantCard}
+                    onPress={() => router.push(`/restaurant/${restaurant.id}`)}
+                  >
+                    <Image source={{ uri: restaurant.image }} style={styles.restaurantImage} />
+                    <View style={styles.restaurantInfo}>
+                      <Text style={styles.restaurantName} numberOfLines={1}>{restaurant.name}</Text>
+                      <Text style={styles.restaurantMeta} numberOfLines={1}>{restaurant.category}</Text>
+                    </View>
+                    <Ionicons name="bookmark" size={20} color={colors.primary} />
+                  </Pressable>
+                );
+              })
+            )}
+          </View>
+        )}
+
+        {activeTab === "visited" && (
+          <View style={styles.collectionSection}>
+            {visitedRestaurants.length === 0 ? (
+              <View style={styles.emptyFeed}>
+                <Ionicons name="restaurant-outline" size={48} color={colors.placeholder} />
+                <Text style={styles.emptyFeedText}>No hay restaurantes visitados</Text>
+              </View>
+            ) : (
+              visitedRestaurants.map((record) => {
+                const restaurant = record.restaurant;
+                if (!restaurant) return null;
+
+                return (
+                  <Pressable
+                    key={record.id}
+                    style={styles.restaurantCard}
+                    onPress={() => router.push(`/restaurant/${restaurant.id}`)}
+                  >
+                    <Image source={{ uri: restaurant.image }} style={styles.restaurantImage} />
+                    <View style={styles.restaurantInfo}>
+                      <Text style={styles.restaurantName} numberOfLines={1}>{restaurant.name}</Text>
+                      <Text style={styles.restaurantMeta} numberOfLines={1}>
+                        {restaurant.category} · {record.rating}★
+                      </Text>
+                    </View>
+                    <Ionicons name="restaurant" size={20} color={colors.text} />
+                  </Pressable>
+                );
+              })
+            )}
+          </View>
+        )}
+      </ScrollView>
+    </View>
+  );
+}
+
+const itemSize = 100; // Define or calculate item size for grid
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.background },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+  },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: colors.text },
+  headerRight: { flexDirection: "row", alignItems: "center" },
+  logoutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.surfaceAlt,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radii.sm,
     gap: 6,
   },
   logoutText: {
-    color: "#FF4757",
+    color: colors.danger,
     fontWeight: "600",
     fontSize: 13,
   },
@@ -281,7 +276,7 @@ export default function ProfileScreen() {
     borderRadius: 43,
     padding: 3,
     borderWidth: 1,
-    borderColor: "#E1E1E1",
+    borderColor: colors.borderSoft,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -290,21 +285,21 @@ export default function ProfileScreen() {
     width: "100%",
     height: "100%",
     borderRadius: 40,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: colors.chip,
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: { color: "#2D3436", fontSize: 32, fontWeight: "700" },
+  avatarText: { color: colors.text, fontSize: 32, fontWeight: "700" },
   statsRow: { flexDirection: "row", flex: 1, justifyContent: "space-around", marginLeft: 10 },
   statItem: { alignItems: "center" },
-  statValue: { fontSize: 18, fontWeight: "700", color: "#2D3436" },
-  statLabel: { color: "#2D3436", fontSize: 13 },
+  statValue: { fontSize: 18, fontWeight: "700", color: colors.text },
+  statLabel: { color: colors.text, fontSize: 13 },
   bioBlock: { paddingHorizontal: 16, paddingTop: 12 },
-  name: { fontSize: 15, fontWeight: "700", color: "#2D3436" },
-  metaLine: { color: "#8A8A8A", marginTop: 2, fontSize: 12 },
-  bio: { color: "#2D3436", marginTop: 2, fontSize: 14, lineHeight: 18 },
+  name: { fontSize: 15, fontWeight: "700", color: colors.text },
+  metaLine: { color: colors.textFaint, marginTop: 2, fontSize: 12 },
+  bio: { color: colors.text, marginTop: 2, fontSize: 14, lineHeight: 18 },
   locationRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
-  location: { color: "#636E72", fontSize: 13 },
+  location: { color: colors.textMuted, fontSize: 13 },
   actionsRow: { 
     flexDirection: "row", 
     paddingHorizontal: 16, 
@@ -313,13 +308,13 @@ export default function ProfileScreen() {
   },
   secondaryButton: {
     flex: 1,
-    backgroundColor: "#EFEFEF",
+    backgroundColor: colors.chip,
     height: 34,
-    borderRadius: 8,
+    borderRadius: radii.sm,
     justifyContent: "center",
     alignItems: "center",
   },
-  secondaryButtonText: { color: "#2D3436", fontWeight: "700", fontSize: 14 },
+  secondaryButtonText: { color: colors.text, fontWeight: "700", fontSize: 14 },
   highlightsContainer: { marginTop: 20, paddingLeft: 16 },
   highlightsContent: { paddingRight: 32, gap: 18 },
   highlightItem: { alignItems: "center", gap: 6 },
@@ -328,19 +323,19 @@ export default function ProfileScreen() {
     height: 64,
     borderRadius: 32,
     borderWidth: 1,
-    borderColor: "#E1E1E1",
+    borderColor: colors.borderSoft,
     padding: 3,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#FFFFFF"
+    backgroundColor: colors.background
   },
   highlightImage: { width: "100%", height: "100%", borderRadius: 30 },
-  highlightLabel: { fontSize: 12, color: "#2D3436", maxWidth: 70 },
+  highlightLabel: { fontSize: 12, color: colors.text, maxWidth: 70 },
   tabsBar: {
     flexDirection: "row",
     marginTop: 24,
     borderTopWidth: 1,
-    borderTopColor: "#F3F4F6",
+    borderTopColor: colors.border,
   },
   tabItem: {
     flex: 1,
@@ -350,7 +345,7 @@ export default function ProfileScreen() {
   },
   activeTab: {
     borderTopWidth: 2,
-    borderTopColor: "#2D3436",
+    borderTopColor: colors.text,
   },
   collectionSection: { paddingHorizontal: 16, paddingTop: 12, gap: 10 },
   restaurantCard: {
@@ -358,16 +353,13 @@ export default function ProfileScreen() {
     alignItems: "center",
     gap: 12,
     padding: 10,
-    borderRadius: 14,
-    backgroundColor: "#F8F9FA",
+    borderRadius: radii.md,
+    backgroundColor: colors.surface,
   },
-  restaurantImage: { width: 58, height: 58, borderRadius: 12, backgroundColor: "#F3F4F6" },
+  restaurantImage: { width: 58, height: 58, borderRadius: 12, backgroundColor: colors.chip },
   restaurantInfo: { flex: 1 },
-  restaurantName: { fontSize: 14, fontWeight: "700", color: "#2D3436" },
-  restaurantMeta: { fontSize: 12, color: "#636E72", marginTop: 2 },
-  emptyState: { alignItems: "center", marginTop: 52, paddingHorizontal: 24 },
-  emptyTitle: { fontSize: 20, fontWeight: "700", color: "#2D3436" },
-  emptyText: { color: "#636E72", marginTop: 8, textAlign: "center" },
+  restaurantName: { fontSize: 14, fontWeight: "700", color: colors.text },
+  restaurantMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   emptyFeed: {
     flex: 1,
     justifyContent: "center",
@@ -375,15 +367,9 @@ export default function ProfileScreen() {
     marginTop: 40,
     gap: 12,
   },
-  emptyFeedText: { color: "#B2BEC3", fontSize: 16 },
-  ctaButton: {
-    backgroundColor: "#FF6B35",
-    borderRadius: 999,
-    marginTop: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  ctaText: { color: "#FFFFFF", fontWeight: "700" },
+  emptyFeedText: { color: colors.placeholder, fontSize: 16 },
+  gridContainer: { flex: 1 },
   gridItem: { width: "33.333%", aspectRatio: 1, padding: 1 },
-  gridImage: { width: "100%", height: "100%", backgroundColor: "#F3F4F6" },
+  gridImage: { flex: 1, backgroundColor: colors.chip },
 });
+

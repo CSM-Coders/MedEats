@@ -20,6 +20,8 @@ import {
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 
+import { colors, radii, spacing } from "@/src/theme/designTokens";
+
 const { width } = Dimensions.get("window");
 
 export default function WelcomeScreen() {
@@ -121,15 +123,15 @@ const styles = StyleSheet.create({
   },
   background: {
     flex: 1,
-    backgroundColor: "#FF6B35",
+    backgroundColor: colors.primary,
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 32,
+    paddingHorizontal: spacing.xxl,
   },
   logoContainer: {
     width: width * 0.38,
     height: width * 0.38,
-    backgroundColor: "#fff",
+    backgroundColor: colors.background,
     borderRadius: width * 0.19,
     justifyContent: "center",
     alignItems: "center",
@@ -138,7 +140,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 20,
     elevation: 10,
-    marginBottom: 24,
+    marginBottom: spacing.xl,
   },
   logo: {
     width: width * 0.22,
@@ -147,9 +149,9 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 42,
     fontWeight: "800",
-    color: "#fff",
+    color: colors.background,
     letterSpacing: 1.5,
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   subtitle: {
     fontSize: 16,
@@ -161,12 +163,12 @@ const styles = StyleSheet.create({
   buttonsContainer: {
     width: "100%",
     marginTop: 48,
-    gap: 14,
+    gap: spacing.md + 2,
   },
   loginButton: {
-    backgroundColor: "#fff",
-    paddingVertical: 16,
-    borderRadius: 16,
+    backgroundColor: colors.background,
+    paddingVertical: spacing.lg,
+    borderRadius: radii.lg,
     alignItems: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
@@ -177,12 +179,12 @@ const styles = StyleSheet.create({
   loginButtonText: {
     fontSize: 17,
     fontWeight: "700",
-    color: "#FF6B35",
+    color: colors.primary,
   },
   registerButton: {
     backgroundColor: "transparent",
-    paddingVertical: 16,
-    borderRadius: 16,
+    paddingVertical: spacing.lg,
+    borderRadius: radii.lg,
     borderWidth: 2,
     borderColor: "rgba(255, 255, 255, 0.6)",
     alignItems: "center",
@@ -190,6 +192,7 @@ const styles = StyleSheet.create({
   registerButtonText: {
     fontSize: 17,
     fontWeight: "700",
-    color: "#fff",
+    color: colors.background,
   },
 });
+

@@ -12,6 +12,8 @@ import RestaurantDetailScreen from "@/src/screens/restaurant/restaurantDetailScr
 import { Restaurant } from "@/src/models/domain";
 import { fetchRestaurantById } from "@/src/services/restaurantApi";
 
+import { colors } from "@/src/theme/designTokens";
+
 export default function RestaurantScreen() {
   const { id } = useLocalSearchParams();
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
@@ -40,8 +42,8 @@ export default function RestaurantScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: "center", alignItems: "center", backgroundColor: "#fff" }]}>
-        <ActivityIndicator size="large" color="#FF6B35" />
+      <View style={[styles.container, { justifyContent: "center", alignItems: "center", backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -61,17 +63,18 @@ export default function RestaurantScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#000",
+    backgroundColor: colors.background,
     justifyContent: "center",
     alignItems: "center",
   },
   title: {
-    color: "#fff",
+    color: colors.text,
     fontSize: 28,
     fontWeight: "700",
   },
   subtitle: {
-    color: "#aaa",
+    color: colors.textMuted,
     marginTop: 12,
   },
 });
+

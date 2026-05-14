@@ -6,6 +6,8 @@ import { Restaurant } from "@/src/models/domain";
 import { MEDELLIN_REGION } from "@/src/services/mockData";
 import { GOOGLE_MAPS_API_KEY } from "@/src/config/maps";
 
+import { colors } from "@/src/theme/designTokens";
+
 // ============================================================
 // Props: datos que este componente recibe desde su padre
 // ============================================================
@@ -28,13 +30,6 @@ type Props = {
 // ============================================================
 // forwardRef: permite que el componente padre tenga acceso
 // directo al MapViewComponent para controlarlo (ej: animarlo)
-//
-// Sin forwardRef: el padre solo puede enviar datos (props)
-// Con forwardRef: el padre tiene un "control remoto" del mapa
-//
-// Lo usamos así desde el padre:
-//   const mapRef = useRef(null);
-//   mapRef.current.animateToRegion(nuevaRegion);
 // ============================================================
 const MapView = forwardRef<MapViewComponent, Props>(
   ({ restaurants, onMarkerPress, origin, destination, onDirectionsReady }, ref) => {
@@ -53,18 +48,14 @@ const MapView = forwardRef<MapViewComponent, Props>(
             destination={destination}
             apikey={GOOGLE_MAPS_API_KEY}
             strokeWidth={4}
-            strokeColor="#FF6B35"
+            strokeColor={colors.primary}
             optimizeWaypoints={true}
             onReady={(result) => {
               if (onDirectionsReady) onDirectionsReady(result);
-              console.log(`Distancia: ${result.distance} km`);
-              console.log(`Duración: ${result.duration} min.`);
             }}
           />
         )}
-        {/* Recorremos cada restaurante y creamos un marcador en el mapa */}
-        {/* La key incluye restaurants.length para forzar a iOS a redibujar
-            los marcadores cuando cambia la lista (fix de bug de react-native-maps) */}
+        {/* Marcadores */}
         {restaurants.map((restaurant) => (
           <React.Fragment key={`group-${restaurant.id}-${restaurants.length}`}>
             {/* 1. Marcador Principal del Restaurante */}
@@ -76,7 +67,7 @@ const MapView = forwardRef<MapViewComponent, Props>(
               }}
               title={restaurant.name}
               description={restaurant.location}
-              pinColor="#FF6B35"
+              pinColor={colors.primary}
               onPress={() => onMarkerPress(restaurant, {
                 latitude: restaurant.latitude,
                 longitude: restaurant.longitude
@@ -93,7 +84,7 @@ const MapView = forwardRef<MapViewComponent, Props>(
                 }}
                 title={`${restaurant.name} (Sede)`}
                 description={branch.address}
-                pinColor="#1D4ED8"
+                pinColor={colors.accent}
                 onPress={() => onMarkerPress(restaurant, {
                   latitude: branch.latitude,
                   longitude: branch.longitude
@@ -106,6 +97,7 @@ const MapView = forwardRef<MapViewComponent, Props>(
     );
   }
 );
+
 
 // Nombre para debugging — cuando inspeccionas componentes en React DevTools
 MapView.displayName = "MapView";

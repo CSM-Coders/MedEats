@@ -18,6 +18,7 @@ import {
   View,
 } from "react-native";
 import MapView, { Marker } from "react-native-maps";
+import { colors, radii, spacing } from "../../theme/designTokens";
 
 import { useAuth } from "@/src/context/auth-context";
 import { Restaurant, Review } from "@/src/models/domain";
@@ -344,7 +345,7 @@ export default function MyRestaurantScreen() {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FF6B35" />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={styles.loadingText}>Cargando módulo Mi Restaurante...</Text>
       </View>
     );
@@ -353,7 +354,7 @@ export default function MyRestaurantScreen() {
   if (!user?.isRestaurantAccount) {
     return (
       <View style={styles.loadingContainer}>
-        <Ionicons name="lock-closed-outline" size={28} color="#636E72" />
+        <Ionicons name="lock-closed-outline" size={28} color={colors.textMuted} />
         <Text style={styles.loadingText}>Este módulo es solo para cuentas de restaurante.</Text>
       </View>
     );
@@ -420,14 +421,14 @@ export default function MyRestaurantScreen() {
               <Marker
                 coordinate={{ latitude: form.manualLat, longitude: form.manualLon }}
                 title="Tu restaurante"
-                pinColor="#FF6B35"
+                pinColor={colors.primary}
               />
             )}
           </MapView>
           {form.manualLat && form.manualLon ? (
-            <Text style={[styles.fieldHelp, { color: '#2E7D32' }]}>✅ Ubicación seleccionada ({form.manualLat.toFixed(4)}, {form.manualLon.toFixed(4)})</Text>
+            <Text style={[styles.fieldHelp, { color: colors.success }]}>✅ Ubicación seleccionada ({form.manualLat.toFixed(4)}, {form.manualLon.toFixed(4)})</Text>
           ) : (
-            <Text style={[styles.fieldHelp, { color: '#E74C3C' }]}>⚠️ Toca el mapa para marcar la ubicación de tu restaurante</Text>
+            <Text style={[styles.fieldHelp, { color: colors.danger }]}>⚠️ Toca el mapa para marcar la ubicación de tu restaurante</Text>
           )}
 
           <Text style={styles.fieldLabel}>Descripción</Text>
@@ -464,7 +465,7 @@ export default function MyRestaurantScreen() {
             })}
           </View>
           {!hasRestaurant && !form.categoryId ? (
-            <Text style={[styles.fieldHelp, { color: '#E74C3C' }]}>⚠️ Selecciona una categoría para crear el restaurante</Text>
+            <Text style={[styles.fieldHelp, { color: colors.danger }]}>⚠️ Selecciona una categoría para crear el restaurante</Text>
           ) : null}
 
           <Text style={styles.fieldLabel}>Foto del restaurante</Text>
@@ -475,12 +476,12 @@ export default function MyRestaurantScreen() {
                 style={styles.removeImageOverlay} 
                 onPress={() => setForm(prev => ({ ...prev, imageUri: undefined, imageName: undefined }))}
               >
-                <Ionicons name="close-circle" size={24} color="#FF6B35" />
+                <Ionicons name="close-circle" size={24} color={colors.primary} />
               </Pressable>
             </View>
           ) : (
             <Pressable style={styles.secondaryButton} onPress={handlePickImage}>
-              <Ionicons name="image-outline" size={18} color="#FF6B35" />
+              <Ionicons name="image-outline" size={18} color={colors.primary} />
               <Text style={styles.secondaryButtonText}>Seleccionar imagen</Text>
             </Pressable>
           )}
@@ -504,14 +505,14 @@ export default function MyRestaurantScreen() {
             disabled={!canSubmitRestaurant || isSaving}
             onPress={handleSaveRestaurant}
           >
-            {isSaving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryButtonText}>{hasRestaurant ? "Guardar cambios" : "Crear restaurante"}</Text>}
+            {isSaving ? <ActivityIndicator color={colors.background} /> : <Text style={styles.primaryButtonText}>{hasRestaurant ? "Guardar cambios" : "Crear restaurante"}</Text>}
           </Pressable>
 
           <Pressable
             style={styles.secondaryButton}
             onPress={handlePickMenuPdf}
           >
-            <Ionicons name="document-attach-outline" size={18} color="#FF6B35" />
+            <Ionicons name="document-attach-outline" size={18} color={colors.primary} />
             <Text style={styles.secondaryButtonText}>Subir menú PDF</Text>
           </Pressable>
 
@@ -556,7 +557,7 @@ export default function MyRestaurantScreen() {
               <Marker
                 coordinate={{ latitude: branchForm.latitude, longitude: branchForm.longitude }}
                 title="Nueva Sede"
-                pinColor="#2E7D32"
+                pinColor={colors.success}
               />
             )}
             
@@ -566,7 +567,7 @@ export default function MyRestaurantScreen() {
                 key={branch.id}
                 coordinate={{ latitude: branch.latitude, longitude: branch.longitude }}
                 title="Sede existente"
-                pinColor="#1D4ED8"
+                pinColor={colors.primaryDark}
                 opacity={0.6}
               />
             ))}
@@ -576,16 +577,16 @@ export default function MyRestaurantScreen() {
               <Marker
                 coordinate={{ latitude: restaurant.latitude, longitude: restaurant.longitude }}
                 title="Sede Principal"
-                pinColor="#FF6B35"
+                pinColor={colors.primary}
                 opacity={0.6}
               />
             )}
           </MapView>
           
           {branchForm.latitude ? (
-            <Text style={[styles.fieldHelp, { color: '#2E7D32' }]}>✅ Ubicación de sede marcada</Text>
+            <Text style={[styles.fieldHelp, { color: colors.success }]}>✅ Ubicación de sede marcada</Text>
           ) : (
-            <Text style={[styles.fieldHelp, { color: '#E74C3C' }]}>⚠️ Toca el mapa para ubicar esta sede</Text>
+            <Text style={[styles.fieldHelp, { color: colors.danger }]}>⚠️ Toca el mapa para ubicar esta sede</Text>
           )}
 
           <Pressable
@@ -593,7 +594,7 @@ export default function MyRestaurantScreen() {
             disabled={!canCreateBranch || isSaving}
             onPress={handleCreateBranch}
           >
-            {isSaving ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryButtonText}>Agregar sede</Text>}
+            {isSaving ? <ActivityIndicator color={colors.background} /> : <Text style={styles.primaryButtonText}>Agregar sede</Text>}
           </Pressable>
 
           <View style={styles.branchList}>
@@ -607,7 +608,7 @@ export default function MyRestaurantScreen() {
                   style={styles.deleteBranchButton}
                   onPress={() => handleDeleteBranch(branch.id)}
                 >
-                  <Ionicons name="trash-outline" size={20} color="#FF4757" />
+                  <Ionicons name="trash-outline" size={20} color={colors.danger} />
                 </Pressable>
               </View>
             ))}
@@ -642,54 +643,54 @@ export default function MyRestaurantScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#FFF4F0",
+    backgroundColor: colors.surfaceAlt,
   },
   content: {
-    padding: 16,
-    gap: 16,
+    padding: spacing.lg,
+    gap: spacing.lg,
     paddingBottom: 40,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#FFF4F0",
+    backgroundColor: colors.surfaceAlt,
   },
   loadingText: {
     marginTop: 10,
-    color: "#636E72",
+    color: colors.textMuted,
   },
   title: {
     fontSize: 26,
     fontWeight: "800",
-    color: "#2D3436",
+    color: colors.text,
   },
   subtitle: {
-    color: "#636E72",
+    color: colors.textMuted,
     lineHeight: 20,
   },
   guidanceCard: {
-    backgroundColor: "#FFF7F3",
-    borderRadius: 16,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radii.lg,
     padding: 14,
     borderWidth: 1,
-    borderColor: "#FFD9CC",
+    borderColor: colors.borderSoft,
     gap: 6,
   },
   guidanceTitle: {
     fontSize: 15,
     fontWeight: "800",
-    color: "#2D3436",
+    color: colors.text,
     marginBottom: 2,
   },
   guidanceText: {
-    color: "#636E72",
+    color: colors.textMuted,
     fontSize: 13,
     lineHeight: 18,
   },
   card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
+    backgroundColor: colors.background,
+    borderRadius: radii.lg,
     padding: 14,
     gap: 10,
     shadowColor: "#000",
@@ -701,11 +702,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 17,
     fontWeight: "700",
-    color: "#2D3436",
+    color: colors.text,
     marginBottom: 4,
   },
   sectionHint: {
-    color: "#636E72",
+    color: colors.textMuted,
     fontSize: 13,
     lineHeight: 18,
     marginBottom: 4,
@@ -713,11 +714,11 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontSize: 13,
     fontWeight: "700",
-    color: "#2D3436",
+    color: colors.text,
     marginTop: 2,
   },
   fieldHelp: {
-    color: "#8A8A8A",
+    color: colors.textFaint,
     fontSize: 12,
     lineHeight: 16,
     marginTop: -2,
@@ -725,47 +726,47 @@ const styles = StyleSheet.create({
   categoriesWrap: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: spacing.sm,
     marginTop: 2,
   },
   categoryChip: {
     borderWidth: 1,
-    borderColor: "#DFE6E9",
-    backgroundColor: "#FBFCFD",
-    borderRadius: 999,
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.input,
+    borderRadius: radii.pill,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   categoryChipSelected: {
-    borderColor: "#FF6B35",
-    backgroundColor: "#FFF3EC",
+    borderColor: colors.primary,
+    backgroundColor: colors.surfaceAlt,
   },
   categoryChipText: {
-    color: "#636E72",
+    color: colors.textMuted,
     fontSize: 12,
     fontWeight: "600",
   },
   categoryChipTextSelected: {
-    color: "#FF6B35",
+    color: colors.primary,
   },
   input: {
     height: 44,
     borderWidth: 1,
-    borderColor: "#DFE6E9",
+    borderColor: colors.borderSoft,
     borderRadius: 10,
-    paddingHorizontal: 12,
-    backgroundColor: "#FBFCFD",
-    color: "#2D3436",
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.input,
+    color: colors.text,
   },
   whatsappRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: spacing.sm,
   },
   whatsappPrefix: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#2D3436",
+    color: colors.text,
     paddingVertical: 12,
   },
   whatsappInput: {
@@ -785,7 +786,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     height: 46,
     borderRadius: 10,
-    backgroundColor: "#FF6B35",
+    backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -793,76 +794,76 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   primaryButtonText: {
-    color: "#FFFFFF",
+    color: colors.background,
     fontWeight: "700",
   },
   secondaryButton: {
     height: 44,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: "#FF6B35",
+    borderColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
     flexDirection: "row",
-    gap: 8,
+    gap: spacing.sm,
   },
   secondaryButtonText: {
-    color: "#FF6B35",
+    color: colors.primary,
     fontWeight: "700",
   },
   menuHint: {
-    color: "#2E7D32",
+    color: colors.success,
     fontSize: 12,
   },
   map: {
     width: "100%",
     height: 200,
-    borderRadius: 12,
+    borderRadius: radii.md,
   },
   locationPicker: {
     width: "100%",
     height: 250,
-    borderRadius: 12,
+    borderRadius: radii.md,
     marginTop: 4,
     borderWidth: 2,
-    borderColor: "#FF6B35",
+    borderColor: colors.primary,
   },
   branchList: {
-    gap: 8,
+    gap: spacing.sm,
   },
   branchItem: {
-    backgroundColor: "#F8F9FA",
+    backgroundColor: colors.surface,
     borderRadius: 10,
-    padding: 12,
+    padding: spacing.md,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     borderWidth: 1,
-    borderColor: "#EAEDEF",
+    borderColor: colors.border,
   },
   branchInfo: {
     flex: 1,
   },
   branchTitle: {
     fontWeight: "700",
-    color: "#2D3436",
+    color: colors.text,
     fontSize: 14,
   },
   branchAddress: {
-    color: "#636E72",
+    color: colors.textMuted,
     marginTop: 2,
     fontSize: 13,
   },
   deleteBranchButton: {
-    padding: 8,
+    padding: spacing.sm,
     marginLeft: 10,
   },
   emptyText: {
-    color: "#636E72",
+    color: colors.textMuted,
     fontStyle: "italic",
   },
   reviewItem: {
-    backgroundColor: "#F8F9FA",
+    backgroundColor: colors.surface,
     borderRadius: 10,
     padding: 10,
     gap: 3,
@@ -874,27 +875,27 @@ const styles = StyleSheet.create({
   },
   reviewRestaurant: {
     fontWeight: "700",
-    color: "#2D3436",
+    color: colors.text,
   },
   reviewRating: {
-    color: "#FF6B35",
+    color: colors.primary,
     fontWeight: "700",
   },
   reviewUser: {
-    color: "#636E72",
+    color: colors.textMuted,
     fontSize: 12,
   },
   reviewComment: {
-    color: "#2D3436",
+    color: colors.text,
   },
   imagePreviewWrapper: {
     width: "100%",
     height: 180,
-    borderRadius: 12,
+    borderRadius: radii.md,
     overflow: "hidden",
-    marginVertical: 8,
+    marginVertical: spacing.sm,
     borderWidth: 1,
-    borderColor: "#DFE6E9",
+    borderColor: colors.borderSoft,
   },
   imagePreview: {
     width: "100%",
@@ -903,9 +904,10 @@ const styles = StyleSheet.create({
   },
   removeImageOverlay: {
     position: "absolute",
-    top: 8,
-    right: 8,
+    top: spacing.sm,
+    right: spacing.sm,
     backgroundColor: "rgba(255, 255, 255, 0.8)",
     borderRadius: 20,
   },
 });
+

@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, Pressable, Image } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Restaurant } from "@/src/models/domain";
-import { colors, radii } from "@/src/theme/designTokens";
+import { colors, radii, spacing } from "@/src/theme/designTokens";
 
 // ============================================================
 // Props: recibe un restaurante completo y una función para cerrar
@@ -98,21 +98,21 @@ const styles = StyleSheet.create({
     height: 150,
   },
   info: {
-    padding: 16,
+    padding: spacing.lg,
   },
   name: {
     fontSize: 20,
     fontWeight: "700",
     color: colors.text,
-    marginBottom: 6,
+    marginBottom: spacing.xs + 2,
   },
   starsRow: {
     flexDirection: "row",           // Los elementos van en fila horizontal
     alignItems: "center",
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   ratingText: {
-    marginLeft: 6,
+    marginLeft: spacing.sm,
     fontSize: 14,
     fontWeight: "600",
     color: colors.text,
@@ -120,14 +120,14 @@ const styles = StyleSheet.create({
   category: {
     fontSize: 14,
     color: colors.textMuted,
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   buttonGroup: {
-    gap: 8,                         // Espacio entre los dos botones
+    gap: spacing.sm,                         // Espacio entre los dos botones
   },
   detailsButton: {
     backgroundColor: colors.primary,
-    paddingVertical: 12,
+    paddingVertical: spacing.md,
     borderRadius: radii.pill,
     alignItems: "center",
   },
@@ -138,12 +138,12 @@ const styles = StyleSheet.create({
   },
   navigationButton: {
     backgroundColor: colors.darkSurface,
-    paddingVertical: 12,
+    paddingVertical: spacing.md,
     borderRadius: radii.pill,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: spacing.sm,
   },
   navigationButtonText: {
     color: colors.background,
@@ -151,3 +151,4 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
+

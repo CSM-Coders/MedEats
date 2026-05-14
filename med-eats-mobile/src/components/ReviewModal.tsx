@@ -11,7 +11,7 @@ import {
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, radii } from "@/src/theme/designTokens";
+import { colors, radii, spacing } from "@/src/theme/designTokens";
 
 type ReviewModalProps = {
   visible: boolean;
@@ -105,7 +105,7 @@ export default function ReviewModal({
             <TextInput
               style={styles.textInput}
               placeholder="Cuéntanos qué te pareció la comida y el ambiente..."
-              placeholderTextColor="#B2BEC3"
+              placeholderTextColor={colors.placeholder}
               multiline
               numberOfLines={4}
               value={comment}
@@ -122,7 +122,7 @@ export default function ReviewModal({
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="#FFF" />
+              <ActivityIndicator color={colors.background} />
             ) : (
               <Text style={styles.submitButtonText}>
                 {isEditing ? "Guardar Cambios" : "Publicar Reseña"}
@@ -145,14 +145,14 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderTopLeftRadius: radii.xl,
     borderTopRightRadius: radii.xl,
-    padding: 24,
-    paddingBottom: Platform.OS === "ios" ? 40 : 24,
+    padding: spacing.xl,
+    paddingBottom: Platform.OS === "ios" ? 40 : spacing.xl,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: spacing.xl,
   },
   title: {
     fontSize: 20,
@@ -162,22 +162,22 @@ const styles = StyleSheet.create({
   starsContainer: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: 12,
-    marginBottom: 24,
+    gap: spacing.md,
+    marginBottom: spacing.xl,
   },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: spacing.xl,
   },
   label: {
     fontSize: 16,
     fontWeight: "600",
     color: colors.text,
-    marginBottom: 10,
+    marginBottom: spacing.sm + 2,
   },
   textInput: {
     backgroundColor: colors.input,
     borderRadius: radii.md,
-    padding: 16,
+    padding: spacing.lg,
     height: 120,
     color: colors.text,
     fontSize: 15,
@@ -185,13 +185,13 @@ const styles = StyleSheet.create({
   errorText: {
     color: colors.danger,
     fontSize: 14,
-    marginBottom: 16,
+    marginBottom: spacing.lg,
     textAlign: "center",
   },
   submitButton: {
     backgroundColor: colors.primary,
     height: 54,
-    borderRadius: 12,
+    borderRadius: radii.md,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -204,3 +204,4 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 });
+

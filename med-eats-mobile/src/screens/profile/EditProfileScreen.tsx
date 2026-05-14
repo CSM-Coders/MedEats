@@ -20,6 +20,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "@/src/context/auth-context";
 import { updateMyProfile } from "@/src/services/authService";
 
+import { colors, radii, spacing } from "@/src/theme/designTokens";
+
 const GENDER_OPTIONS = [
   { value: "female", label: "Mujer" },
   { value: "male", label: "Hombre" },
@@ -116,10 +118,10 @@ export default function EditProfileScreen() {
       style={styles.screen}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + 12 }]}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.md }]}>
         <View style={styles.header}>
           <Pressable onPress={() => router.back()} hitSlop={12}>
-            <Ionicons name="chevron-back" size={28} color="#2D3436" />
+            <Ionicons name="chevron-back" size={28} color={colors.text} />
           </Pressable>
           <Text style={styles.title}>Editar perfil</Text>
           <View style={{ width: 28 }} />
@@ -131,11 +133,11 @@ export default function EditProfileScreen() {
               <Image source={{ uri: avatarPreview }} style={styles.avatarImage} />
             ) : (
               <View style={styles.avatarFallback}>
-                <Ionicons name="person" size={38} color="#FF6B35" />
+                <Ionicons name="person" size={38} color={colors.primary} />
               </View>
             )}
             <View style={styles.cameraBadge}>
-              <Ionicons name="camera" size={16} color="#FFFFFF" />
+              <Ionicons name="camera" size={16} color={colors.background} />
             </View>
           </Pressable>
           <Text style={styles.helperText}>Toca tu foto para cambiarla</Text>
@@ -218,7 +220,7 @@ export default function EditProfileScreen() {
           style={[styles.saveButton, isSaving && styles.saveButtonDisabled]}
         >
           {isSaving ? (
-            <ActivityIndicator color="#FFFFFF" />
+            <ActivityIndicator color={colors.background} />
           ) : (
             <Text style={styles.saveButtonText}>Guardar cambios</Text>
           )}
@@ -229,11 +231,11 @@ export default function EditProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: "#FFF4F0" },
+  screen: { flex: 1, backgroundColor: colors.surfaceAlt },
   content: {
-    paddingHorizontal: 16,
-    paddingBottom: 40,
-    gap: 16,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xxl,
+    gap: spacing.lg,
   },
   header: {
     flexDirection: "row",
@@ -243,11 +245,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: "800",
-    color: "#2D3436",
+    color: colors.text,
   },
   avatarSection: {
     alignItems: "center",
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
   avatarPressable: {
     width: 120,
@@ -264,9 +266,9 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     borderRadius: 60,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.background,
     borderWidth: 1,
-    borderColor: "#FFD9CC",
+    borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -277,27 +279,27 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "#FF6B35",
+    backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    borderColor: "#FFF4F0",
+    borderColor: colors.surfaceAlt,
   },
   helperText: {
-    marginTop: 8,
-    color: "#636E72",
+    marginTop: spacing.sm,
+    color: colors.textMuted,
     fontSize: 12,
   },
   helperTextSmall: {
-    color: "#8A8A8A",
+    color: colors.textFaint,
     fontSize: 12,
     lineHeight: 16,
   },
   card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: 16,
-    gap: 10,
+    backgroundColor: colors.background,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    gap: spacing.md,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,
@@ -306,17 +308,17 @@ const styles = StyleSheet.create({
   },
   label: {
     fontWeight: "700",
-    color: "#2D3436",
-    marginTop: 2,
+    color: colors.text,
+    marginTop: spacing.xs,
   },
   input: {
     borderWidth: 1,
-    borderColor: "#DFE6E9",
-    borderRadius: 12,
+    borderColor: colors.borderSoft,
+    borderRadius: radii.md,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    backgroundColor: "#FBFCFD",
-    color: "#2D3436",
+    backgroundColor: colors.input,
+    color: colors.text,
   },
   textArea: {
     minHeight: 96,
@@ -325,56 +327,56 @@ const styles = StyleSheet.create({
   optionGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: spacing.sm,
   },
   optionChip: {
     paddingHorizontal: 14,
     paddingVertical: 10,
-    borderRadius: 999,
-    backgroundColor: "#F8F9FA",
+    borderRadius: radii.round,
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "#E9ECEF",
+    borderColor: colors.border,
   },
   optionChipActive: {
-    backgroundColor: "#FFF0EA",
-    borderColor: "#FF6B35",
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.primary,
   },
   optionChipText: {
-    color: "#636E72",
+    color: colors.textMuted,
     fontWeight: "600",
   },
   optionChipTextActive: {
-    color: "#FF6B35",
+    color: colors.primary,
   },
   toggleRow: {
     flexDirection: "row",
-    gap: 10,
+    gap: spacing.md,
   },
   toggleButton: {
     flex: 1,
     height: 44,
-    borderRadius: 12,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: "#DFE6E9",
-    backgroundColor: "#FBFCFD",
+    borderColor: colors.borderSoft,
+    backgroundColor: colors.input,
     alignItems: "center",
     justifyContent: "center",
   },
   toggleButtonActive: {
-    backgroundColor: "#FFF0EA",
-    borderColor: "#FF6B35",
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.primary,
   },
   toggleText: {
-    color: "#636E72",
+    color: colors.textMuted,
     fontWeight: "700",
   },
   toggleTextActive: {
-    color: "#FF6B35",
+    color: colors.primary,
   },
   saveButton: {
     height: 50,
-    borderRadius: 14,
-    backgroundColor: "#FF6B35",
+    borderRadius: radii.lg,
+    backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -382,8 +384,9 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveButtonText: {
-    color: "#FFFFFF",
+    color: colors.background,
     fontWeight: "800",
     fontSize: 16,
   },
 });
+
