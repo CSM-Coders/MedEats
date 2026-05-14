@@ -16,11 +16,17 @@ export default function RestaurantScreen() {
   const { id } = useLocalSearchParams();
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [loading, setLoading] = useState(true);
+  const restaurantId = Array.isArray(id) ? id[0] : id;
 
   useEffect(() => {
     const fetchRestaurantDetail = async () => {
+      if (!restaurantId) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        const transformed = await fetchRestaurantById(String(id));
+        const transformed = await fetchRestaurantById(String(restaurantId));
         setRestaurant(transformed);
       } catch (error) {
         console.error("Error fetching detail:", error);
@@ -30,7 +36,7 @@ export default function RestaurantScreen() {
     };
 
     fetchRestaurantDetail();
-  }, [id]);
+  }, [restaurantId]);
 
   if (loading) {
     return (
@@ -47,7 +53,7 @@ export default function RestaurantScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Restaurante no encontrado</Text>
-      <Text style={styles.subtitle}>ID: {id}</Text>
+      <Text style={styles.subtitle}>ID: {restaurantId ?? "sin id"}</Text>
     </View>
   );
 }

@@ -18,6 +18,16 @@ class UserProfile(models.Model):
         on_delete=models.CASCADE,
         related_name="profile",
     )
+    GENDER_MALE = "male"
+    GENDER_FEMALE = "female"
+    GENDER_OTHER = "other"
+    GENDER_NO_SAY = "no_say"
+    GENDER_CHOICES = [
+        (GENDER_MALE, "Male"),
+        (GENDER_FEMALE, "Female"),
+        (GENDER_OTHER, "Other"),
+        (GENDER_NO_SAY, "Prefer not to say"),
+    ]
     account_type = models.CharField(
         max_length=20,
         choices=ACCOUNT_TYPE_CHOICES,
@@ -25,6 +35,14 @@ class UserProfile(models.Model):
         db_index=True,
     )
     display_name = models.CharField(max_length=150, blank=True)
+    gender = models.CharField(
+        max_length=20,
+        choices=GENDER_CHOICES,
+        default=GENDER_NO_SAY,
+        blank=True,
+    )
+    is_public = models.BooleanField(default=True)
+    avatar_image = models.ImageField(upload_to="avatars/", blank=True, null=True)
     avatar_url = models.URLField(max_length=500, blank=True)
     bio = models.TextField(blank=True)
     location = models.CharField(max_length=120, blank=True)

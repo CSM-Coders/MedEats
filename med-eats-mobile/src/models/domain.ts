@@ -79,6 +79,8 @@ export type AppUser = {
   accountType?: "user" | "restaurant";
   isRestaurantAccount?: boolean;
   avatarUrl?: string;
+  gender?: "male" | "female" | "other" | "no_say";
+  isPublic?: boolean;
   bio: string;
   location: string;
   followers: number;

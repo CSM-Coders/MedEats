@@ -33,6 +33,12 @@ function mapProfile(item: ApiProfile): AppUser & { isFollowing: boolean } {
   };
 }
 
+function createApiError(message: string, statusCode: number): Error & { statusCode: number } {
+  const error = new Error(message) as Error & { statusCode: number };
+  error.statusCode = statusCode;
+  return error;
+}
+
 export async function fetchUserProfileByUsername(
   accessToken: string,
   username: string
@@ -44,7 +50,11 @@ export async function fetchUserProfileByUsername(
   });
 
   if (!response.ok) {
-    throw new Error("Unable to load user profile");
+    const detail = await response.text().catch(() => "");
+    throw createApiError(
+      detail || "Unable to load user profile",
+      response.status
+    );
   }
 
   const payload = (await response.json()) as ApiProfile;

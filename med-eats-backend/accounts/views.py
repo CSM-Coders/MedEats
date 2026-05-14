@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import status
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -18,6 +19,23 @@ from .serializers import (
 )
 
 User = get_user_model()
+
+
+def can_view_profile(request_user, target_user):
+    if request_user.is_authenticated and request_user == target_user:
+        return True
+
+    profile = getattr(target_user, "profile", None)
+    if not profile or profile.is_public:
+        return True
+
+    if not request_user.is_authenticated:
+        return False
+
+    return Follow.objects.filter(
+        follower=request_user,
+        following=target_user,
+    ).exists()
 
 
 def build_auth_response(user):
@@ -119,6 +137,9 @@ class UserProfileDetailAPIView(APIView):
         target_user = get_object_or_404(
             User.objects.select_related("profile"), username__iexact=username
         )
+        if not can_view_profile(request.user, target_user):
+            raise PermissionDenied("This profile is private.")
+
         profile, _ = UserProfile.objects.get_or_create(user=target_user)
         serializer = PublicProfileSerializer(profile, context={"request": request})
         return Response(serializer.data)
@@ -159,6 +180,9 @@ class FollowersListAPIView(APIView):
 
     def get(self, request, username):
         target_user = get_object_or_404(User, username__iexact=username)
+        if not can_view_profile(request.user, target_user):
+            raise PermissionDenied("This profile is private.")
+
         followers = (
             User.objects.filter(following_relationships__following=target_user)
             .select_related("profile")
@@ -173,6 +197,9 @@ class FollowingListAPIView(APIView):
 
     def get(self, request, username):
         target_user = get_object_or_404(User, username__iexact=username)
+        if not can_view_profile(request.user, target_user):
+            raise PermissionDenied("This profile is private.")
+
         following = (
             User.objects.filter(follower_relationships__follower=target_user)
             .select_related("profile")
