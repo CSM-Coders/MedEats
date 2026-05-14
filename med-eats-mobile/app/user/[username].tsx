@@ -11,6 +11,7 @@ import {
   fetchVisitedRestaurants,
 } from "@/src/services/userCollectionsApi";
 import { AppUser, Post, SavedRestaurantRecord, VisitedRestaurantRecord } from "@/src/models/domain";
+import { colors, radii } from "@/src/theme/designTokens";
 import { router } from "expo-router";
 
 type TabType = "posts" | "saved" | "visited";
@@ -136,7 +137,7 @@ export default function UserProfileScreen() {
           <Ionicons name="arrow-back" size={24} color="#2D3436" />
         </Pressable>
         <Text style={styles.headerTitle}>@{userProfile.username}</Text>
-        <Ionicons name="notifications-outline" size={24} color="#2D3436" />
+        <Ionicons name="notifications-outline" size={24} color={colors.text} />
       </View>
 
       <ScrollView style={{ flex: 1 }} bounces={true}>
@@ -173,7 +174,7 @@ export default function UserProfileScreen() {
           {userProfile.bio ? <Text style={styles.bio}>{userProfile.bio}</Text> : null}
           {userProfile.location ? (
             <View style={styles.locationRow}>
-              <Ionicons name="location-outline" size={14} color="#636E72" />
+              <Ionicons name="location-outline" size={14} color={colors.textMuted} />
               <Text style={styles.location}> {userProfile.location}</Text>
             </View>
           ) : null}
@@ -192,7 +193,7 @@ export default function UserProfileScreen() {
                 disabled={interactionLoading}
               >
                 {interactionLoading ? (
-                  <ActivityIndicator color={userProfile.isFollowing ? "#2D3436" : "#FFFFFF"} />
+                  <ActivityIndicator color={userProfile.isFollowing ? colors.text : colors.background} />
                 ) : (
                   <Text style={[
                     styles.primaryButtonText,
@@ -206,7 +207,7 @@ export default function UserProfileScreen() {
                 <Text style={styles.secondaryButtonText}>Message</Text>
               </Pressable>
               <Pressable style={styles.iconButton}>
-                <Ionicons name="person-add-outline" size={20} color="#2D3436" />
+                <Ionicons name="person-add-outline" size={20} color={colors.text} />
               </Pressable>
             </>
           ) : (
@@ -219,13 +220,13 @@ export default function UserProfileScreen() {
         {/* Tabs Bar */}
         <View style={styles.tabsBar}>
           <Pressable style={[styles.tabItem, activeTab === "posts" && styles.activeTab]} onPress={() => setActiveTab("posts")}>
-            <Ionicons name="grid" size={24} color="#2D3436" />
+            <Ionicons name="grid" size={24} color={colors.text} />
           </Pressable>
           <Pressable style={[styles.tabItem, activeTab === "saved" && styles.activeTab]} onPress={() => setActiveTab("saved")}>
-            <Ionicons name="bookmark-outline" size={24} color="#636E72" />
+            <Ionicons name="bookmark-outline" size={24} color={colors.textMuted} />
           </Pressable>
           <Pressable style={[styles.tabItem, activeTab === "visited" && styles.activeTab]} onPress={() => setActiveTab("visited")}>
-            <Ionicons name="person-outline" size={24} color="#636E72" />
+            <Ionicons name="person-outline" size={24} color={colors.textMuted} />
           </Pressable>
         </View>
 
@@ -233,7 +234,7 @@ export default function UserProfileScreen() {
           <View style={styles.gridContainer}>
             {userPosts.length === 0 ? (
               <View style={styles.emptyFeed}>
-                <Ionicons name="images-outline" size={48} color="#B2BEC3" />
+                <Ionicons name="images-outline" size={48} color={colors.placeholder} />
                 <Text style={styles.emptyFeedText}>No posts yet</Text>
               </View>
             ) : (
@@ -259,7 +260,7 @@ export default function UserProfileScreen() {
           <View style={styles.collectionSection}>
             {savedRestaurants.length === 0 ? (
               <View style={styles.emptyFeed}>
-                <Ionicons name="bookmark-outline" size={48} color="#B2BEC3" />
+                <Ionicons name="bookmark-outline" size={48} color={colors.placeholder} />
                 <Text style={styles.emptyFeedText}>No saved restaurants yet</Text>
               </View>
             ) : (
@@ -278,7 +279,7 @@ export default function UserProfileScreen() {
                       <Text style={styles.restaurantName} numberOfLines={1}>{restaurant.name}</Text>
                       <Text style={styles.restaurantMeta} numberOfLines={1}>{restaurant.category}</Text>
                     </View>
-                    <Ionicons name="bookmark" size={20} color="#FF6B35" />
+                    <Ionicons name="bookmark" size={20} color={colors.primary} />
                   </Pressable>
                 );
               })
@@ -290,7 +291,7 @@ export default function UserProfileScreen() {
           <View style={styles.collectionSection}>
             {visitedRestaurants.length === 0 ? (
               <View style={styles.emptyFeed}>
-                <Ionicons name="restaurant-outline" size={48} color="#B2BEC3" />
+                <Ionicons name="restaurant-outline" size={48} color={colors.placeholder} />
                 <Text style={styles.emptyFeedText}>No visited restaurants yet</Text>
               </View>
             ) : (
@@ -311,7 +312,7 @@ export default function UserProfileScreen() {
                         {restaurant.category} · {record.rating}★
                       </Text>
                     </View>
-                    <Ionicons name="restaurant" size={20} color="#2D3436" />
+                    <Ionicons name="restaurant" size={20} color={colors.text} />
                   </Pressable>
                 );
               })
@@ -328,24 +329,24 @@ const screenWidth = Dimensions.get("window").width;
 const itemSize = screenWidth / numColumns;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFFFFF" },
+  container: { flex: 1, backgroundColor: colors.background },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   errorContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-  errorText: { color: "#636E72", fontSize: 16 },
-  privateContainer: { flex: 1, backgroundColor: "#FFFFFF" },
+  errorText: { color: colors.textMuted, fontSize: 16 },
+  privateContainer: { flex: 1, backgroundColor: colors.background },
   privateCard: {
     flex: 1,
     marginHorizontal: 16,
     marginTop: 48,
-    borderRadius: 20,
-    backgroundColor: "#FFF4F0",
+    borderRadius: radii.xl,
+    backgroundColor: colors.surfaceAlt,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 24,
     gap: 12,
   },
-  privateTitle: { fontSize: 22, fontWeight: "800", color: "#2D3436" },
-  privateText: { color: "#636E72", textAlign: "center", lineHeight: 22 },
+  privateTitle: { fontSize: 22, fontWeight: "800", color: colors.text },
+  privateText: { color: colors.textMuted, textAlign: "center", lineHeight: 22 },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -354,7 +355,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   backButton: { padding: 4 },
-  headerTitle: { fontSize: 18, fontWeight: "700", color: "#2D3436" },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: colors.text },
   profileBlock: {
     flexDirection: "row",
     alignItems: "center",
@@ -368,7 +369,7 @@ const styles = StyleSheet.create({
     borderRadius: 43,
     padding: 3,
     borderWidth: 1,
-    borderColor: "#E1E1E1",
+    borderColor: colors.borderSoft,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -377,20 +378,20 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     borderRadius: 40,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: colors.chip,
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: { color: "#2D3436", fontSize: 32, fontWeight: "700" },
+  avatarText: { color: colors.text, fontSize: 32, fontWeight: "700" },
   statsRow: { flexDirection: "row", flex: 1, justifyContent: "space-around", marginLeft: 10 },
   statItem: { alignItems: "center" },
-  statValue: { fontSize: 18, fontWeight: "700", color: "#2D3436" },
-  statLabel: { color: "#2D3436", fontSize: 13 },
+  statValue: { fontSize: 18, fontWeight: "700", color: colors.text },
+  statLabel: { color: colors.text, fontSize: 13 },
   bioBlock: { paddingHorizontal: 16, paddingTop: 12 },
-  name: { fontSize: 15, fontWeight: "700", color: "#2D3436" },
-  bio: { color: "#2D3436", marginTop: 2, fontSize: 14, lineHeight: 18 },
+  name: { fontSize: 15, fontWeight: "700", color: colors.text },
+  bio: { color: colors.text, marginTop: 2, fontSize: 14, lineHeight: 18 },
   locationRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
-  location: { color: "#636E72", fontSize: 13 },
+  location: { color: colors.textMuted, fontSize: 13 },
   actionsRow: { 
     flexDirection: "row", 
     paddingHorizontal: 16, 
@@ -399,27 +400,27 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     flex: 1,
-    backgroundColor: "#0095F6", // Instagram Blue
+    backgroundColor: colors.primary,
     height: 34,
-    borderRadius: 8,
+    borderRadius: radii.sm,
     justifyContent: "center",
     alignItems: "center",
   },
-  primaryButtonText: { color: "#FFFFFF", fontWeight: "700", fontSize: 14 },
+  primaryButtonText: { color: colors.background, fontWeight: "700", fontSize: 14 },
   secondaryButton: {
     flex: 1,
-    backgroundColor: "#EFEFEF",
+    backgroundColor: colors.chip,
     height: 34,
-    borderRadius: 8,
+    borderRadius: radii.sm,
     justifyContent: "center",
     alignItems: "center",
   },
-  secondaryButtonText: { color: "#2D3436", fontWeight: "700", fontSize: 14 },
+  secondaryButtonText: { color: colors.text, fontWeight: "700", fontSize: 14 },
   iconButton: {
     width: 34,
     height: 34,
-    backgroundColor: "#EFEFEF",
-    borderRadius: 8,
+    backgroundColor: colors.chip,
+    borderRadius: radii.sm,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -427,7 +428,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     marginTop: 24,
     borderTopWidth: 1,
-    borderTopColor: "#F3F4F6",
+    borderTopColor: colors.border,
   },
   tabItem: {
     flex: 1,
@@ -437,7 +438,7 @@ const styles = StyleSheet.create({
   },
   activeTab: {
     borderTopWidth: 2,
-    borderTopColor: "#2D3436",
+    borderTopColor: colors.text,
   },
   collectionSection: { paddingHorizontal: 16, paddingTop: 12, gap: 10 },
   restaurantCard: {
@@ -445,13 +446,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     padding: 10,
-    borderRadius: 14,
-    backgroundColor: "#F8F9FA",
+    borderRadius: radii.md,
+    backgroundColor: colors.surface,
   },
-  restaurantImage: { width: 58, height: 58, borderRadius: 12, backgroundColor: "#F3F4F6" },
+  restaurantImage: { width: 58, height: 58, borderRadius: 12, backgroundColor: colors.chip },
   restaurantInfo: { flex: 1 },
-  restaurantName: { fontSize: 14, fontWeight: "700", color: "#2D3436" },
-  restaurantMeta: { fontSize: 12, color: "#636E72", marginTop: 2 },
+  restaurantName: { fontSize: 14, fontWeight: "700", color: colors.text },
+  restaurantMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   emptyFeed: {
     flex: 1,
     justifyContent: "center",
@@ -459,8 +460,8 @@ const styles = StyleSheet.create({
     marginTop: 40,
     gap: 12,
   },
-  emptyFeedText: { color: "#B2BEC3", fontSize: 16 },
+  emptyFeedText: { color: colors.placeholder, fontSize: 16 },
   gridContainer: { flex: 1 },
   gridItem: { width: itemSize, height: itemSize, padding: 1 },
-  gridImage: { flex: 1, backgroundColor: "#F3F4F6" },
+  gridImage: { flex: 1, backgroundColor: colors.chip },
 });
