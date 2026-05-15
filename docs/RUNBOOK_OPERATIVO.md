@@ -6,7 +6,7 @@ Guía práctica para ejecutar, depurar y liberar el proyecto.
 
 ## 1) Requisitos
 
-- Node 18+
+- Node 22.x (recomendado; usar `nvm use` antes de iniciar)
 - Python 3.10+
 - PostgreSQL activo
 - Dependencias instaladas en frontend y backend
@@ -27,11 +27,22 @@ python manage.py runserver 0.0.0.0:8000
 
 ## Frontend
 
+Opción recomendada (unificada desde la raíz):
+
+```bash
+cd /Users/camiloalvarez/Documents/MedEats
+nvm use
+npm run dev    # levanta backend + Expo (limpio)
+```
+
+Arranque manual (solo frontend):
+
 ```bash
 cd /Users/camiloalvarez/Documents/MedEats/med-eats-mobile
+nvm use
 npm install
 npm run lint
-npm start
+npm run start:clean   # Expo con caché limpia
 ```
 
 En Expo:

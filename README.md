@@ -18,12 +18,30 @@
 - [Arquitectura del Proyecto](#-arquitectura-del-proyecto)
 - [Requisitos Previos](#-requisitos-previos)
 - [Instalación Paso a Paso](#-instalación-paso-a-paso)
+- [Arranque Unificado](#-arranque-unificado)
 - [Cómo Correr el Programa](#-cómo-correr-el-programa)
 - [Scripts Disponibles](#-scripts-disponibles)
 - [Estructura del Proyecto](#-estructura-del-proyecto)
 - [Tecnologías Utilizadas](#-tecnologías-utilizadas)
 - [Pantallas de la App](#-pantallas-de-la-app)
 - [Solución de Problemas](#-solución-de-problemas)
+
+---
+
+## ⚡ Arranque Unificado
+
+Si quieres levantar todo el entorno de desarrollo con una sola orden, usa:
+
+```bash
+cd MedEats
+nvm use
+npm run dev
+```
+
+Ese comando:
+- valida que estés usando Node 22.x
+- levanta el backend Django con el Python del entorno virtual del repo
+- arranca Expo con caché limpia para reducir errores de Metro
 
 ---
 
@@ -214,14 +232,24 @@ python manage.py createsuperuser
 
 ## 🚀 Cómo Correr el Programa
 
-Necesitas **2 terminales** abiertas simultáneamente:
+### Opción recomendada: un solo comando
+
+```bash
+cd MedEats
+nvm use
+npm run dev
+```
+
+### Opción manual: 2 terminales
+
+Si prefieres ejecutar cada servicio por separado:
 
 ### Terminal 1 — Backend (API)
 
 ```bash
 cd med-eats-backend
-source venv/bin/activate
-python manage.py runserver
+source ../.venv/bin/activate
+python manage.py runserver 0.0.0.0:8000
 ```
 
 El backend correrá en: `http://localhost:8000`
@@ -232,7 +260,7 @@ Panel de administración: `http://localhost:8000/admin/`
 
 ```bash
 cd med-eats-mobile
-npx expo start
+npm run start:clean
 ```
 
 Esto abrirá una terminal interactiva con un **código QR** y opciones:
@@ -261,11 +289,20 @@ Al abrir la app por primera vez, se pedirá permiso de **ubicación**. Esto es n
 
 ## 📜 Scripts Disponibles
 
+### Raíz del proyecto (desde `MedEats/`)
+
+| Comando | Descripción |
+|---|---|
+| `npm run dev` | Levanta backend + app móvil con validación de Node 22.x |
+| `npm run dev:backend` | Inicia Django en `0.0.0.0:8000` usando el entorno virtual del repo |
+| `npm run dev:mobile` | Inicia Expo con caché limpia |
+
 ### App Móvil (desde `med-eats-mobile/`)
 
 | Comando | Descripción |
 |---|---|
-| `npm start` | Inicia el servidor de desarrollo de Expo |
+| `npm start` | Alias de `expo start` |
+| `npm run start:clean` | Inicia Expo limpiando la caché de Metro |
 | `npm run ios` | Abre la app en el iOS Simulator |
 | `npm run android` | Abre la app en el Android Emulator |
 | `npm run web` | Abre la app en el navegador |

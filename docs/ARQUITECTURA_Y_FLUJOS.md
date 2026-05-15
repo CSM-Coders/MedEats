@@ -118,3 +118,18 @@ Pasar de frontend con mocks a integración real backend sin romper UX:
 1. Implementar endpoints prioritarios.
 2. Crear capa de servicios HTTP en frontend.
 3. Migrar pantalla por pantalla con feature flags sencillos.
+
+## Desarrollo local (nota rápida)
+
+Para facilitar el trabajo en equipo hemos añadido un script unificado en la raíz del repo que arranca el backend y la app móvil con una sola orden. Recomendaciones:
+
+- Usar Node 22.x (ver `.nvmrc`) y ejecutar `nvm use` antes de `npm run dev`.
+- Comando unificado desde la raíz:
+
+```bash
+cd /path/to/MedEats
+nvm use
+npm run dev
+```
+
+Esto lanza Django en `0.0.0.0:8000` y Expo en modo desarrollo con caché limpia.
