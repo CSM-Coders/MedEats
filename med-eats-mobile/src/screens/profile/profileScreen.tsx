@@ -28,6 +28,7 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { user, refreshProfile, logout, getAccessToken } = useAuth();
   const { userPosts } = useFeed();
+  const isRestaurantAccount = user?.isRestaurantAccount || user?.accountType === "restaurant";
   const [activeTab, setActiveTab] = useState<TabType>("posts");
   const [savedRestaurants, setSavedRestaurants] = useState<SavedRestaurantRecord[]>([]);
   const [visitedRestaurants, setVisitedRestaurants] = useState<VisitedRestaurantRecord[]>([]);
@@ -125,8 +126,13 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.actionsRow}>
-          <Pressable style={styles.secondaryButton} onPress={() => router.push("/edit-profile")}>
-            <Text style={styles.secondaryButtonText}>Editar perfil</Text>
+          <Pressable
+            style={styles.secondaryButton}
+            onPress={() => router.push(isRestaurantAccount ? "/my-restaurant" : "/edit-profile")}
+          >
+            <Text style={styles.secondaryButtonText}>
+              {isRestaurantAccount ? "Mi restaurante" : "Editar perfil"}
+            </Text>
           </Pressable>
         </View>
 

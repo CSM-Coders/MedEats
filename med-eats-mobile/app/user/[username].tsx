@@ -128,6 +128,7 @@ export default function UserProfileScreen() {
   }
 
   const isMe = currentUser?.username === userProfile.username;
+  const isRestaurantAccount = currentUser?.isRestaurantAccount || currentUser?.accountType === "restaurant";
 
   return (
     <View style={styles.container}>
@@ -211,8 +212,13 @@ export default function UserProfileScreen() {
               </Pressable>
             </>
           ) : (
-            <Pressable style={styles.secondaryButton} onPress={() => router.push("/edit-profile")}>
-              <Text style={styles.secondaryButtonText}>Editar perfil</Text>
+            <Pressable
+              style={styles.secondaryButton}
+              onPress={() => router.push(isRestaurantAccount ? "/my-restaurant" : "/edit-profile")}
+            >
+              <Text style={styles.secondaryButtonText}>
+                {isRestaurantAccount ? "Mi restaurante" : "Editar perfil"}
+              </Text>
             </Pressable>
           )}
         </View>
