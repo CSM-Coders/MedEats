@@ -260,7 +260,7 @@ export default function HomeScreen() {
   const isRestaurantCardOpen = Boolean(selectedRestaurant && navigationState === "discovery");
 
   const categories = useMemo(
-    () => [...new Set(restaurants.map((restaurant) => restaurant.category))],
+    () => [...new Set(restaurants.filter(r => r && r.category).map((restaurant) => restaurant.category))],
     [restaurants] // <-- ¡Actualizado! Ahora depende de los restaurantes que vienen de BD
   );
 
@@ -278,7 +278,7 @@ export default function HomeScreen() {
     const query = searchQuery.toLowerCase().trim();
     const flattened: any[] = [];
 
-    restaurants.forEach((restaurant) => {
+    restaurants.filter(r => r && r.id).forEach((restaurant) => {
       const name = (restaurant.name || "").toLowerCase();
       const category = (restaurant.category || "").toLowerCase();
       const location = (restaurant.location || "").toLowerCase();
@@ -352,19 +352,22 @@ export default function HomeScreen() {
   }, [searchResults]);
 
   const focusRestaurantOnMap = (latitude: number, longitude: number) => {
-    mapRef.current?.animateToRegion(
-      {
-        latitude: latitude - 0.0022,
-        longitude,
-        latitudeDelta: 0.005,
-        longitudeDelta: 0.005,
-      },
-      700
-    );
+    requestAnimationFrame(() => {
+      mapRef.current?.animateToRegion(
+        {
+          latitude: latitude - 0.0022,
+          longitude,
+          latitudeDelta: 0.005,
+          longitudeDelta: 0.005,
+        },
+        700
+      );
+    });
   };
 
 
   const handleSearchSubmit = () => {
+    if (selectedRestaurant) return;
     Keyboard.dismiss();
 
     if (searchResults.length === 0) {
@@ -409,6 +412,7 @@ export default function HomeScreen() {
   };
 
   const handleLocationPreviewPress = (item: any) => {
+    if (selectedRestaurant) return;
     Keyboard.dismiss();
     skipResetRef.current = true;
     setSelectedRestaurant(item.restaurant);
@@ -604,7 +608,9 @@ export default function HomeScreen() {
     setStagedFilters(initialFilters);
     setShowFilters(false);
 
-    mapRef.current?.animateToRegion(MEDELLIN_REGION, 700);
+    setTimeout(() => {
+      mapRef.current?.animateToRegion(MEDELLIN_REGION, 700);
+    }, 100);
   };
 
   if (loading) {
@@ -648,7 +654,7 @@ export default function HomeScreen() {
             focusRestaurantOnMap(focusLocation.latitude, focusLocation.longitude);
           }}
           origin={userLocation}
-          destination={selectedLocation}
+          destination={navigationState !== "discovery" ? selectedLocation : null}
           onDirectionsReady={(result) => {
             setNavigationData({
               distance: result.distance,
@@ -840,7 +846,9 @@ export default function HomeScreen() {
                   setStagedFilters(initialFilters);
                   setFilters(initialFilters);
                   setShowFilters(false);
-                  mapRef.current?.animateToRegion(MEDELLIN_REGION, 600);
+                  setTimeout(() => {
+                    mapRef.current?.animateToRegion(MEDELLIN_REGION, 600);
+                  }, 100);
                 }}
               >
                 <Text style={styles.filterClearText}>Limpiar</Text>
@@ -853,7 +861,9 @@ export default function HomeScreen() {
                   // Si no hay filtros activos, recentrar el mapa
                   const noFilters = !stagedFilters.category && !stagedFilters.minRating && !stagedFilters.maxDistanceKm;
                   if (noFilters) {
-                    mapRef.current?.animateToRegion(MEDELLIN_REGION, 600);
+                    setTimeout(() => {
+                      mapRef.current?.animateToRegion(MEDELLIN_REGION, 600);
+                    }, 100);
                   }
                 }}
               >
