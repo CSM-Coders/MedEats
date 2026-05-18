@@ -741,6 +741,13 @@ export default function HomeScreen() {
 
         {foodieRecommendation && (
           <View style={styles.foodieAnswerCard}>
+            <Pressable 
+              onPress={() => setFoodieRecommendation(null)} 
+              style={styles.foodieAnswerClose}
+              hitSlop={8}
+            >
+              <Ionicons name="close" size={18} color={colors.textMuted} />
+            </Pressable>
             <Text style={styles.foodieAnswerTitle}>Foodie AI recomienda</Text>
             <Text style={styles.foodieAnswerRestaurant}>
               {foodieRecommendation.restaurant.name}
@@ -1394,6 +1401,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.surfaceAlt,
     padding: spacing.md,
+    position: "relative",
+  },
+  foodieAnswerClose: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    zIndex: 5,
+    padding: 4,
   },
   foodieAnswerTitle: {
     color: colors.primaryDark,
