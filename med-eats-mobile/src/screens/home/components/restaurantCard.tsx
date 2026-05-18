@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, Pressable, Image } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useRef } from "react";
 import { Restaurant } from "@/src/models/domain";
 import { colors, radii, spacing } from "@/src/theme/designTokens";
 
@@ -41,6 +42,8 @@ function RatingStars({ rating }: { rating: number }) {
 }
 
 export default function RestaurantCard({ restaurant, onClose, onShowRoute }: Props) {
+  const isNavigatingRef = useRef(false);
+
   return (
     <View style={styles.card}>
       {/* Imagen del restaurante */}
@@ -61,7 +64,12 @@ export default function RestaurantCard({ restaurant, onClose, onShowRoute }: Pro
           <Pressable
             style={styles.detailsButton}
             onPress={() => {
+              if (isNavigatingRef.current) return;
+              isNavigatingRef.current = true;
               router.push(`/restaurant/${restaurant.id}`);
+              setTimeout(() => {
+                isNavigatingRef.current = false;
+              }, 700);
             }}
           >
             <Text style={styles.detailsButtonText}>Ver Detalles</Text>

@@ -2,6 +2,7 @@ from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from .views import (
+    UserSearchAPIView,
     FollowersListAPIView,
     FollowingListAPIView,
     FollowUserAPIView,
@@ -32,4 +33,5 @@ urlpatterns = [
         FollowingListAPIView.as_view(),
         name="profile-following",
     ),
+    path("search/", UserSearchAPIView.as_view(), name="user-search"),
 ]

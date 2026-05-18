@@ -7,7 +7,7 @@
 
 import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { useLocalSearchParams } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import RestaurantDetailScreen from "@/src/screens/restaurant/restaurantDetailScreen";
 import { Restaurant } from "@/src/models/domain";
 import { fetchRestaurantById } from "@/src/services/restaurantApi";
@@ -19,25 +19,47 @@ export default function RestaurantScreen() {
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [loading, setLoading] = useState(true);
   const restaurantId = Array.isArray(id) ? id[0] : id;
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
+    let isActive = true;
+    const currentRequestId = ++requestIdRef.current;
+
     const fetchRestaurantDetail = async () => {
+      setLoading(true);
+      setRestaurant(null);
+
       if (!restaurantId) {
-        setLoading(false);
+        if (isActive && currentRequestId === requestIdRef.current) {
+          setLoading(false);
+        }
         return;
       }
 
       try {
         const transformed = await fetchRestaurantById(String(restaurantId));
+
+        if (!isActive || currentRequestId !== requestIdRef.current) {
+          return;
+        }
+
         setRestaurant(transformed);
       } catch (error) {
-        console.error("Error fetching detail:", error);
+        if (isActive && currentRequestId === requestIdRef.current) {
+          console.error("Error fetching detail:", error);
+        }
       } finally {
-        setLoading(false);
+        if (isActive && currentRequestId === requestIdRef.current) {
+          setLoading(false);
+        }
       }
     };
 
     fetchRestaurantDetail();
+
+    return () => {
+      isActive = false;
+    };
   }, [restaurantId]);
 
   if (loading) {

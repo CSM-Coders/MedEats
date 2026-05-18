@@ -29,12 +29,37 @@ cleanup() {
   fi
 }
 
+free_port_if_busy() {
+  local port="$1"
+  local pids
+
+  # lsof devuelve una lista de PIDs que están escuchando ese puerto.
+  pids="$(lsof -ti tcp:"$port" -sTCP:LISTEN 2>/dev/null || true)"
+
+  if [[ -n "$pids" ]]; then
+    echo "⚠ Puerto $port en uso. Liberándolo..."
+    while IFS= read -r pid; do
+      [[ -z "$pid" ]] && continue
+      kill "$pid" >/dev/null 2>&1 || true
+      sleep 0.2
+      if kill -0 "$pid" >/dev/null 2>&1; then
+        kill -9 "$pid" >/dev/null 2>&1 || true
+      fi
+    done <<< "$pids"
+    echo "✓ Puerto $port liberado"
+  fi
+}
+
 trap cleanup EXIT INT TERM
 
 echo "→ Backend: $BACKEND_DIR"
 echo "→ Mobile:  $MOBILE_DIR"
 echo "→ Node:    $(node -v)"
 echo "→ Python:  $PYTHON_BIN"
+
+# Evita fallos comunes al reiniciar dev varias veces en el mismo día.
+free_port_if_busy 8000
+free_port_if_busy 8081
 
 (
   cd "$BACKEND_DIR"

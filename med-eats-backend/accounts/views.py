@@ -209,6 +209,27 @@ class FollowingListAPIView(APIView):
         return Response({"count": len(serializer.data), "results": serializer.data})
 
 
+class UserSearchAPIView(APIView):
+    """
+    Search for users by username or name.
+    Query parameter: ?search=<query>
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        query = request.query_params.get("search", "").strip()
+
+        if not query:
+            return Response([], status=status.HTTP_200_OK)
+
+        users = User.objects.filter(
+            Q(username__icontains=query) | Q(profile__display_name__icontains=query)
+        ).select_related("profile").distinct()[:50]
+
+        serializer = UserSummarySerializer(users, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
 class LogoutAPIView(APIView):
     """
     Invalida el refresh token del usuario añadiéndolo a la lista negra.

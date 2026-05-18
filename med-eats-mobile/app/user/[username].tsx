@@ -138,7 +138,7 @@ export default function UserProfileScreen() {
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>@{userProfile.username}</Text>
-        <Ionicons name="notifications-outline" size={24} color={colors.text} />
+        <View style={{ width: 24 }} />
       </View>
 
       <ScrollView style={{ flex: 1 }} bounces={true}>
@@ -184,33 +184,25 @@ export default function UserProfileScreen() {
         {/* Action Buttons */}
         <View style={styles.actionsRow}>
           {!isMe ? (
-            <>
-              <Pressable 
-                style={[
-                  styles.primaryButton, 
-                  userProfile.isFollowing && styles.secondaryButton
-                ]} 
-                onPress={handleFollowToggle}
-                disabled={interactionLoading}
-              >
-                {interactionLoading ? (
-                  <ActivityIndicator color={userProfile.isFollowing ? colors.text : colors.background} />
-                ) : (
-                  <Text style={[
-                    styles.primaryButtonText,
-                    userProfile.isFollowing && styles.secondaryButtonText
-                  ]}>
-                    {userProfile.isFollowing ? "Following" : "Follow"}
-                  </Text>
-                )}
-              </Pressable>
-              <Pressable style={styles.secondaryButton}>
-                <Text style={styles.secondaryButtonText}>Message</Text>
-              </Pressable>
-              <Pressable style={styles.iconButton}>
-                <Ionicons name="person-add-outline" size={20} color={colors.text} />
-              </Pressable>
-            </>
+            <Pressable 
+              style={[
+                styles.primaryButton, 
+                userProfile.isFollowing && styles.secondaryButton
+              ]} 
+              onPress={handleFollowToggle}
+              disabled={interactionLoading}
+            >
+              {interactionLoading ? (
+                <ActivityIndicator color={userProfile.isFollowing ? colors.text : colors.background} />
+              ) : (
+                <Text style={[
+                  styles.primaryButtonText,
+                  userProfile.isFollowing && styles.secondaryButtonText
+                ]}>
+                  {userProfile.isFollowing ? "Following" : "Follow"}
+                </Text>
+              )}
+            </Pressable>
           ) : (
             <Pressable
               style={styles.secondaryButton}

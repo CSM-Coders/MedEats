@@ -61,6 +61,28 @@ export async function fetchUserProfileByUsername(
   return mapProfile(payload);
 }
 
+export async function searchUsersWithAuth(
+  query: string,
+  accessToken: string
+): Promise<(AppUser & { isFollowing: boolean })[]> {
+  // Use backend search endpoint with auth token
+  const url = `${API_BASE_URL}/api/v1/auth/search/?search=${encodeURIComponent(query)}`;
+  try {
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+    if (response.ok) {
+      const payload = (await response.json()) as ApiProfile[];
+      return payload.map(mapProfile);
+    }
+  } catch (err) {
+    console.error("User search error:", err);
+  }
+  return [];
+}
+
 export async function followUser(accessToken: string, username: string): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/api/v1/auth/profile/${username}/follow/`, {
     method: "POST",

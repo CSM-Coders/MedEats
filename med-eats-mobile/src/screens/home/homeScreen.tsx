@@ -257,6 +257,7 @@ export default function HomeScreen() {
   const mapRef = useRef<MapViewComponent>(null);
   const insets = useSafeAreaInsets();
   const { location: userLocation } = useUserLocation();
+  const isRestaurantCardOpen = Boolean(selectedRestaurant && navigationState === "discovery");
 
   const categories = useMemo(
     () => [...new Set(restaurants.map((restaurant) => restaurant.category))],
@@ -350,6 +351,18 @@ export default function HomeScreen() {
     return Array.from(uniqueMap.values());
   }, [searchResults]);
 
+  const focusRestaurantOnMap = (latitude: number, longitude: number) => {
+    mapRef.current?.animateToRegion(
+      {
+        latitude: latitude - 0.0022,
+        longitude,
+        latitudeDelta: 0.005,
+        longitudeDelta: 0.005,
+      },
+      700
+    );
+  };
+
 
   const handleSearchSubmit = () => {
     Keyboard.dismiss();
@@ -358,34 +371,15 @@ export default function HomeScreen() {
       return;
     }
 
-    if (searchResults.length === 1) {
-      const item = searchResults[0];
-      mapRef.current?.animateToRegion(
-        {
-          latitude: item.latitude,
-          longitude: item.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        },
-        700
-      );
-      return;
-    }
+    const item = searchResults[0];
+    skipResetRef.current = true;
+    setSelectedRestaurant(item.restaurant);
+    setSelectedLocation({ latitude: item.latitude, longitude: item.longitude });
+    setNavigationData(null);
+    setShowFilters(false);
+    setSearchQuery("");
 
-    // Solo animamos si hay 2 o más resultados válidos
-    if (searchResults.length >= 2) {
-      const mapPoints = searchResults.map((item) => ({
-        latitude: item.latitude,
-        longitude: item.longitude,
-      }));
-      mapRef.current?.fitToCoordinates(
-        mapPoints,
-        {
-          edgePadding: { top: 160, right: 50, bottom: 60, left: 50 },
-          animated: true,
-        }
-      );
-    }
+    focusRestaurantOnMap(item.latitude, item.longitude);
   };
 
   const handleShowRoute = (restaurant: Restaurant) => {
@@ -416,24 +410,18 @@ export default function HomeScreen() {
 
   const handleLocationPreviewPress = (item: any) => {
     Keyboard.dismiss();
+    skipResetRef.current = true;
     setSelectedRestaurant(item.restaurant);
     setSelectedLocation({ latitude: item.latitude, longitude: item.longitude });
     setNavigationState("discovery");
     setNavigationData(null);
+    setShowFilters(false);
+    setSearchQuery("");
 
     const userLat = userLocation?.latitude ?? MEDELLIN_REGION.latitude;
     const userLon = userLocation?.longitude ?? MEDELLIN_REGION.longitude;
 
-    mapRef.current?.fitToCoordinates(
-      [
-        { latitude: userLat, longitude: userLon },
-        { latitude: item.latitude, longitude: item.longitude },
-      ],
-      {
-        edgePadding: { top: 100, right: 100, bottom: 400, left: 100 },
-        animated: true,
-      }
-    );
+    focusRestaurantOnMap(item.latitude, item.longitude);
   };
 
   const handleStartNavigation = () => {
@@ -647,10 +635,17 @@ export default function HomeScreen() {
               ? filteredRestaurants
               : restaurants
           }
+          selectedMarker={{
+            restaurantId: selectedRestaurant?.id ?? null,
+            latitude: selectedLocation?.latitude ?? null,
+            longitude: selectedLocation?.longitude ?? null,
+          }}
           onMarkerPress={(restaurant, location) => {
-            if (navigationState === "active") return;
+            if (navigationState === "active" || isRestaurantCardOpen) return;
             setSelectedRestaurant(restaurant);
-            setSelectedLocation(location || { latitude: restaurant.latitude, longitude: restaurant.longitude });
+            const focusLocation = location || { latitude: restaurant.latitude, longitude: restaurant.longitude };
+            setSelectedLocation(focusLocation);
+            focusRestaurantOnMap(focusLocation.latitude, focusLocation.longitude);
           }}
           origin={userLocation}
           destination={selectedLocation}
@@ -703,12 +698,14 @@ export default function HomeScreen() {
           </Text>
         </Pressable>
 
-        <View style={styles.resultsCount}>
-          <Text style={styles.resultsText}>
-            {searchResults.length} {searchResults.length === 1 ? "ubicación" : "ubicaciones"}
-          </Text>
-          {isAiSearch && <Text style={styles.aiBadge}>AI</Text>}
-        </View>
+        {searchQuery.trim().length > 0 && searchResults.length > 0 && (
+          <View style={styles.resultsCount}>
+            <Text style={styles.resultsText}>
+              {searchResults.length} {searchResults.length === 1 ? "ubicación" : "ubicaciones"}
+            </Text>
+            {isAiSearch && <Text style={styles.aiBadge}>AI</Text>}
+          </View>
+        )}
 
         {searchQuery.trim().length > 0 && searchResults.length > 0 && (
           <View style={styles.searchResultsPanel}>

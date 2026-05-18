@@ -79,9 +79,14 @@ export default function FeedScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}> 
-        <Text style={styles.title}>MedEats</Text>
-        <Text style={styles.subtitle}>Discover food in Medellín</Text>
+      <View style={[styles.header, { paddingTop: insets.top + 8, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }]}> 
+        <View>
+          <Text style={styles.title}>MedEats</Text>
+          <Text style={styles.subtitle}>Discover food in Medellín</Text>
+        </View>
+        <Pressable style={styles.headerIcon} onPress={() => router.push("/search")}>
+          <Ionicons name="search" size={22} color={colors.text} />
+        </Pressable>
       </View>
 
       <FlatList
@@ -166,6 +171,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   title: { fontSize: 28, fontWeight: "700", color: colors.text },
+  headerIcon: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   subtitle: { color: colors.textMuted, marginTop: 2 },
   listContent: { paddingBottom: spacing.xxl },
   card: {
