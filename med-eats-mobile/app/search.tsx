@@ -7,6 +7,7 @@ import { colors, spacing, radii } from "@/src/theme/designTokens";
 import { fetchRestaurants } from "@/src/services/restaurantApi";
 import { searchUsersWithAuth } from "@/src/services/userApi";
 import { useAuth } from "@/src/context/auth-context";
+import ProfileAvatar from "@/src/components/ProfileAvatar";
 
 export default function SearchScreen() {
   const insets = useSafeAreaInsets();
@@ -91,11 +92,9 @@ export default function SearchScreen() {
   const renderUser = ({ item }: { item: any }) => (
     <Pressable style={styles.resultItem} onPress={() => router.push(`/user/${item.username}`)}>
       {item.avatarUrl ? (
-        <Image source={{ uri: item.avatarUrl }} style={styles.resultAvatar} />
+        <ProfileAvatar uri={item.avatarUrl} size={44} />
       ) : (
-        <View style={[styles.resultAvatar, { backgroundColor: colors.chip, alignItems: "center", justifyContent: "center" }]}>
-          <Text style={{ color: colors.text }}>{(item.name || item.username).charAt(0).toUpperCase()}</Text>
-        </View>
+        <ProfileAvatar uri={null} size={44} />
       )}
       <View style={{ flex: 1 }}>
         <Text style={styles.resultTitle}>{item.username}</Text>
@@ -113,7 +112,7 @@ export default function SearchScreen() {
         router.push(`/restaurant/${item.id}`);
       }
     }}>
-      {item.image ? <Image source={{ uri: item.image }} style={styles.resultAvatar} /> : <View style={[styles.resultAvatar, { backgroundColor: colors.chip }]} />}
+      <ProfileAvatar uri={item.image} size={44} />
       <View style={{ flex: 1 }}>
         <Text style={styles.resultTitle}>{item.name}</Text>
         <Text style={styles.resultSubtitle}>{item.location}</Text>

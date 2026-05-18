@@ -37,12 +37,17 @@ type VisitedApiItem = {
 };
 
 function mapRestaurant(item: RestaurantApiItem): Restaurant {
+  let imageUrl = item.image ?? "";
+  if (imageUrl && !/^https?:\/\//i.test(imageUrl)) {
+    imageUrl = imageUrl.startsWith("/") ? `${API_BASE_URL}${imageUrl}` : `${API_BASE_URL}/${imageUrl}`;
+  }
+
   return {
     id: String(item.id),
     name: item.name,
     category: item.category ?? "",
     rating: Number(item.rating) || 0,
-    image: item.image ?? "",
+    image: imageUrl,
     latitude: item.latitude,
     longitude: item.longitude,
     location: item.location,

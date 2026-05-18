@@ -12,6 +12,9 @@ from .views import (
     MyProfileAPIView,
     RegisterAPIView,
     UserProfileDetailAPIView,
+    FollowRequestListAPIView,
+    ApproveFollowRequestAPIView,
+    RejectFollowRequestAPIView,
 )
 
 urlpatterns = [
@@ -34,4 +37,7 @@ urlpatterns = [
         name="profile-following",
     ),
     path("search/", UserSearchAPIView.as_view(), name="user-search"),
+    path("requests/", FollowRequestListAPIView.as_view(), name="follow-requests-list"),
+    path("requests/<int:request_id>/accept/", ApproveFollowRequestAPIView.as_view(), name="follow-request-accept"),
+    path("requests/<int:request_id>/reject/", RejectFollowRequestAPIView.as_view(), name="follow-request-reject"),
 ]

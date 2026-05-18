@@ -17,10 +17,12 @@ import { SavedRestaurantRecord, VisitedRestaurantRecord } from "@/src/models/dom
 import { colors, radii } from "@/src/theme/designTokens";
 import { useAuth } from "@/src/context/auth-context";
 import { useFeed } from "@/src/context/feed-context";
+import ProfileAvatar from "@/src/components/ProfileAvatar";
 import {
   fetchSavedRestaurants,
   fetchVisitedRestaurants,
 } from "@/src/services/userCollectionsApi";
+import { fetchFollowRequests } from "@/src/services/userApi";
 
 type TabType = "posts" | "saved" | "visited";
 
@@ -32,6 +34,7 @@ export default function ProfileScreen() {
   const [activeTab, setActiveTab] = useState<TabType>("posts");
   const [savedRestaurants, setSavedRestaurants] = useState<SavedRestaurantRecord[]>([]);
   const [visitedRestaurants, setVisitedRestaurants] = useState<VisitedRestaurantRecord[]>([]);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState<number>(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -43,16 +46,19 @@ export default function ProfileScreen() {
 
         try {
           await refreshProfile();
-          const [saved, visited] = await Promise.all([
+          const [saved, visited, requests] = await Promise.all([
             fetchSavedRestaurants(accessToken),
             fetchVisitedRestaurants(accessToken),
+            fetchFollowRequests(accessToken).catch(() => []),
           ]);
 
           setSavedRestaurants(saved);
           setVisitedRestaurants(visited);
+          setPendingRequestsCount(requests.length);
         } catch {
           setSavedRestaurants([]);
           setVisitedRestaurants([]);
+          setPendingRequestsCount(0);
         }
       };
 
@@ -69,6 +75,14 @@ export default function ProfileScreen() {
         <View style={[styles.header, { paddingTop: insets.top + 8 }]}> 
         <Text style={styles.headerTitle}>@{user.username}</Text>
         <View style={styles.headerRight}>
+          <Pressable onPress={() => router.push("/notifications" as any)} style={styles.bellButton}>
+            <Ionicons name="notifications-outline" size={22} color={colors.text} />
+            {pendingRequestsCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{pendingRequestsCount}</Text>
+              </View>
+            )}
+          </Pressable>
           <Pressable onPress={logout} style={styles.logoutButton}>
             <Text style={styles.logoutText}>Cerrar sesión</Text>
             <Ionicons name="log-out-outline" size={20} color={colors.danger} />
@@ -79,13 +93,7 @@ export default function ProfileScreen() {
       <ScrollView style={{ flex: 1 }} bounces={true}>
         <View style={styles.profileBlock}>
           <View style={styles.avatarContainer}>
-            {user.avatarUrl ? (
-              <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarText}>{user.name.charAt(0).toUpperCase()}</Text>
-              </View>
-            )}
+            <ProfileAvatar uri={user.avatarUrl} size={80} />
           </View>
 
           <View style={styles.statsRow}>
@@ -254,7 +262,35 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   headerTitle: { fontSize: 18, fontWeight: "700", color: colors.text },
-  headerRight: { flexDirection: "row", alignItems: "center" },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 12 },
+  bellButton: {
+    padding: 6,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  badge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: colors.primary,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+    borderWidth: 1,
+    borderColor: colors.background,
+  },
+  badgeText: {
+    color: "#FFFFFF",
+    fontSize: 9,
+    fontWeight: "800",
+    textAlign: "center",
+  },
   logoutButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -287,15 +323,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   avatarImage: { width: "100%", height: "100%", borderRadius: 40 },
-  avatarPlaceholder: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 40,
-    backgroundColor: colors.chip,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: { color: colors.text, fontSize: 32, fontWeight: "700" },
   statsRow: { flexDirection: "row", flex: 1, justifyContent: "space-around", marginLeft: 10 },
   statItem: { alignItems: "center" },
   statValue: { fontSize: 18, fontWeight: "700", color: colors.text },

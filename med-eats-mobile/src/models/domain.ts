@@ -88,6 +88,7 @@ export type AppUser = {
   posts: number;
   savedCount: number;
   visitedCount: number;
+  followStatus?: "following" | "requested" | "none";
 };
 
 export type VisitedRestaurant = {

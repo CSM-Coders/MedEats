@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.core.files.storage import default_storage
 from rest_framework import serializers
 
-from .models import UserProfile
+from .models import UserProfile, FollowRequest
 
 User = get_user_model()
 
@@ -197,6 +197,7 @@ class PublicProfileSerializer(serializers.ModelSerializer):
     followers_count = serializers.SerializerMethodField()
     following_count = serializers.SerializerMethodField()
     is_following = serializers.SerializerMethodField()
+    follow_status = serializers.SerializerMethodField()
     posts_count = serializers.SerializerMethodField()
     saved_count = serializers.SerializerMethodField()
     visited_count = serializers.SerializerMethodField()
@@ -218,6 +219,7 @@ class PublicProfileSerializer(serializers.ModelSerializer):
             "followers_count",
             "following_count",
             "is_following",
+            "follow_status",
             "posts_count",
             "saved_count",
             "visited_count",
@@ -252,6 +254,16 @@ class PublicProfileSerializer(serializers.ModelSerializer):
             return False
 
         return obj.user.follower_relationships.filter(follower=request.user).exists()
+
+    def get_follow_status(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return "none"
+        if obj.user.follower_relationships.filter(follower=request.user).exists():
+            return "following"
+        if FollowRequest.objects.filter(requester=request.user, target=obj.user, status="pending").exists():
+            return "requested"
+        return "none"
 
     def get_is_restaurant_account(self, obj):
         return obj.account_type == UserProfile.ACCOUNT_TYPE_RESTAURANT

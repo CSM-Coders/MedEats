@@ -13,6 +13,7 @@ import {
 import { AppUser, Post, SavedRestaurantRecord, VisitedRestaurantRecord } from "../../src/models/domain";
 import { colors, radii } from "../../src/theme/designTokens";
 import { router } from "expo-router";
+import ProfileAvatar from "@/src/components/ProfileAvatar";
 
 type TabType = "posts" | "saved" | "visited";
 
@@ -36,29 +37,47 @@ export default function UserProfileScreen() {
 
     try {
       setIsPrivateProfile(false);
-      const [profileData, postsData, savedData, visitedData] = await Promise.all([
-        fetchUserProfileByUsername(accessToken, username),
-        fetchUserPosts(accessToken, username),
-        fetchSavedRestaurants(accessToken, username),
-        fetchVisitedRestaurants(accessToken, username),
-      ]);
+      
+      // Cargar perfil de usuario
+      const profileData = await fetchUserProfileByUsername(accessToken, username);
       setUserProfile(profileData);
-      setUserPosts(postsData);
-      setSavedRestaurants(savedData);
-      setVisitedRestaurants(visitedData);
-    } catch (error) {
-      const statusCode = typeof error === "object" && error !== null && "statusCode" in error
-        ? Number((error as { statusCode?: number }).statusCode)
-        : undefined;
+      
+      const isMe = currentUser?.username === profileData.username;
+      const canViewContent = profileData.isPublic !== false || profileData.followStatus === "following" || isMe;
 
-      if (statusCode === 403) {
-        setIsPrivateProfile(true);
-        setUserProfile(null);
+      if (canViewContent) {
+        // Cargar posts, pero no fallar si hay error
+        try {
+          const postsData = await fetchUserPosts(accessToken, username);
+          setUserPosts(postsData);
+        } catch (postsError) {
+          console.error("Error loading user posts:", postsError);
+          setUserPosts([]);
+        }
+        
+        // Cargar restaurantes guardados, pero no fallar si hay error
+        try {
+          const savedData = await fetchSavedRestaurants(accessToken, username);
+          setSavedRestaurants(savedData);
+        } catch (savedError) {
+          console.error("Error loading saved restaurants:", savedError);
+          setSavedRestaurants([]);
+        }
+        
+        // Cargar restaurantes visitados, pero no fallar si hay error
+        try {
+          const visitedData = await fetchVisitedRestaurants(accessToken, username);
+          setVisitedRestaurants(visitedData);
+        } catch (visitedError) {
+          console.error("Error loading visited restaurants:", visitedError);
+          setVisitedRestaurants([]);
+        }
+      } else {
         setUserPosts([]);
         setSavedRestaurants([]);
         setVisitedRestaurants([]);
       }
-
+    } catch (error) {
       console.error("Error loading profile:", error);
     } finally {
       setLoading(false);
@@ -75,7 +94,8 @@ export default function UserProfileScreen() {
 
     setInteractionLoading(true);
     try {
-      if (userProfile.isFollowing) {
+      const isFollowingOrRequested = userProfile.followStatus === "following" || userProfile.followStatus === "requested";
+      if (isFollowingOrRequested) {
         await unfollowUser(accessToken, userProfile.username);
       } else {
         await followUser(accessToken, userProfile.username);
@@ -98,28 +118,6 @@ export default function UserProfileScreen() {
   }
 
   if (!userProfile) {
-    if (isPrivateProfile) {
-      return (
-        <View style={styles.privateContainer}>
-          <View style={[styles.header, { paddingTop: insets.top + 8 }]}> 
-            <Pressable onPress={() => router.back()} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color={colors.text} />
-            </Pressable>
-            <Text style={styles.headerTitle}>@{username}</Text>
-            <View style={{ width: 24 }} />
-          </View>
-
-          <View style={styles.privateCard}>
-            <Ionicons name="lock-closed-outline" size={42} color={colors.primary} />
-            <Text style={styles.privateTitle}>Perfil privado</Text>
-            <Text style={styles.privateText}>
-              La cuenta de @{username} es privada. Sigue la cuenta para ver sus posts y actividad.
-            </Text>
-          </View>
-        </View>
-      );
-    }
-
     return (
       <View style={styles.errorContainer}>
         <Text style={styles.errorText}>Usuario no encontrado</Text>
@@ -129,6 +127,7 @@ export default function UserProfileScreen() {
 
   const isMe = currentUser?.username === userProfile.username;
   const isRestaurantAccount = currentUser?.isRestaurantAccount || currentUser?.accountType === "restaurant";
+  const showPrivateLock = userProfile.isPublic === false && userProfile.followStatus !== "following" && !isMe;
 
   return (
     <View style={styles.container}>
@@ -145,13 +144,7 @@ export default function UserProfileScreen() {
         {/* Profile Info */}
         <View style={styles.profileBlock}>
           <View style={styles.avatarContainer}>
-            {userProfile.avatarUrl ? (
-              <Image source={{ uri: userProfile.avatarUrl }} style={styles.avatarImage} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarText}>{userProfile.name.charAt(0).toUpperCase()}</Text>
-              </View>
-            )}
+            <ProfileAvatar uri={userProfile.avatarUrl} size={80} />
           </View>
 
           <View style={styles.statsRow}>
@@ -187,19 +180,23 @@ export default function UserProfileScreen() {
             <Pressable 
               style={[
                 styles.primaryButton, 
-                userProfile.isFollowing && styles.secondaryButton
+                (userProfile.followStatus === "following" || userProfile.followStatus === "requested") && styles.secondaryButton
               ]} 
               onPress={handleFollowToggle}
               disabled={interactionLoading}
             >
               {interactionLoading ? (
-                <ActivityIndicator color={userProfile.isFollowing ? colors.text : colors.background} />
+                <ActivityIndicator color={(userProfile.followStatus === "following" || userProfile.followStatus === "requested") ? colors.text : colors.background} />
               ) : (
                 <Text style={[
                   styles.primaryButtonText,
-                  userProfile.isFollowing && styles.secondaryButtonText
+                  (userProfile.followStatus === "following" || userProfile.followStatus === "requested") && styles.secondaryButtonText
                 ]}>
-                  {userProfile.isFollowing ? "Following" : "Follow"}
+                  {userProfile.followStatus === "following" 
+                    ? "Siguiendo" 
+                    : userProfile.followStatus === "requested" 
+                    ? "Solicitado" 
+                    : "Seguir"}
                 </Text>
               )}
             </Pressable>
@@ -215,18 +212,30 @@ export default function UserProfileScreen() {
           )}
         </View>
 
-        {/* Tabs Bar */}
-        <View style={styles.tabsBar}>
-          <Pressable style={[styles.tabItem, activeTab === "posts" && styles.activeTab]} onPress={() => setActiveTab("posts")}>
-            <Ionicons name="grid" size={24} color={colors.text} />
-          </Pressable>
-          <Pressable style={[styles.tabItem, activeTab === "saved" && styles.activeTab]} onPress={() => setActiveTab("saved")}>
-            <Ionicons name="bookmark-outline" size={24} color={colors.textMuted} />
-          </Pressable>
-          <Pressable style={[styles.tabItem, activeTab === "visited" && styles.activeTab]} onPress={() => setActiveTab("visited")}>
-            <Ionicons name="person-outline" size={24} color={colors.textMuted} />
-          </Pressable>
-        </View>
+        {showPrivateLock ? (
+          <View style={styles.premiumPrivateCard}>
+            <View style={styles.lockCircle}>
+              <Ionicons name="lock-closed" size={30} color={colors.primary} />
+            </View>
+            <Text style={styles.privateTitle}>Este perfil es privado</Text>
+            <Text style={styles.privateText}>
+              La cuenta de @{userProfile.username} es privada. Sigue la cuenta para ver sus posts y actividad.
+            </Text>
+          </View>
+        ) : (
+          <>
+            {/* Tabs Bar */}
+            <View style={styles.tabsBar}>
+              <Pressable style={[styles.tabItem, activeTab === "posts" && styles.activeTab]} onPress={() => setActiveTab("posts")}>
+                <Ionicons name="grid" size={24} color={colors.text} />
+              </Pressable>
+              <Pressable style={[styles.tabItem, activeTab === "saved" && styles.activeTab]} onPress={() => setActiveTab("saved")}>
+                <Ionicons name="bookmark-outline" size={24} color={colors.textMuted} />
+              </Pressable>
+              <Pressable style={[styles.tabItem, activeTab === "visited" && styles.activeTab]} onPress={() => setActiveTab("visited")}>
+                <Ionicons name="person-outline" size={24} color={colors.textMuted} />
+              </Pressable>
+            </View>
 
         {activeTab === "posts" && (
           <View style={styles.gridContainer}>
@@ -317,6 +326,8 @@ export default function UserProfileScreen() {
             )}
           </View>
         )}
+          </>
+        )}
       </ScrollView>
     </View>
   );
@@ -372,15 +383,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   avatarImage: { width: "100%", height: "100%", borderRadius: 40 },
-  avatarPlaceholder: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 40,
-    backgroundColor: colors.chip,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: { color: colors.text, fontSize: 32, fontWeight: "700" },
   statsRow: { flexDirection: "row", flex: 1, justifyContent: "space-around", marginLeft: 10 },
   statItem: { alignItems: "center" },
   statValue: { fontSize: 18, fontWeight: "700", color: colors.text },
@@ -462,4 +464,29 @@ const styles = StyleSheet.create({
   gridContainer: { flex: 1 },
   gridItem: { width: itemSize, height: itemSize, padding: 1 },
   gridImage: { flex: 1, backgroundColor: colors.chip },
+  premiumPrivateCard: {
+    marginHorizontal: 16,
+    marginTop: 24,
+    marginBottom: 48,
+    borderRadius: radii.xl,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 40,
+    paddingHorizontal: 24,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+  },
+  lockCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    marginBottom: 8,
+  },
 });

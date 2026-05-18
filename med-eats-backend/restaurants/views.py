@@ -422,6 +422,17 @@ class PostListCreateAPIView(generics.ListCreateAPIView):
                 raise PermissionDenied("This profile is private.")
 
             queryset = queryset.filter(user=target_user)
+        else:
+            # Feed general: Excluir posts de perfiles privados que no sigue
+            if self.request.user.is_authenticated:
+                from accounts.models import Follow
+                from django.db.models import Q
+                following_ids = Follow.objects.filter(follower=self.request.user).values_list("following_id", flat=True)
+                queryset = queryset.filter(
+                    Q(user__profile__is_public=True) |
+                    Q(user=self.request.user) |
+                    Q(user_id__in=following_ids)
+                )
 
         return queryset
 
