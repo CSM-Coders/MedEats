@@ -1,0 +1,16 @@
+# macOS system files
+.DS_Store
+*.DS_Store
+
+# Environments
+.env
+.env.local
+.venv/
+venv/
+
+# Dependencies and build folders
+node_modules/
+.expo/
+dist/
+web-build/
+package-lock.json (when root)
