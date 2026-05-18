@@ -435,9 +435,10 @@ class PostListCreateAPIView(generics.ListCreateAPIView):
         serializer.save(user=self.request.user)
 
 
-class PostDetailAPIView(generics.RetrieveAPIView):
+class PostDetailAPIView(generics.RetrieveDestroyAPIView):
     """
     GET: Obtiene los detalles de un solo post.
+    DELETE: Elimina un post (solo el propietario puede hacerlo).
     """
 
     permission_classes = [IsAuthenticated]
@@ -445,6 +446,18 @@ class PostDetailAPIView(generics.RetrieveAPIView):
         "likes", "comments"
     )
     serializer_class = PostSerializer
+
+    def delete(self, request, *args, **kwargs):
+        """
+        Permite eliminar un post solo si el usuario autenticado es el propietario.
+        """
+        post = self.get_object()
+        if post.user != request.user:
+            return Response(
+                {"detail": "No tienes permiso para eliminar este post."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().delete(request, *args, **kwargs)
 
 
 class PostCommentListCreateAPIView(generics.ListCreateAPIView):

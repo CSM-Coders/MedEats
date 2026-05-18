@@ -10,13 +10,14 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
-  FlatList
+  FlatList,
+  Alert
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/src/context/auth-context";
-import { fetchPostById, fetchPostComments, addCommentApi, likePost, unlikePost } from "@/src/services/postApi";
+import { fetchPostById, fetchPostComments, addCommentApi, likePost, unlikePost, deletePost } from "@/src/services/postApi";
 import { Post, PostComment } from "@/src/models/domain";
 
 export default function PostDetailScreen() {
@@ -30,6 +31,7 @@ export default function PostDetailScreen() {
   const [newComment, setNewComment] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
   const [liking, setLiking] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const loadData = async () => {
     const token = await getAccessToken();
@@ -89,6 +91,38 @@ export default function PostDetailScreen() {
     }
   };
 
+  const handleDeletePost = async () => {
+    const token = await getAccessToken();
+    if (!token || !post || deleting) return;
+
+    Alert.alert(
+      "Eliminar publicación",
+      "¿Estás seguro de que quieres borrar esta publicación? No se puede deshacer.",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel",
+        },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deletePost(token, post.id);
+              router.back();
+            } catch (error) {
+              console.error("Error deleting post:", error);
+              Alert.alert("Error", "No se pudo eliminar la publicación");
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -127,22 +161,33 @@ export default function PostDetailScreen() {
           ListHeaderComponent={
             <View>
               {/* User Row */}
-              <Pressable 
-                style={styles.userRow} 
-                onPress={() => {
-                  if (currentUser && currentUser.username === post.username) {
-                    router.push("/profile");
-                  } else {
-                    router.push(`/user/${post.username}`);
-                  }
-                }}
-              >
-                <Image source={{ uri: post.userAvatar }} style={styles.avatar} />
-                <View>
-                  <Text style={styles.username}>{post.username}</Text>
-                  <Text style={styles.restaurantNameSmall}>{post.restaurantName}</Text>
-                </View>
-              </Pressable>
+              <View style={styles.userRow}>
+                <Pressable 
+                  style={{ flexDirection: "row", flex: 1, alignItems: "center" }}
+                  onPress={() => {
+                    if (currentUser && currentUser.username === post.username) {
+                      router.push("/profile");
+                    } else {
+                      router.push(`/user/${post.username}`);
+                    }
+                  }}
+                >
+                  <Image source={{ uri: post.userAvatar }} style={styles.avatar} />
+                  <View style={{ marginLeft: 12 }}>
+                    <Text style={styles.username}>{post.username}</Text>
+                    <Text style={styles.restaurantNameSmall}>{post.restaurantName}</Text>
+                  </View>
+                </Pressable>
+                {currentUser && currentUser.username === post.username && (
+                  <Pressable onPress={handleDeletePost} disabled={deleting}>
+                    <Ionicons 
+                      name="trash" 
+                      size={24} 
+                      color={deleting ? "#B2BEC3" : "#E63946"}
+                    />
+                  </Pressable>
+                )}
+              </View>
 
               {/* Post Image */}
               <Image source={{ uri: post.image }} style={styles.postImage} />
@@ -260,7 +305,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: 12,
-    gap: 12,
+    gap: 16,
   },
   avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#F3F4F6" },
   username: { fontWeight: "700", color: "#2D3436", fontSize: 14 },

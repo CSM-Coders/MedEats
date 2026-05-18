@@ -220,3 +220,14 @@ export async function addCommentApi(
     date: item.created_at?.slice(0, 10) || "",
   };
 }
+
+export async function deletePost(accessToken: string, postId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/posts/${postId}/`, {
+    method: "DELETE",
+    headers: getAuthHeaders(accessToken),
+  });
+
+  if (!response.ok) {
+    throw new Error("Unable to delete post");
+  }
+}
