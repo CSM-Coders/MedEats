@@ -110,7 +110,7 @@ const MapView = forwardRef<MapViewComponent, Props>(
               {hasValidMainLocation ? (
                 isSelectedLocation(mainLatitude, mainLongitude, restaurant.id) ? (
                   <Marker
-                    key={`main-${restaurant.id}`}
+                    key={`main-selected-${restaurant.id}`}
                     coordinate={{
                       latitude: mainLatitude,
                       longitude: mainLongitude,
@@ -133,7 +133,7 @@ const MapView = forwardRef<MapViewComponent, Props>(
                   </Marker>
                 ) : (
                   <Marker
-                    key={`main-${restaurant.id}`}
+                    key={`main-unselected-${restaurant.id}`}
                     coordinate={{
                       latitude: mainLatitude,
                       longitude: mainLongitude,
@@ -162,7 +162,7 @@ const MapView = forwardRef<MapViewComponent, Props>(
 
                 return branchIsSelected ? (
                   <Marker
-                    key={`branch-${branch.id}`}
+                    key={`branch-selected-${branch.id}`}
                     coordinate={{
                       latitude: branchLatitude,
                       longitude: branchLongitude,
@@ -185,7 +185,7 @@ const MapView = forwardRef<MapViewComponent, Props>(
                   </Marker>
                 ) : (
                   <Marker
-                    key={`branch-${branch.id}`}
+                    key={`branch-unselected-${branch.id}`}
                     coordinate={{
                       latitude: branchLatitude,
                       longitude: branchLongitude,
