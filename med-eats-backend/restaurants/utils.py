@@ -1,7 +1,5 @@
 import logging
 from geopy.geocoders import Nominatim
-from geopy.exc import GeocoderTimedOut, GeocoderServiceError
-from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +20,6 @@ class GeocodingService:
 
     def __init__(self, user_agent=None):
         import random
-        import time
 
         # User agent único para evitar el error 429
         ua = user_agent or f"MedEats_App_Production_{random.randint(1000, 9999)}"
@@ -87,15 +84,13 @@ class GeocodingService:
             return coords
 
         # Estrategia 3: Solo la ciudad (último recurso para no quedar en 0,0)
-        coords = self._do_geocode(f"Medellín, Antioquia, Colombia")
+        coords = self._do_geocode("Medellín, Antioquia, Colombia")
         if coords:
-            logger.warning(f"Could only geocode to city level for: {address}")
+            logger.warning("Could only geocode to city level for: %s", address)
             return coords
 
         # Fallback absoluto: Centro de Medellín
-        logger.warning(
-            f"All geocoding strategies failed for: {address}. Using defaults."
-        )
+        logger.warning("All geocoding strategies failed for: %s. Using defaults.", address)
         return self.DEFAULT_LAT, self.DEFAULT_LON
 
     def _do_geocode(self, full_address: str):

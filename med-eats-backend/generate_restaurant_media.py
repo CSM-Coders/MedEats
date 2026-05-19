@@ -24,9 +24,9 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 django.setup()
 
-from restaurants.models import Restaurant, Category
-from django.core.files.base import ContentFile
-from django.utils.text import slugify
+from restaurants.models import Restaurant  # noqa: E402
+from django.core.files.base import ContentFile  # noqa: E402
+from django.utils.text import slugify  # noqa: E402
 
 # ============================================================
 # COLORES POR CATEGORÍA
@@ -192,7 +192,7 @@ def generate_restaurant_image(restaurant_name, category_name, seed=None):
         # Intentar usar una fuente más grande si está disponible
         font_size = 60
         font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", font_size)
-    except:
+    except Exception:
         font = ImageFont.load_default()
 
     # Dibujar texto centrado con fondo semi-transparente
@@ -328,7 +328,7 @@ def main():
             # ============================================================
             # 1. GENERAR IMAGEN
             # ============================================================
-            print(f"  → Generando imagen...")
+            print("  → Generando imagen...")
             img = generate_restaurant_image(restaurant.name, category_name)
 
             # Guardar imagen en memoria
@@ -346,7 +346,7 @@ def main():
             # ============================================================
             # 2. GENERAR MENÚ PDF
             # ============================================================
-            print(f"  → Generando menú PDF...")
+            print("  → Generando menú PDF...")
             pdf_buffer = generate_restaurant_menu_pdf(restaurant.name, category_name)
 
             # Asignar a restaurant.menu_pdf
@@ -360,7 +360,7 @@ def main():
             # 3. GUARDAR CAMBIOS EN BD
             # ============================================================
             restaurant.save()
-            print(f"  ✓ Restaurante actualizado en BD")
+            print("  ✓ Restaurante actualizado en BD")
 
             # ============================================================
             # 4. ACTUALIZAR SEDES (BRANCHES)

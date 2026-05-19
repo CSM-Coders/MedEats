@@ -1,7 +1,5 @@
 from django.db.models import Avg
 from rest_framework import serializers
-from geopy.geocoders import Nominatim
-from geopy.exc import GeocoderTimedOut, GeocoderServiceError
 from .models import (
     Category,
     Post,
