@@ -11,6 +11,7 @@ import {
   Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { colors, radii, spacing } from "@/src/theme/designTokens";
 
 type ReviewModalProps = {
   visible: boolean;
@@ -83,7 +84,7 @@ export default function ReviewModal({
               {isEditing ? "Editar Reseña" : "Escribir una Reseña"}
             </Text>
             <Pressable onPress={onClose} disabled={loading}>
-              <Ionicons name="close" size={24} color="#636E72" />
+              <Ionicons name="close" size={24} color={colors.textMuted} />
             </Pressable>
           </View>
 
@@ -93,7 +94,7 @@ export default function ReviewModal({
                 <Ionicons
                   name={i <= rating ? "star" : "star-outline"}
                   size={40}
-                  color={i <= rating ? "#FFB300" : "#B2BEC3"}
+                  color={i <= rating ? colors.accent : colors.placeholder}
                 />
               </Pressable>
             ))}
@@ -104,7 +105,7 @@ export default function ReviewModal({
             <TextInput
               style={styles.textInput}
               placeholder="Cuéntanos qué te pareció la comida y el ambiente..."
-              placeholderTextColor="#B2BEC3"
+              placeholderTextColor={colors.placeholder}
               multiline
               numberOfLines={4}
               value={comment}
@@ -121,7 +122,7 @@ export default function ReviewModal({
             disabled={loading}
           >
             {loading ? (
-              <ActivityIndicator color="#FFF" />
+              <ActivityIndicator color={colors.background} />
             ) : (
               <Text style={styles.submitButtonText}>
                 {isEditing ? "Guardar Cambios" : "Publicar Reseña"}
@@ -141,65 +142,66 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: "#FFF",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    paddingBottom: Platform.OS === "ios" ? 40 : 24,
+    backgroundColor: colors.background,
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
+    padding: spacing.xl,
+    paddingBottom: Platform.OS === "ios" ? 40 : spacing.xl,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: spacing.xl,
   },
   title: {
     fontSize: 20,
     fontWeight: "800",
-    color: "#2D3436",
+    color: colors.text,
   },
   starsContainer: {
     flexDirection: "row",
     justifyContent: "center",
-    gap: 12,
-    marginBottom: 24,
+    gap: spacing.md,
+    marginBottom: spacing.xl,
   },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: spacing.xl,
   },
   label: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#2D3436",
-    marginBottom: 10,
+    color: colors.text,
+    marginBottom: spacing.sm + 2,
   },
   textInput: {
-    backgroundColor: "#F8F9FA",
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: colors.input,
+    borderRadius: radii.md,
+    padding: spacing.lg,
     height: 120,
-    color: "#2D3436",
+    color: colors.text,
     fontSize: 15,
   },
   errorText: {
-    color: "#E63946",
+    color: colors.danger,
     fontSize: 14,
-    marginBottom: 16,
+    marginBottom: spacing.lg,
     textAlign: "center",
   },
   submitButton: {
-    backgroundColor: "#FF6B35",
+    backgroundColor: colors.primary,
     height: 54,
-    borderRadius: 12,
+    borderRadius: radii.md,
     alignItems: "center",
     justifyContent: "center",
   },
   disabledButton: {
-    backgroundColor: "#B2BEC3",
+    backgroundColor: colors.placeholder,
   },
   submitButtonText: {
-    color: "#FFF",
+    color: colors.background,
     fontSize: 16,
     fontWeight: "700",
   },
 });
+

@@ -40,6 +40,15 @@ class Restaurant(models.Model):
     """
 
     # Nombre del restaurante.
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="owned_restaurants",
+        verbose_name="Propietario (cuenta restaurante)",
+    )
+
     name = models.CharField(
         max_length=200,
         db_index=True,
@@ -71,8 +80,15 @@ class Restaurant(models.Model):
 
     # URLField: Es similar a CharField, pero internamente Django valida que el texto escrito
     # sea obligatoriamente un formato de enlace HTTP/HTTPS válido.
-    image = models.URLField(
-        max_length=500, null=True, blank=True, verbose_name="URL de la Imagen"
+    # ImageField: La forma profesional de manejar imágenes en Django.
+    # Permite subir archivos directamente desde el celular y Django se encarga
+    # de guardarlos en la carpeta 'media/restaurants/'.
+    image = models.ImageField(
+        upload_to="restaurants/",
+        max_length=500,
+        null=True,
+        blank=True,
+        verbose_name="Imagen del Restaurante",
     )
 
     # FloatField: Para coordenadas geográficas reales.
@@ -98,6 +114,14 @@ class Restaurant(models.Model):
         max_length=50, blank=True, verbose_name="Número de WhatsApp"
     )
 
+    menu_pdf = models.FileField(
+        upload_to="menus/",
+        max_length=500,
+        null=True,
+        blank=True,
+        verbose_name="Menú PDF",
+    )
+
     # Campos de "Auditoría" (Buena práctica en empresas profesionales).
     # Se llenan automáticamente solos cuando se crea o modifica el registro por primera vez (auto_now_add y auto_now).
     created_at = models.DateTimeField(auto_now_add=True)
@@ -105,6 +129,38 @@ class Restaurant(models.Model):
 
     def __str__(self):
         return self.name
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["owner"],
+                condition=models.Q(owner__isnull=False),
+                name="unique_restaurant_per_owner",
+            )
+        ]
+
+
+class RestaurantBranch(models.Model):
+    restaurant = models.ForeignKey(
+        Restaurant,
+        on_delete=models.CASCADE,
+        related_name="branches",
+        verbose_name="Restaurante",
+    )
+    address = models.CharField(max_length=255, verbose_name="Dirección")
+    latitude = models.FloatField(verbose_name="Latitud")
+    longitude = models.FloatField(verbose_name="Longitud")
+    is_primary = models.BooleanField(default=False, verbose_name="Sede principal")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Sede de restaurante"
+        verbose_name_plural = "Sedes de restaurantes"
+        ordering = ["-is_primary", "address"]
+
+    def __str__(self):
+        return f"{self.restaurant.name} - {self.address}"
 
 
 class Review(models.Model):
@@ -135,7 +191,9 @@ class Review(models.Model):
         db_index=True,
         verbose_name="Fecha de creación",
     )
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="Última actualización")
+    updated_at = models.DateTimeField(
+        auto_now=True, verbose_name="Última actualización"
+    )
 
     class Meta:
         verbose_name = "Reseña"
@@ -160,7 +218,9 @@ class Post(models.Model):
         related_name="posts",
         verbose_name="Restaurante",
     )
-    image = models.FileField(upload_to="posts/", max_length=500, verbose_name="Imagen/Video")
+    image = models.FileField(
+        upload_to="posts/", max_length=500, verbose_name="Imagen/Video"
+    )
     rating = models.PositiveSmallIntegerField(verbose_name="Calificación")
     caption = models.TextField(blank=True, verbose_name="Caption")
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)

@@ -10,6 +10,17 @@ export type RegisterCredentials = {
   username: string;
   email: string;
   password: string;
+  accountType?: "user" | "restaurant";
+};
+
+export type ProfileUpdateInput = {
+  displayName?: string;
+  username?: string;
+  avatarFile?: { uri: string; name: string; mimeType?: string } | null;
+  bio?: string;
+  location?: string;
+  gender?: "male" | "female" | "other" | "no_say";
+  isPublic?: boolean;
 };
 
 export type AuthSession = {
@@ -44,14 +55,21 @@ type ApiUser = {
   id: number | string;
   username: string;
   email?: string;
+  account_type?: "user" | "restaurant";
+  is_restaurant_account?: boolean;
   first_name?: string;
   last_name?: string;
   name?: string;
   avatar_url?: string;
+  gender?: "male" | "female" | "other" | "no_say";
+  is_public?: boolean;
   bio?: string;
   location?: string;
   followers_count?: number;
   following_count?: number;
+  posts_count?: number;
+  saved_count?: number;
+  visited_count?: number;
 };
 
 type AuthResponse = {
@@ -159,6 +177,7 @@ export async function registerWithEmailAndPassword(
       username: credentials.username.trim(),
       email: credentials.email.trim().toLowerCase(),
       password: credentials.password,
+      account_type: credentials.accountType ?? "user",
     }),
   });
 
@@ -195,41 +214,84 @@ export async function fetchMyPublicProfile(accessToken: string): Promise<AppUser
     user_id: string | number;
     username: string;
     name?: string;
+    account_type?: "user" | "restaurant";
+    is_restaurant_account?: boolean;
     avatar_url?: string;
+    gender?: "male" | "female" | "other" | "no_say";
+    is_public?: boolean;
     bio?: string;
     location?: string;
     followers_count?: number;
     following_count?: number;
+    posts_count?: number;
+    saved_count?: number;
+    visited_count?: number;
   };
 
   return {
     id: String(payload.user_id),
     username: payload.username,
     name: payload.name || payload.username,
+    accountType: payload.account_type ?? "user",
+    isRestaurantAccount:
+      payload.is_restaurant_account ?? payload.account_type === "restaurant",
     avatarUrl: payload.avatar_url,
+    gender: payload.gender,
+    isPublic: payload.is_public,
     bio: payload.bio ?? "",
     location: payload.location ?? "",
     followers: Number(payload.followers_count) || 0,
     following: Number(payload.following_count) || 0,
+    posts: Number(payload.posts_count) || 0,
+    savedCount: Number(payload.saved_count) || 0,
+    visitedCount: Number(payload.visited_count) || 0,
   };
 }
 
 export async function updateMyProfile(
   accessToken: string,
-  input: { displayName?: string; avatarUrl?: string; bio?: string; location?: string }
+  input: ProfileUpdateInput
 ): Promise<AppUser> {
+  const body = new FormData();
+
+  if (input.displayName !== undefined) {
+    body.append("display_name", input.displayName);
+  }
+
+  if (input.username !== undefined) {
+    body.append("username", input.username);
+  }
+
+  if (input.bio !== undefined) {
+    body.append("bio", input.bio);
+  }
+
+  if (input.location !== undefined) {
+    body.append("location", input.location);
+  }
+
+  if (input.gender !== undefined) {
+    body.append("gender", input.gender);
+  }
+
+  if (input.isPublic !== undefined) {
+    body.append("is_public", input.isPublic ? "true" : "false");
+  }
+
+  if (input.avatarFile) {
+    body.append("avatar_file", {
+      uri: input.avatarFile.uri,
+      name: input.avatarFile.name,
+      type: input.avatarFile.mimeType || "image/jpeg",
+    } as unknown as Blob);
+  }
+
   const response = await fetch(`${API_BASE_URL}/api/v1/auth/profile/me/`, {
     method: "PATCH",
     headers: {
-      ...AUTH_HEADERS,
       Authorization: `Bearer ${accessToken}`,
     },
-    body: JSON.stringify({
-      display_name: input.displayName,
-      avatar_url: input.avatarUrl,
-      bio: input.bio,
-      location: input.location,
-    }),
+    body,
   });
 
   const payload = await response.text();
@@ -238,11 +300,18 @@ export async function updateMyProfile(
         user_id?: string | number;
         username?: string;
         name?: string;
+        account_type?: "user" | "restaurant";
+        is_restaurant_account?: boolean;
         avatar_url?: string;
+        gender?: "male" | "female" | "other" | "no_say";
+        is_public?: boolean;
         bio?: string;
         location?: string;
         followers_count?: number;
         following_count?: number;
+        posts_count?: number;
+        saved_count?: number;
+        visited_count?: number;
       }
     | null;
 
@@ -254,11 +323,19 @@ export async function updateMyProfile(
     id: String(parsed.user_id),
     username: parsed.username,
     name: parsed.name || parsed.username,
+    accountType: parsed.account_type ?? "user",
+    isRestaurantAccount:
+      parsed.is_restaurant_account ?? parsed.account_type === "restaurant",
     avatarUrl: parsed.avatar_url,
+    gender: parsed.gender,
+    isPublic: parsed.is_public,
     bio: parsed.bio ?? "",
     location: parsed.location ?? "",
     followers: Number(parsed.followers_count) || 0,
     following: Number(parsed.following_count) || 0,
+    posts: Number(parsed.posts_count) || 0,
+    savedCount: Number(parsed.saved_count) || 0,
+    visitedCount: Number(parsed.visited_count) || 0,
   };
 }
 
@@ -411,11 +488,19 @@ function normalizeUser(user: ApiUser): AppUser {
     username: user.username,
     name: user.name || displayName || user.username,
     email: user.email,
+    accountType: user.account_type ?? "user",
+    isRestaurantAccount:
+      user.is_restaurant_account ?? user.account_type === "restaurant",
     avatarUrl: user.avatar_url,
+    gender: user.gender,
+    isPublic: user.is_public,
     bio: user.bio ?? "",
     location: user.location ?? "",
     followers: Number(user.followers_count) || 0,
     following: Number(user.following_count) || 0,
+    posts: Number(user.posts_count) || 0,
+    savedCount: Number(user.saved_count) || 0,
+    visitedCount: Number(user.visited_count) || 0,
   };
 }
 

@@ -1,0 +1,100 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Analytics Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .controls { margin-bottom: 16px; }
+    .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    canvas { background: #fff; border: 1px solid #eee; padding: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Analytics Dashboard</h1>
+  <div class="controls">
+    <label>From: <input type="date" id="from"></label>
+    <label>To: <input type="date" id="to"></label>
+    <button id="load">Cargar</button>
+  </div>
+  <div id="summary"></div>
+  <div class="charts">
+    <div>
+      <h3>Nuevos usuarios (rango)</h3>
+      <canvas id="chartUsers"></canvas>
+    </div>
+    <div>
+      <h3>Nuevos posts (rango)</h3>
+      <canvas id="chartPosts"></canvas>
+    </div>
+    <div style="grid-column: 1 / -1;">
+      <h3>Totales</h3>
+      <canvas id="chartTotals"></canvas>
+    </div>
+  </div>
+
+<script>
+function isoToDate(s){ return new Date(s); }
+
+async function loadData(){
+  const from = document.getElementById('from').value;
+  const to = document.getElementById('to').value;
+  const params = new URLSearchParams();
+  if(from) params.set('from', from);
+  if(to) params.set('to', to);
+  const url = '/api/v1/analytics/overview/?' + params.toString();
+  const resp = await fetch(url, { credentials: 'same-origin' });
+  if(!resp.ok){
+    const txt = await resp.text();
+    document.getElementById('summary').innerText = 'Error cargando métricas: ' + resp.status;
+    console.error(txt);
+    return;
+  }
+  const data = await resp.json();
+  document.getElementById('summary').innerText = `Rango: ${data.from} → ${data.to}`;
+
+  // Simple charts using totals and new counts
+  const users = { labels: [data.from, data.to], values: [data.total_users, data.new_users] };
+  const posts = { labels: [data.from, data.to], values: [data.total_posts, data.new_posts] };
+
+  // Destroy existing charts if any
+  if(window._chartUsers) window._chartUsers.destroy();
+  if(window._chartPosts) window._chartPosts.destroy();
+  if(window._chartTotals) window._chartTotals.destroy();
+
+  const ctxU = document.getElementById('chartUsers').getContext('2d');
+  window._chartUsers = new Chart(ctxU, {
+    type: 'bar',
+    data: { labels: users.labels, datasets: [{ label: 'Usuarios', data: users.values, backgroundColor: ['#4dc9f6','#f67019'] }] },
+  });
+
+  const ctxP = document.getElementById('chartPosts').getContext('2d');
+  window._chartPosts = new Chart(ctxP, {
+    type: 'bar',
+    data: { labels: posts.labels, datasets: [{ label: 'Posts', data: posts.values, backgroundColor: ['#f53794','#537bc4'] }] },
+  });
+
+  const ctxT = document.getElementById('chartTotals').getContext('2d');
+  window._chartTotals = new Chart(ctxT, {
+    type: 'pie',
+    data: {
+      labels: ['Total posts','Total reviews','Total restaurants','Total likes','Total comments','Content reports'],
+      datasets: [{ data: [data.total_posts, data.total_reviews, data.total_restaurants, data.total_likes, data.total_comments, data.content_reports], backgroundColor: ['#4dc9f6','#f67019','#f53794','#537bc4','#acc236','#166a8f'] }]
+    }
+  });
+}
+
+// Inicializar fechas por defecto últimos 7 días
+(function init(){
+  const to = new Date();
+  const from = new Date(); from.setDate(to.getDate()-6);
+  document.getElementById('to').value = to.toISOString().slice(0,10);
+  document.getElementById('from').value = from.toISOString().slice(0,10);
+  document.getElementById('load').addEventListener('click', loadData);
+  // cargar automáticamente
+  loadData();
+})();
+</script>
+</body>
+</html>

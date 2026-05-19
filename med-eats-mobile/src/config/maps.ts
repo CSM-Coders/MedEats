@@ -1,0 +1,1 @@
+export const GOOGLE_MAPS_API_KEY = "AIzaSyD11EZzq19CRHdg0-QWJXjqNnS58cUp6QA";

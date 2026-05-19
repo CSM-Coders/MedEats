@@ -37,12 +37,17 @@ type VisitedApiItem = {
 };
 
 function mapRestaurant(item: RestaurantApiItem): Restaurant {
+  let imageUrl = item.image ?? "";
+  if (imageUrl && !/^https?:\/\//i.test(imageUrl)) {
+    imageUrl = imageUrl.startsWith("/") ? `${API_BASE_URL}${imageUrl}` : `${API_BASE_URL}/${imageUrl}`;
+  }
+
   return {
     id: String(item.id),
     name: item.name,
     category: item.category ?? "",
     rating: Number(item.rating) || 0,
-    image: item.image ?? "",
+    image: imageUrl,
     latitude: item.latitude,
     longitude: item.longitude,
     location: item.location,
@@ -80,9 +85,14 @@ function mapVisited(item: VisitedApiItem): VisitedRestaurantRecord {
 }
 
 export async function fetchSavedRestaurants(
-  accessToken: string
+  accessToken: string,
+  username?: string
 ): Promise<SavedRestaurantRecord[]> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/user/restaurants/saved/`, {
+  const url = username 
+    ? `${API_BASE_URL}/api/v1/user/restaurants/saved/?username=${username}`
+    : `${API_BASE_URL}/api/v1/user/restaurants/saved/`;
+    
+  const response = await fetch(url, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
@@ -97,9 +107,14 @@ export async function fetchSavedRestaurants(
 }
 
 export async function fetchVisitedRestaurants(
-  accessToken: string
+  accessToken: string,
+  username?: string
 ): Promise<VisitedRestaurantRecord[]> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/user/restaurants/visited/`, {
+  const url = username 
+    ? `${API_BASE_URL}/api/v1/user/restaurants/visited/?username=${username}`
+    : `${API_BASE_URL}/api/v1/user/restaurants/visited/`;
+
+  const response = await fetch(url, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },

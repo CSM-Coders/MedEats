@@ -8,11 +8,12 @@
 // - filtros por categoría, rating y distancia
 // ============================================================
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -25,18 +26,19 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import MapViewComponent from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";
 import { HomeFilters, Restaurant } from "@/src/models/domain";
 import { useUserLocation } from "@/src/hooks/useUserLocation";
 import {
   getDistanceKm,
   MEDELLIN_REGION,
-  restaurants as mockRestaurants,
   semanticCategoryMatches,
-} from "@/src/services/mockData";
+} from "../../services/mockData";
 import MapView from "./components/mapView";
 import RestaurantCard from "./components/restaurantCard";
-import { API_BASE_URL } from "@/src/config/api";
-import { fetchRestaurants as fetchRestaurantsApi } from "@/src/services/restaurantApi";
+import { API_BASE_URL } from "../../config/api";
+import { fetchRestaurants as fetchRestaurantsApi } from "../../services/restaurantApi";
+import { colors, radii, spacing } from "../../theme/designTokens";
 
 const initialFilters: HomeFilters = {
   category: null,
@@ -67,7 +69,7 @@ function mapApiRestaurant(item: any): Restaurant {
   return {
     id: String(item.id),
     name: item.name,
-    category: item.category,
+    category: item.category || "Restaurante",
     rating: parseFloat(item.rating) || 0,
     image: item.image,
     latitude: item.latitude,
@@ -77,6 +79,22 @@ function mapApiRestaurant(item: any): Restaurant {
     menuHighlights: item.menu_highlights || [],
     whatsapp: item.whatsapp || "",
   };
+}
+
+function getRestaurantMapPoints(restaurant: Restaurant) {
+  if (restaurant.branches?.length) {
+    return restaurant.branches.map((branch) => ({
+      latitude: branch.latitude,
+      longitude: branch.longitude,
+    }));
+  }
+
+  return [
+    {
+      latitude: restaurant.latitude,
+      longitude: restaurant.longitude,
+    },
+  ];
 }
 
 function getDistanceKmBetween(
@@ -169,6 +187,9 @@ function rankLocalFoodieMatch(
 export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [navigationData, setNavigationData] = useState<{ distance: number; duration: number } | null>(null);
+  const [navigationState, setNavigationState] = useState<"discovery" | "preview" | "active">("discovery");
   const [showFilters, setShowFilters] = useState(false);
   // `filters` = filtros APLICADOS al mapa (solo cambian al presionar "Buscar")
   // `stagedFilters` = filtros SELECCIONADOS en el panel (pueden cambiar sin afectar el mapa)
@@ -197,22 +218,24 @@ export default function HomeScreen() {
   // código exactamente una vez cuando la pantalla se muestra por primera vez.
   // En lugar de usar los fijos de mockData.ts, pedimos a Django la lista por internet.
   // ============================================================
-  useEffect(() => {
-    const loadRestaurants = async () => {
-      try {
-        const data = await fetchRestaurantsApi();
-        setRestaurants(data.length > 0 ? data : mockRestaurants);
-      } catch (error) {
-        console.error("Error conectando con Django:", error);
-        setRestaurants(mockRestaurants);
-      } finally {
-        // Apagamos el circulito de carga de la pantalla, haya funcionado o fallado.
-        setLoading(false);
-      }
-    };
-
-    loadRestaurants();
+  const loadRestaurants = useCallback(async () => {
+    try {
+      const data = await fetchRestaurantsApi();
+      setRestaurants(data);
+    } catch (error) {
+      console.error("Error conectando con Django:", error);
+      setRestaurants([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  // Refrescar datos cada vez que el usuario vuelve a la pantalla de inicio
+  useFocusEffect(
+    useCallback(() => {
+      loadRestaurants();
+    }, [loadRestaurants])
+  );
 
   // ============================================================
   // FIX: Cuando el usuario borra el texto de búsqueda MANUALMENTE,
@@ -234,9 +257,10 @@ export default function HomeScreen() {
   const mapRef = useRef<MapViewComponent>(null);
   const insets = useSafeAreaInsets();
   const { location: userLocation } = useUserLocation();
+  const isRestaurantCardOpen = Boolean(selectedRestaurant && navigationState === "discovery");
 
   const categories = useMemo(
-    () => [...new Set(restaurants.map((restaurant) => restaurant.category))],
+    () => [...new Set(restaurants.filter(r => r && r.category).map((restaurant) => restaurant.category))],
     [restaurants] // <-- ¡Actualizado! Ahora depende de los restaurantes que vienen de BD
   );
 
@@ -250,17 +274,23 @@ export default function HomeScreen() {
     );
   }, [searchQuery, restaurants]); // <-- ¡Actualizado! Funciona en tiempo real
 
-  const filteredRestaurants = useMemo(() => {
+  const searchResults = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
+    const flattened: any[] = [];
 
-    return restaurants.filter((restaurant) => {
+    restaurants.filter(r => r && r.id).forEach((restaurant) => {
+      const name = (restaurant.name || "").toLowerCase();
+      const category = (restaurant.category || "").toLowerCase();
+      const location = (restaurant.location || "").toLowerCase();
+
       const directMatch =
         !query ||
-        restaurant.name.toLowerCase().includes(query) ||
-        restaurant.category.toLowerCase().includes(query);
+        name.includes(query) ||
+        category.includes(query) ||
+        location.includes(query);
 
       const semanticMatch = query
-        ? semanticCategoryMatches(query, restaurant.category)
+        ? semanticCategoryMatches(query, restaurant.category || "")
         : false;
 
       const searchMatch = directMatch || semanticMatch;
@@ -271,73 +301,172 @@ export default function HomeScreen() {
       const ratingMatch =
         !filters.minRating || restaurant.rating >= filters.minRating;
 
-      const originLat = userLocation?.latitude ?? MEDELLIN_REGION.latitude;
-      const originLon = userLocation?.longitude ?? MEDELLIN_REGION.longitude;
-      const distance = getDistanceKm(
-        originLat,
-        originLon,
-        restaurant.latitude,
-        restaurant.longitude
-      );
-      const distanceMatch =
-        !filters.maxDistanceKm || distance <= filters.maxDistanceKm;
+      // Solo procesamos si el restaurante base cumple los filtros de categoría/rating
+      if (searchMatch && categoryMatch && ratingMatch) {
+        const originLat = userLocation?.latitude ?? MEDELLIN_REGION.latitude;
+        const originLon = userLocation?.longitude ?? MEDELLIN_REGION.longitude;
 
-      return searchMatch && categoryMatch && ratingMatch && distanceMatch;
+        // 1. Sede Principal
+        const distMain = getDistanceKm(originLat, originLon, restaurant.latitude, restaurant.longitude);
+        if (!filters.maxDistanceKm || distMain <= filters.maxDistanceKm) {
+          flattened.push({
+            id: `main-${restaurant.id}`,
+            restaurant,
+            name: restaurant.name,
+            location: restaurant.location,
+            latitude: restaurant.latitude,
+            longitude: restaurant.longitude,
+            distance: distMain,
+            isBranch: false,
+          });
+        }
+
+        // 2. Sedes Adicionales
+        (restaurant.branches || []).forEach((branch) => {
+          const distBranch = getDistanceKm(originLat, originLon, branch.latitude, branch.longitude);
+          if (!filters.maxDistanceKm || distBranch <= filters.maxDistanceKm) {
+            flattened.push({
+              id: `branch-${branch.id}`,
+              restaurant,
+              name: `${restaurant.name} (Sede)`,
+              location: branch.address,
+              latitude: branch.latitude,
+              longitude: branch.longitude,
+              distance: distBranch,
+              isBranch: true,
+            });
+          }
+        });
+      }
     });
+
+    return flattened.sort((a, b) => a.distance - b.distance);
   }, [filters, searchQuery, userLocation, restaurants]);
 
+  const filteredRestaurants = useMemo(() => {
+    const uniqueMap = new Map();
+    searchResults.forEach(item => {
+      uniqueMap.set(item.restaurant.id, item.restaurant);
+    });
+    return Array.from(uniqueMap.values());
+  }, [searchResults]);
 
-  const handleSearchSubmit = () => {
-    Keyboard.dismiss();
-
-    // Protección: Si no hay resultados, no intentamos mover la cámara
-    // (fitToCoordinates con array vacío causa un crash en iOS).
-    if (filteredRestaurants.length === 0) {
-      return;
-    }
-
-    if (filteredRestaurants.length === 1) {
-      const restaurant = filteredRestaurants[0];
+  const focusRestaurantOnMap = (latitude: number, longitude: number) => {
+    requestAnimationFrame(() => {
       mapRef.current?.animateToRegion(
         {
-          latitude: restaurant.latitude,
-          longitude: restaurant.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
+          latitude: latitude - 0.0022,
+          longitude,
+          latitudeDelta: 0.005,
+          longitudeDelta: 0.005,
         },
         700
       );
+    });
+  };
+
+
+  const handleSearchSubmit = () => {
+    if (selectedRestaurant) return;
+    Keyboard.dismiss();
+
+    if (searchResults.length === 0) {
       return;
     }
 
-    // Solo animamos si hay 2 o más resultados válidos
-    if (filteredRestaurants.length >= 2) {
-      mapRef.current?.fitToCoordinates(
-        filteredRestaurants.map((restaurant) => ({
-          latitude: restaurant.latitude,
-          longitude: restaurant.longitude,
-        })),
-        {
-          edgePadding: { top: 160, right: 50, bottom: 60, left: 50 },
-          animated: true,
-        }
-      );
-    }
+    const item = searchResults[0];
+    skipResetRef.current = true;
+    setSelectedRestaurant(item.restaurant);
+    setSelectedLocation({ latitude: item.latitude, longitude: item.longitude });
+    setNavigationData(null);
+    setShowFilters(false);
+    setSearchQuery("");
+
+    focusRestaurantOnMap(item.latitude, item.longitude);
   };
 
-  const handleRestaurantPreviewPress = (restaurant: Restaurant) => {
+  const handleShowRoute = (restaurant: Restaurant) => {
+    Keyboard.dismiss();
+    setNavigationState("preview");
+    
+    const destLat = selectedLocation?.latitude ?? restaurant.latitude;
+    const destLon = selectedLocation?.longitude ?? restaurant.longitude;
+    
+    if (!selectedLocation) {
+      setSelectedLocation({ latitude: destLat, longitude: destLon });
+    }
+
+    const userLat = userLocation?.latitude ?? MEDELLIN_REGION.latitude;
+    const userLon = userLocation?.longitude ?? MEDELLIN_REGION.longitude;
+
+    mapRef.current?.fitToCoordinates(
+      [
+        { latitude: userLat, longitude: userLon },
+        { latitude: destLat, longitude: destLon }
+      ],
+      {
+        edgePadding: { top: 100, right: 100, bottom: 400, left: 100 },
+        animated: true,
+      }
+    );
+  };
+
+  const handleLocationPreviewPress = (item: any) => {
+    if (selectedRestaurant) return;
     Keyboard.dismiss();
     skipResetRef.current = true;
-    setSelectedRestaurant(restaurant);
-    mapRef.current?.animateToRegion(
-      {
-        latitude: restaurant.latitude,
-        longitude: restaurant.longitude,
-        latitudeDelta: 0.01,
-        longitudeDelta: 0.01,
+    setSelectedRestaurant(item.restaurant);
+    setSelectedLocation({ latitude: item.latitude, longitude: item.longitude });
+    setNavigationState("discovery");
+    setNavigationData(null);
+    setShowFilters(false);
+    setSearchQuery("");
+
+    const userLat = userLocation?.latitude ?? MEDELLIN_REGION.latitude;
+    const userLon = userLocation?.longitude ?? MEDELLIN_REGION.longitude;
+
+    focusRestaurantOnMap(item.latitude, item.longitude);
+  };
+
+  const handleStartNavigation = () => {
+    setNavigationState("active");
+    const userLat = userLocation?.latitude ?? MEDELLIN_REGION.latitude;
+    const userLon = userLocation?.longitude ?? MEDELLIN_REGION.longitude;
+
+    // En modo navegación real, el usuario suele estar un poco más abajo del centro
+    // para ver más camino adelante. Ajustamos ligeramente la latitud visual.
+    mapRef.current?.animateCamera({
+      center: { 
+        latitude: userLat + 0.001, // Desplazamos la cámara un poco hacia adelante
+        longitude: userLon 
       },
-      700
-    );
+      pitch: 60,
+      heading: 0,
+      altitude: 500,
+      zoom: 19,
+    }, { duration: 1000 });
+  };
+
+  const handleExitNavigation = () => {
+    // Primero detenemos cualquier animación de navegación
+    const latitude = userLocation?.latitude ?? MEDELLIN_REGION.latitude;
+    const longitude = userLocation?.longitude ?? MEDELLIN_REGION.longitude;
+
+    if (mapRef.current) {
+      mapRef.current.animateCamera({
+        center: { latitude, longitude },
+        pitch: 0,
+        heading: 0,
+        altitude: 15000,
+        zoom: 13,
+      }, { duration: 800 });
+    }
+
+    // Limpiamos los estados de navegación
+    setNavigationState("discovery");
+    setNavigationData(null);
+    setSelectedRestaurant(null);
+    setSelectedLocation(null);
   };
 
   const runFoodieSearch = async (question: string): Promise<FoodieRecommendation | null> => {
@@ -397,10 +526,11 @@ export default function HomeScreen() {
       setFoodieRecommendation(recommendation);
       setSelectedRestaurant(restaurant);
 
+      const points = getRestaurantMapPoints(restaurant);
       mapRef.current?.animateToRegion(
         {
-          latitude: restaurant.latitude,
-          longitude: restaurant.longitude,
+          latitude: points[0].latitude,
+          longitude: points[0].longitude,
           latitudeDelta: 0.01,
           longitudeDelta: 0.01,
         },
@@ -424,10 +554,11 @@ export default function HomeScreen() {
       if (recommendation) {
         setFoodieRecommendation(recommendation);
         setSelectedRestaurant(recommendation.restaurant);
+        const points = getRestaurantMapPoints(recommendation.restaurant);
         mapRef.current?.animateToRegion(
           {
-            latitude: recommendation.restaurant.latitude,
-            longitude: recommendation.restaurant.longitude,
+            latitude: points[0].latitude,
+            longitude: points[0].longitude,
             latitudeDelta: 0.01,
             longitudeDelta: 0.01,
           },
@@ -469,6 +600,7 @@ export default function HomeScreen() {
 
   const clearSearchAndFilters = () => {
     setSelectedRestaurant(null);
+    setSelectedLocation(null);
     setFoodieRecommendation(null);
     Keyboard.dismiss();
     setSearchQuery("");
@@ -476,21 +608,30 @@ export default function HomeScreen() {
     setStagedFilters(initialFilters);
     setShowFilters(false);
 
-    mapRef.current?.animateToRegion(MEDELLIN_REGION, 700);
+    setTimeout(() => {
+      mapRef.current?.animateToRegion(MEDELLIN_REGION, 700);
+    }, 100);
   };
 
   if (loading) {
     return (
       <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
-        <ActivityIndicator size="large" color="#FF6B35" />
-        <Text style={{ marginTop: 12, color: "#636E72" }}>Cargando restaurantes desde PostgreSQL...</Text>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ marginTop: 12, color: colors.textMuted }}>Cargando restaurantes desde PostgreSQL...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Pressable style={styles.container} onPress={() => setSelectedRestaurant(null)}>
+      <Pressable 
+        style={styles.container} 
+        onPress={() => {
+          if (navigationState === "discovery") {
+            setSelectedRestaurant(null);
+          }
+        }}
+      >
         {/* Cuando hay filtros activos, mostramos solo los restaurantes que coincidan.
             Cuando no hay filtros, mostramos TODOS para que ninún pin desaparezca. */}
         <MapView
@@ -500,17 +641,37 @@ export default function HomeScreen() {
               ? filteredRestaurants
               : restaurants
           }
-          onMarkerPress={setSelectedRestaurant}
+          selectedMarker={{
+            restaurantId: selectedRestaurant?.id ?? null,
+            latitude: selectedLocation?.latitude ?? null,
+            longitude: selectedLocation?.longitude ?? null,
+          }}
+          onMarkerPress={(restaurant, location) => {
+            if (navigationState === "active" || isRestaurantCardOpen) return;
+            setSelectedRestaurant(restaurant);
+            const focusLocation = location || { latitude: restaurant.latitude, longitude: restaurant.longitude };
+            setSelectedLocation(focusLocation);
+            focusRestaurantOnMap(focusLocation.latitude, focusLocation.longitude);
+          }}
+          origin={userLocation}
+          destination={navigationState !== "discovery" ? selectedLocation : null}
+          onDirectionsReady={(result) => {
+            setNavigationData({
+              distance: result.distance,
+              duration: result.duration
+            });
+          }}
         />
       </Pressable>
 
-      <View style={[styles.searchContainer, { top: insets.top + 8 }]}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color="#636E72" />
+      {navigationState === "discovery" && (
+        <View style={[styles.searchContainer, { top: insets.top + 8 }]}>
+          <View style={styles.searchBar}>
+          <Ionicons name="search" size={20} color={colors.textMuted} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search by name or food type"
-            placeholderTextColor="#B2BEC3"
+            placeholderTextColor={colors.placeholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
             onSubmitEditing={handleSearchSubmit}
@@ -522,12 +683,12 @@ export default function HomeScreen() {
             hitSlop={8}
             style={styles.iconButton}
           >
-            <Ionicons name="options-outline" size={20} color="#636E72" />
+            <Ionicons name="options-outline" size={20} color={colors.textMuted} />
           </Pressable>
 
           {(searchQuery.length > 0 || filters.category || filters.minRating || filters.maxDistanceKm) && (
             <Pressable onPress={clearSearchAndFilters} hitSlop={8}>
-              <Ionicons name="close-circle" size={20} color="#B2BEC3" />
+              <Ionicons name="close-circle" size={20} color={colors.placeholder} />
             </Pressable>
           )}
         </View>
@@ -537,20 +698,22 @@ export default function HomeScreen() {
           onPress={handleOpenFoodieChat}
           disabled={foodieLoading}
         >
-          <Ionicons name="sparkles" size={16} color="#fff" />
+          <Ionicons name="sparkles" size={16} color={colors.background} />
           <Text style={styles.foodieAskButtonText}>
             {foodieLoading ? "Foodie AI está pensando..." : "Preguntarle a Foodie AI"}
           </Text>
         </Pressable>
 
-        <View style={styles.resultsCount}>
-          <Text style={styles.resultsText}>
-            {filteredRestaurants.length} resultado{filteredRestaurants.length === 1 ? "" : "s"}
-          </Text>
-          {isAiSearch && <Text style={styles.aiBadge}>AI</Text>}
-        </View>
+        {searchQuery.trim().length > 0 && searchResults.length > 0 && (
+          <View style={styles.resultsCount}>
+            <Text style={styles.resultsText}>
+              {searchResults.length} {searchResults.length === 1 ? "ubicación" : "ubicaciones"}
+            </Text>
+            {isAiSearch && <Text style={styles.aiBadge}>AI</Text>}
+          </View>
+        )}
 
-        {searchQuery.trim().length > 0 && filteredRestaurants.length > 0 && (
+        {searchQuery.trim().length > 0 && searchResults.length > 0 && (
           <View style={styles.searchResultsPanel}>
             <Text style={styles.searchResultsTitle}>Resultados</Text>
             <ScrollView
@@ -558,21 +721,23 @@ export default function HomeScreen() {
               keyboardShouldPersistTaps="handled"
               nestedScrollEnabled
             >
-              {filteredRestaurants.slice(0, 6).map((restaurant) => (
+              {searchResults.slice(0, 8).map((item) => (
                 <Pressable
-                  key={restaurant.id}
+                  key={item.id}
                   style={styles.searchResultItem}
-                  onPress={() => handleRestaurantPreviewPress(restaurant)}
+                  onPress={() => handleLocationPreviewPress(item)}
                 >
                   <View style={styles.searchResultTextWrap}>
-                    <Text style={styles.searchResultName}>{restaurant.name}</Text>
+                    <Text style={styles.searchResultName}>{item.name}</Text>
                     <Text style={styles.searchResultMeta}>
-                      {restaurant.category} · {restaurant.location}
+                      {item.restaurant.category} · {item.location}
                     </Text>
                   </View>
                   <View style={styles.searchResultRating}>
-                    <Ionicons name="star" size={14} color="#FF6B35" />
-                    <Text style={styles.searchResultRatingText}>{restaurant.rating.toFixed(1)}</Text>
+                    <Ionicons name="star" size={14} color={colors.primary} />
+                    <Text style={styles.searchResultRatingText}>
+                      {item.restaurant.rating.toFixed(1)}
+                    </Text>
                   </View>
                 </Pressable>
               ))}
@@ -582,6 +747,13 @@ export default function HomeScreen() {
 
         {foodieRecommendation && (
           <View style={styles.foodieAnswerCard}>
+            <Pressable 
+              onPress={() => setFoodieRecommendation(null)} 
+              style={styles.foodieAnswerClose}
+              hitSlop={8}
+            >
+              <Ionicons name="close" size={18} color={colors.textMuted} />
+            </Pressable>
             <Text style={styles.foodieAnswerTitle}>Foodie AI recomienda</Text>
             <Text style={styles.foodieAnswerRestaurant}>
               {foodieRecommendation.restaurant.name}
@@ -674,7 +846,9 @@ export default function HomeScreen() {
                   setStagedFilters(initialFilters);
                   setFilters(initialFilters);
                   setShowFilters(false);
-                  mapRef.current?.animateToRegion(MEDELLIN_REGION, 600);
+                  setTimeout(() => {
+                    mapRef.current?.animateToRegion(MEDELLIN_REGION, 600);
+                  }, 100);
                 }}
               >
                 <Text style={styles.filterClearText}>Limpiar</Text>
@@ -687,7 +861,9 @@ export default function HomeScreen() {
                   // Si no hay filtros activos, recentrar el mapa
                   const noFilters = !stagedFilters.category && !stagedFilters.minRating && !stagedFilters.maxDistanceKm;
                   if (noFilters) {
-                    mapRef.current?.animateToRegion(MEDELLIN_REGION, 600);
+                    setTimeout(() => {
+                      mapRef.current?.animateToRegion(MEDELLIN_REGION, 600);
+                    }, 100);
                   }
                 }}
               >
@@ -697,33 +873,104 @@ export default function HomeScreen() {
           </View>
         )}
       </View>
+    )}
 
       <Pressable
-        style={styles.locationButton}
+        style={[
+          styles.locationButton,
+          navigationState === "active" 
+            ? { top: insets.top + 20, right: 20, bottom: undefined } 
+            : { bottom: 32, right: 16 }
+        ]}
         onPress={() => {
           const latitude = userLocation?.latitude ?? MEDELLIN_REGION.latitude;
           const longitude = userLocation?.longitude ?? MEDELLIN_REGION.longitude;
 
-          mapRef.current?.animateToRegion(
-            {
-              latitude,
-              longitude,
-              latitudeDelta: 0.015,
-              longitudeDelta: 0.015,
-            },
-            700
-          );
+          if (navigationState === "active") {
+            handleStartNavigation(); // Recentra la vista de conducción
+          } else {
+            mapRef.current?.animateToRegion(
+              {
+                latitude,
+                longitude,
+                latitudeDelta: 0.015,
+                longitudeDelta: 0.015,
+              },
+              700
+            );
+          }
         }}
       >
-        <Ionicons name="navigate" size={22} color="#FF6B35" />
+        <Ionicons 
+          name={navigationState === "active" ? "locate" : "navigate"} 
+          size={24} 
+          color={colors.primary} 
+        />
       </Pressable>
 
-      {selectedRestaurant && (
+      {selectedRestaurant && navigationState === "discovery" && (
         <View style={styles.cardContainer}>
           <RestaurantCard
             restaurant={selectedRestaurant}
-            onClose={() => setSelectedRestaurant(null)}
+            onClose={() => {
+              setSelectedRestaurant(null);
+              setSelectedLocation(null);
+              setNavigationData(null);
+            }}
+            onShowRoute={() => handleShowRoute(selectedRestaurant)}
           />
+        </View>
+      )}
+
+      {/* PREVIEW HUD - LA PRIMERA IMAGEN (TODA LA RUTA) */}
+      {selectedRestaurant && selectedLocation && navigationState === "preview" && (
+        <View style={[styles.navHud, { bottom: insets.bottom + 20 }]}>
+          {!navigationData ? (
+            <View style={styles.navLoading}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={styles.navLoadingText}>Trazando ruta...</Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.navInfo}>
+                <View>
+                  <Text style={styles.navTime}>{Math.round(navigationData.duration)} min</Text>
+                  <Text style={styles.navDistance}>{navigationData.distance.toFixed(1)} km</Text>
+                </View>
+                <View style={styles.navDestWrap}>
+                  <Text style={styles.navDestLabel}>Hacia</Text>
+                  <Text style={styles.navDestName} numberOfLines={1}>{selectedRestaurant.name}</Text>
+                </View>
+              </View>
+
+              <View style={styles.navActions}>
+                <Pressable style={styles.startNavBtn} onPress={handleStartNavigation}>
+                  <Ionicons name="navigate" size={24} color={colors.background} />
+                  <Text style={styles.startNavText}>Iniciar viaje</Text>
+                </Pressable>
+                
+                <Pressable style={styles.exitNavBtn} onPress={handleExitNavigation}>
+                  <Text style={styles.exitNavText}>Cancelar</Text>
+                </Pressable>
+              </View>
+            </>
+          )}
+        </View>
+      )}
+
+      {/* ACTIVE NAVIGATION HUD - LA SEGUNDA IMAGEN (NAVEGANDO) */}
+      {selectedRestaurant && navigationData && navigationState === "active" && (
+        <View style={[styles.activeNavHud, { bottom: insets.bottom + 20 }]}>
+          <View style={styles.activeNavContent}>
+             <View style={styles.activeNavStats}>
+                <Text style={styles.activeNavTime}>{Math.round(navigationData.duration)} min</Text>
+                <Text style={styles.activeNavDistance}>{navigationData.distance.toFixed(1)} km</Text>
+             </View>
+             
+             <Pressable style={styles.activeExitBtn} onPress={handleExitNavigation}>
+                <Text style={styles.activeExitText}>Salir</Text>
+             </Pressable>
+          </View>
         </View>
       )}
 
@@ -741,7 +988,7 @@ export default function HomeScreen() {
             <View style={styles.chatHeader}>
               <Text style={styles.chatTitle}>Foodie AI</Text>
               <Pressable onPress={() => setIsFoodieChatOpen(false)}>
-                <Ionicons name="close" size={22} color="#2D3436" />
+                <Ionicons name="close" size={22} color={colors.text} />
               </Pressable>
             </View>
 
@@ -781,7 +1028,7 @@ export default function HomeScreen() {
               <TextInput
                 style={[styles.chatInput, { height: Math.max(42, chatInputHeight) }]}
                 placeholder="Ej: Quiero pizza para parche"
-                placeholderTextColor="#B2BEC3"
+                placeholderTextColor={colors.placeholder}
                 value={chatInput}
                 onChangeText={setChatInput}
                 onSubmitEditing={handleSendFoodieMessage}
@@ -799,7 +1046,7 @@ export default function HomeScreen() {
                 disabled={!chatInput.trim() || foodieLoading}
                 onPress={handleSendFoodieMessage}
               >
-                <Ionicons name="send" size={16} color="#fff" />
+                <Ionicons name="send" size={16} color={colors.background} />
               </Pressable>
             </View>
           </View>
@@ -815,62 +1062,62 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     position: "absolute",
-    left: 16,
-    right: 16,
+    left: spacing.lg,
+    right: spacing.lg,
     zIndex: 10,
   },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
-    borderRadius: 28,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    backgroundColor: colors.background,
+    borderRadius: radii.round,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
-    gap: 8,
+    gap: spacing.sm,
   },
   searchInput: {
     flex: 1,
     fontSize: 15,
-    color: "#2D3436",
+    color: colors.text,
   },
   iconButton: {
     paddingHorizontal: 4,
   },
   resultsCount: {
-    marginTop: 8,
-    backgroundColor: "#2D3436",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    marginTop: spacing.sm,
+    backgroundColor: colors.text,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: radii.lg,
     alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: spacing.sm,
   },
   resultsText: {
-    color: "#fff",
+    color: colors.background,
     fontSize: 13,
     fontWeight: "500",
   },
   aiBadge: {
-    color: "#FF6B35",
+    color: colors.primary,
     fontSize: 12,
     fontWeight: "700",
-    backgroundColor: "#fff",
-    borderRadius: 10,
-    paddingHorizontal: 8,
+    backgroundColor: colors.background,
+    borderRadius: radii.sm + 2,
+    paddingHorizontal: spacing.sm,
     paddingVertical: 2,
   },
   filterPanel: {
-    marginTop: 10,
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 12,
+    marginTop: spacing.sm,
+    backgroundColor: colors.background,
+    borderRadius: radii.lg,
+    padding: spacing.md,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -880,47 +1127,214 @@ const styles = StyleSheet.create({
   filterTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#2D3436",
-    marginBottom: 8,
+    color: colors.text,
+    marginBottom: spacing.sm,
   },
   filterLabel: {
     fontSize: 13,
-    color: "#636E72",
-    marginBottom: 8,
-    marginTop: 8,
+    color: colors.textMuted,
+    marginBottom: spacing.sm,
+    marginTop: spacing.sm,
   },
   chipsRow: {
     flexGrow: 0,
   },
   inlineRow: {
     flexDirection: "row",
-    gap: 8,
+    gap: spacing.sm,
   },
   chip: {
     borderWidth: 1,
-    borderColor: "#DFE6E9",
-    borderRadius: 16,
-    paddingHorizontal: 10,
+    borderColor: colors.borderSoft,
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing.md,
     paddingVertical: 6,
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
   chipActive: {
-    borderColor: "#FF6B35",
-    backgroundColor: "#FFF1EC",
+    borderColor: colors.primary,
+    backgroundColor: colors.surfaceAlt,
   },
   chipText: {
     fontSize: 12,
-    color: "#636E72",
+    color: colors.textMuted,
   },
   chipTextActive: {
-    color: "#FF6B35",
+    color: colors.primary,
     fontWeight: "600",
+  },
+  exitNavText: {
+    color: colors.primary,
+    fontWeight: "700",
+    fontSize: 16,
+  },
+  // NAVEGACIÓN HUD
+  navHud: {
+    position: "absolute",
+    left: spacing.xl,
+    right: spacing.xl,
+    backgroundColor: colors.background,
+    borderRadius: radii.xl + 4,
+    padding: spacing.xl,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  navInfo: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: spacing.xl,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    paddingBottom: spacing.lg,
+  },
+  navTime: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: colors.text,
+  },
+  navDistance: {
+    fontSize: 16,
+    color: colors.textMuted,
+    fontWeight: "600",
+  },
+  navDestWrap: {
+    alignItems: "flex-end",
+    flex: 1,
+    marginLeft: spacing.xl,
+  },
+  navDestLabel: {
+    fontSize: 12,
+    color: colors.placeholder,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  navDestName: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: colors.primary,
+  },
+  navLoading: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: spacing.sm,
+    gap: spacing.md,
+  },
+  navLoadingText: {
+    fontSize: 16,
+    color: colors.textMuted,
+    fontWeight: "500",
+  },
+  navActions: {
+    flexDirection: "row",
+    gap: spacing.md,
+  },
+  startNavBtn: {
+    flex: 2,
+    backgroundColor: colors.primary,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 15,
+    borderRadius: radii.lg,
+    gap: spacing.sm,
+  },
+  startNavText: {
+    color: colors.background,
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  exitNavBtn: {
+    flex: 1,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 15,
+    borderRadius: radii.lg,
+  },
+  exitNavBtnSmall: {
+    backgroundColor: colors.danger,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.lg,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  navProgress: {
+    flex: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.border,
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing.xl,
+    gap: spacing.sm,
+  },
+  navProgressPulse: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.success,
+  },
+  navProgressText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: colors.text,
+  },
+  // ACTIVE NAV HUD (GOOGLE MAPS STYLE)
+  activeNavHud: {
+    position: "absolute",
+    left: spacing.xl,
+    right: spacing.xl,
+    backgroundColor: colors.background,
+    borderRadius: radii.round,
+    paddingHorizontal: 25,
+    paddingVertical: 15,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  activeNavContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  activeNavStats: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 15,
+  },
+  activeNavTime: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: colors.text,
+  },
+  activeNavDistance: {
+    fontSize: 18,
+    color: colors.textMuted,
+    fontWeight: "600",
+  },
+  activeExitBtn: {
+    backgroundColor: colors.danger,
+    paddingHorizontal: 25,
+    paddingVertical: 12,
+    borderRadius: radii.round,
+  },
+  activeExitText: {
+    color: colors.background,
+    fontWeight: "800",
+    fontSize: 15,
   },
   locationButton: {
     position: "absolute",
     bottom: 32,
     right: 16,
-    backgroundColor: "#fff",
+    backgroundColor: colors.background,
     width: 48,
     height: 48,
     borderRadius: 24,
@@ -936,91 +1350,99 @@ const styles = StyleSheet.create({
   cardContainer: {
     position: "absolute",
     bottom: 32,
-    left: 24,
-    right: 24,
+    left: spacing.xl,
+    right: spacing.xl,
     zIndex: 20,
   },
   filterActions: {
     flexDirection: "row",
     justifyContent: "space-between",
-    gap: 10,
-    marginTop: 16,
+    gap: spacing.sm,
+    marginTop: spacing.lg,
   },
   filterClearBtn: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 14,
+    borderRadius: radii.lg,
     borderWidth: 1.5,
-    borderColor: "#DFE6E9",
+    borderColor: colors.borderSoft,
     alignItems: "center",
   },
   filterClearText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#636E72",
+    color: colors.textMuted,
   },
   filterApplyBtn: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 14,
-    backgroundColor: "#FF6B35",
+    borderRadius: radii.lg,
+    backgroundColor: colors.primary,
     alignItems: "center",
   },
   filterApplyText: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#fff",
+    color: colors.background,
   },
   foodieAskButton: {
-    marginTop: 8,
+    marginTop: spacing.sm,
     alignSelf: "flex-start",
-    backgroundColor: "#2D3436",
-    borderRadius: 18,
+    backgroundColor: colors.text,
+    borderRadius: radii.lg + 2,
     paddingHorizontal: 14,
     paddingVertical: 10,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: spacing.sm,
   },
   foodieAskButtonDisabled: {
     opacity: 0.65,
   },
   foodieAskButtonText: {
-    color: "#fff",
+    color: colors.background,
     fontSize: 13,
     fontWeight: "700",
   },
   foodieAnswerCard: {
-    marginTop: 10,
-    backgroundColor: "#fff",
-    borderRadius: 14,
+    marginTop: spacing.sm,
+    backgroundColor: colors.background,
+    borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: "#FFE5D8",
-    padding: 12,
+    borderColor: colors.surfaceAlt,
+    padding: spacing.md,
+    position: "relative",
+  },
+  foodieAnswerClose: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    zIndex: 5,
+    padding: 4,
   },
   foodieAnswerTitle: {
-    color: "#D35400",
+    color: colors.primaryDark,
     fontSize: 12,
     fontWeight: "700",
     marginBottom: 4,
     textTransform: "uppercase",
   },
   foodieAnswerRestaurant: {
-    color: "#2D3436",
+    color: colors.text,
     fontSize: 15,
     fontWeight: "700",
     marginBottom: 2,
   },
   foodieAnswerText: {
-    color: "#636E72",
+    color: colors.textMuted,
     fontSize: 13,
     lineHeight: 18,
   },
   searchResultsPanel: {
-    marginTop: 10,
-    backgroundColor: "#fff",
-    borderRadius: 16,
-    padding: 12,
+    marginTop: spacing.sm,
+    backgroundColor: colors.background,
+    borderRadius: radii.lg,
+    padding: spacing.md,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -1030,8 +1452,8 @@ const styles = StyleSheet.create({
   searchResultsTitle: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#2D3436",
-    marginBottom: 8,
+    color: colors.text,
+    marginBottom: spacing.sm,
   },
   searchResultsList: {
     maxHeight: 210,
@@ -1040,10 +1462,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 12,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: "#F1F2F6",
-    gap: 10,
+    borderBottomColor: colors.border,
+    gap: spacing.sm,
   },
   searchResultTextWrap: {
     flex: 1,
@@ -1051,22 +1473,22 @@ const styles = StyleSheet.create({
   searchResultName: {
     fontSize: 15,
     fontWeight: "700",
-    color: "#2D3436",
+    color: colors.text,
   },
   searchResultMeta: {
     fontSize: 12,
-    color: "#636E72",
+    color: colors.textMuted,
     marginTop: 2,
   },
   searchResultRating: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: spacing.xs,
   },
   searchResultRatingText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#2D3436",
+    color: colors.text,
   },
   chatOverlay: {
     flex: 1,
@@ -1074,9 +1496,9 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   chatSheet: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: colors.background,
+    borderTopLeftRadius: radii.xl,
+    borderTopRightRadius: radii.xl,
     minHeight: "55%",
     maxHeight: "82%",
   },
@@ -1084,73 +1506,73 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.lg,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: "#F1F2F6",
+    borderBottomColor: colors.border,
   },
   chatTitle: {
     fontSize: 16,
     fontWeight: "800",
-    color: "#2D3436",
+    color: colors.text,
   },
   chatMessagesContainer: {
     flex: 1,
   },
   chatMessagesContent: {
     paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 10,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
   },
   chatBubble: {
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
     maxWidth: "88%",
   },
   chatBubbleAssistant: {
     alignSelf: "flex-start",
-    backgroundColor: "#F6F7FB",
+    backgroundColor: colors.surfaceAlt,
   },
   chatBubbleUser: {
     alignSelf: "flex-end",
-    backgroundColor: "#2D3436",
+    backgroundColor: colors.text,
   },
   chatBubbleText: {
     fontSize: 13,
     lineHeight: 18,
   },
   chatBubbleTextAssistant: {
-    color: "#2D3436",
+    color: colors.text,
   },
   chatBubbleTextUser: {
-    color: "#fff",
+    color: colors.background,
   },
   chatComposer: {
     borderTopWidth: 1,
-    borderTopColor: "#F1F2F6",
+    borderTopColor: colors.border,
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 12,
-    gap: 8,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm + 2,
+    paddingBottom: spacing.md,
+    gap: spacing.sm,
   },
   chatInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: "#DFE6E9",
-    borderRadius: 18,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderColor: colors.borderSoft,
+    borderRadius: radii.xl,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
     fontSize: 14,
-    color: "#2D3436",
+    color: colors.text,
   },
   chatSendBtn: {
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: "#FF6B35",
+    backgroundColor: colors.primary,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1158,3 +1580,4 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 });
+

@@ -3,12 +3,13 @@ from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from rest_framework import status
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import Follow, UserProfile
+from .models import Follow, UserProfile, FollowRequest
 from .serializers import (
     PublicProfileSerializer,
     RegisterSerializer,
@@ -18,6 +19,23 @@ from .serializers import (
 )
 
 User = get_user_model()
+
+
+def can_view_profile(request_user, target_user):
+    if request_user.is_authenticated and request_user == target_user:
+        return True
+
+    profile = getattr(target_user, "profile", None)
+    if not profile or profile.is_public:
+        return True
+
+    if not request_user.is_authenticated:
+        return False
+
+    return Follow.objects.filter(
+        follower=request_user,
+        following=target_user,
+    ).exists()
 
 
 def build_auth_response(user):
@@ -136,12 +154,41 @@ class FollowUserAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        profile, _ = UserProfile.objects.get_or_create(user=target_user)
+
+        # If already following, return profile
+        is_following = Follow.objects.filter(
+            follower=request.user,
+            following=target_user,
+        ).exists()
+        if is_following:
+            serializer = PublicProfileSerializer(profile, context={"request": request})
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        # If target user has a private profile, create a FollowRequest instead of a direct Follow.
+        # Only user accounts can be private (restaurant profiles are always public).
+        if (
+            not profile.is_public
+            and profile.account_type == UserProfile.ACCOUNT_TYPE_USER
+        ):
+            follow_req, created = FollowRequest.objects.get_or_create(
+                requester=request.user,
+                target=target_user,
+                defaults={"status": FollowRequest.STATUS_PENDING},
+            )
+            if not created and follow_req.status == FollowRequest.STATUS_REJECTED:
+                follow_req.status = FollowRequest.STATUS_PENDING
+                follow_req.save()
+
+            serializer = PublicProfileSerializer(profile, context={"request": request})
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        # If public account, follow directly
         _, created = Follow.objects.get_or_create(
             follower=request.user,
             following=target_user,
         )
 
-        profile, _ = UserProfile.objects.get_or_create(user=target_user)
         serializer = PublicProfileSerializer(profile, context={"request": request})
         return Response(
             serializer.data,
@@ -150,7 +197,15 @@ class FollowUserAPIView(APIView):
 
     def delete(self, request, username):
         target_user = get_object_or_404(User, username__iexact=username)
+
+        # Delete follow relationship
         Follow.objects.filter(follower=request.user, following=target_user).delete()
+
+        # Also delete any pending follow request
+        FollowRequest.objects.filter(
+            requester=request.user, target=target_user
+        ).delete()
+
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -159,12 +214,19 @@ class FollowersListAPIView(APIView):
 
     def get(self, request, username):
         target_user = get_object_or_404(User, username__iexact=username)
+        if not can_view_profile(request.user, target_user):
+            raise PermissionDenied("This profile is private.")
+
         followers = (
             User.objects.filter(following_relationships__following=target_user)
             .select_related("profile")
             .order_by("username")
         )
-        serializer = UserSummarySerializer(followers, many=True)
+        serializer = UserSummarySerializer(
+            followers,
+            many=True,
+            context={"request": request},
+        )
         return Response({"count": len(serializer.data), "results": serializer.data})
 
 
@@ -173,13 +235,50 @@ class FollowingListAPIView(APIView):
 
     def get(self, request, username):
         target_user = get_object_or_404(User, username__iexact=username)
+        if not can_view_profile(request.user, target_user):
+            raise PermissionDenied("This profile is private.")
+
         following = (
             User.objects.filter(follower_relationships__follower=target_user)
             .select_related("profile")
             .order_by("username")
         )
-        serializer = UserSummarySerializer(following, many=True)
+        serializer = UserSummarySerializer(
+            following,
+            many=True,
+            context={"request": request},
+        )
         return Response({"count": len(serializer.data), "results": serializer.data})
+
+
+class UserSearchAPIView(APIView):
+    """
+    Search for users by username or name.
+    Query parameter: ?search=<query>
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        query = request.query_params.get("search", "").strip()
+
+        if not query:
+            return Response([], status=status.HTTP_200_OK)
+
+        users = (
+            User.objects.filter(
+                Q(username__icontains=query) | Q(profile__display_name__icontains=query)
+            )
+            .select_related("profile")
+            .distinct()[:50]
+        )
+
+        serializer = UserSummarySerializer(
+            users,
+            many=True,
+            context={"request": request},
+        )
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class LogoutAPIView(APIView):
@@ -206,3 +305,75 @@ class LogoutAPIView(APIView):
             )
         except Exception as e:
             return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class FollowRequestListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # List all pending follow requests received
+        requests = FollowRequest.objects.filter(
+            target=request.user, status="pending"
+        ).select_related("requester", "requester__profile")
+        data = []
+        for req in requests:
+            req_profile = getattr(req.requester, "profile", None)
+            avatar_url = ""
+            if req_profile and req_profile.avatar_image:
+                avatar_url = request.build_absolute_uri(req_profile.avatar_image.url)
+            elif req_profile:
+                avatar_url = req_profile.avatar_url
+
+            data.append(
+                {
+                    "id": req.id,
+                    "requester_id": req.requester.id,
+                    "username": req.requester.username,
+                    "name": (
+                        req_profile.display_name
+                        if req_profile and req_profile.display_name
+                        else req.requester.username
+                    ),
+                    "avatar_url": avatar_url,
+                    "created_at": req.created_at,
+                }
+            )
+        return Response(data, status=status.HTTP_200_OK)
+
+
+class ApproveFollowRequestAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, request_id):
+        follow_req = get_object_or_404(
+            FollowRequest, id=request_id, target=request.user
+        )
+
+        # Create follow relationship
+        Follow.objects.get_or_create(
+            follower=follow_req.requester,
+            following=request.user,
+        )
+
+        # Delete follow request
+        follow_req.delete()
+
+        return Response(
+            {"detail": "Follow request accepted."}, status=status.HTTP_200_OK
+        )
+
+
+class RejectFollowRequestAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, request_id):
+        follow_req = get_object_or_404(
+            FollowRequest, id=request_id, target=request.user
+        )
+
+        # Delete follow request
+        follow_req.delete()
+
+        return Response(
+            {"detail": "Follow request rejected."}, status=status.HTTP_200_OK
+        )

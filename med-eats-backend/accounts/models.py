@@ -6,12 +6,43 @@ from django.dispatch import receiver
 
 
 class UserProfile(models.Model):
+    ACCOUNT_TYPE_USER = "user"
+    ACCOUNT_TYPE_RESTAURANT = "restaurant"
+    ACCOUNT_TYPE_CHOICES = [
+        (ACCOUNT_TYPE_USER, "User"),
+        (ACCOUNT_TYPE_RESTAURANT, "Restaurant"),
+    ]
+
     user = models.OneToOneField(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="profile",
     )
+    GENDER_MALE = "male"
+    GENDER_FEMALE = "female"
+    GENDER_OTHER = "other"
+    GENDER_NO_SAY = "no_say"
+    GENDER_CHOICES = [
+        (GENDER_MALE, "Male"),
+        (GENDER_FEMALE, "Female"),
+        (GENDER_OTHER, "Other"),
+        (GENDER_NO_SAY, "Prefer not to say"),
+    ]
+    account_type = models.CharField(
+        max_length=20,
+        choices=ACCOUNT_TYPE_CHOICES,
+        default=ACCOUNT_TYPE_USER,
+        db_index=True,
+    )
     display_name = models.CharField(max_length=150, blank=True)
+    gender = models.CharField(
+        max_length=20,
+        choices=GENDER_CHOICES,
+        default=GENDER_NO_SAY,
+        blank=True,
+    )
+    is_public = models.BooleanField(default=True)
+    avatar_image = models.ImageField(upload_to="avatars/", blank=True, null=True)
     avatar_url = models.URLField(max_length=500, blank=True)
     bio = models.TextField(blank=True)
     location = models.CharField(max_length=120, blank=True)
@@ -49,6 +80,50 @@ class Follow(models.Model):
 
     def __str__(self):
         return f"{self.follower.username} -> {self.following.username}"
+
+
+class FollowRequest(models.Model):
+    STATUS_PENDING = "pending"
+    STATUS_ACCEPTED = "accepted"
+    STATUS_REJECTED = "rejected"
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "Pending"),
+        (STATUS_ACCEPTED, "Accepted"),
+        (STATUS_REJECTED, "Rejected"),
+    ]
+
+    requester = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="follow_requests_sent",
+    )
+    target = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="follow_requests_received",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    responded_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["requester", "target"],
+                name="unique_follow_request",
+            ),
+            models.CheckConstraint(
+                condition=~Q(requester=models.F("target")),
+                name="prevent_self_follow_request",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.requester.username} -> {self.target.username} ({self.status})"
 
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)

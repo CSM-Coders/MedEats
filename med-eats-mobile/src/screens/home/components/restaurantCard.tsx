@@ -1,7 +1,9 @@
 import { View, Text, StyleSheet, Pressable, Image } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useRef } from "react";
 import { Restaurant } from "@/src/models/domain";
+import { colors, radii, spacing } from "@/src/theme/designTokens";
 
 // ============================================================
 // Props: recibe un restaurante completo y una función para cerrar
@@ -9,6 +11,7 @@ import { Restaurant } from "@/src/models/domain";
 type Props = {
   restaurant: Restaurant;
   onClose: () => void;
+  onShowRoute: () => void;
 };
 
 // Función helper para renderizar las estrellas de rating
@@ -30,7 +33,7 @@ function RatingStars({ rating }: { rating: number }) {
               : "star-outline"   // Estrella vacía
           }
           size={16}
-          color="#FF6B35"
+          color={colors.primary}
         />
       ))}
       <Text style={styles.ratingText}>{rating}</Text>
@@ -38,7 +41,9 @@ function RatingStars({ rating }: { rating: number }) {
   );
 }
 
-export default function RestaurantCard({ restaurant, onClose }: Props) {
+export default function RestaurantCard({ restaurant, onClose, onShowRoute }: Props) {
+  const isNavigatingRef = useRef(false);
+
   return (
     <View style={styles.card}>
       {/* Imagen del restaurante */}
@@ -54,16 +59,31 @@ export default function RestaurantCard({ restaurant, onClose }: Props) {
         <RatingStars rating={restaurant.rating} />
         <Text style={styles.category}>{restaurant.category}</Text>
 
-        {/* Botón "Ver Detalles" — navega a la pantalla del restaurante */}
-        <Pressable
-          style={styles.detailsButton}
-          onPress={() => {
-            onClose(); // Cerramos la tarjeta primero
-            router.push(`/restaurant/${restaurant.id}`);
-          }}
-        >
-          <Text style={styles.detailsButtonText}>Ver Detalles</Text>
-        </Pressable>
+        <View style={styles.buttonGroup}>
+          {/* Botón "Ver Detalles" — navega a la pantalla del restaurante */}
+          <Pressable
+            style={styles.detailsButton}
+            onPress={() => {
+              if (isNavigatingRef.current) return;
+              isNavigatingRef.current = true;
+              router.push(`/restaurant/${restaurant.id}`);
+              setTimeout(() => {
+                isNavigatingRef.current = false;
+              }, 700);
+            }}
+          >
+            <Text style={styles.detailsButtonText}>Ver Detalles</Text>
+          </Pressable>
+
+          {/* Botón "Cómo llegar" — abre mapas externos */}
+          <Pressable
+            style={styles.navigationButton}
+            onPress={onShowRoute}
+          >
+            <Ionicons name="navigate-circle" size={20} color={colors.background} />
+            <Text style={styles.navigationButtonText}>Cómo llegar</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -71,8 +91,8 @@ export default function RestaurantCard({ restaurant, onClose }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
+    backgroundColor: colors.background,
+    borderRadius: radii.lg,
     overflow: "hidden",             // Para que la imagen respete el borderRadius
     // Sombras para darle elevación (como en el mockup)
     shadowColor: "#000",
@@ -86,39 +106,57 @@ const styles = StyleSheet.create({
     height: 150,
   },
   info: {
-    padding: 16,
+    padding: spacing.lg,
   },
   name: {
     fontSize: 20,
     fontWeight: "700",
-    color: "#2D3436",
-    marginBottom: 6,
+    color: colors.text,
+    marginBottom: spacing.xs + 2,
   },
   starsRow: {
     flexDirection: "row",           // Los elementos van en fila horizontal
     alignItems: "center",
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   ratingText: {
-    marginLeft: 6,
+    marginLeft: spacing.sm,
     fontSize: 14,
     fontWeight: "600",
-    color: "#2D3436",
+    color: colors.text,
   },
   category: {
     fontSize: 14,
-    color: "#636E72",
-    marginBottom: 12,
+    color: colors.textMuted,
+    marginBottom: spacing.md,
+  },
+  buttonGroup: {
+    gap: spacing.sm,                         // Espacio entre los dos botones
   },
   detailsButton: {
-    backgroundColor: "#FF6B35",
-    paddingVertical: 12,
-    borderRadius: 24,               // Muy redondeado como en el mockup
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.md,
+    borderRadius: radii.pill,
     alignItems: "center",
   },
   detailsButtonText: {
-    color: "#fff",
+    color: colors.background,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  navigationButton: {
+    backgroundColor: colors.darkSurface,
+    paddingVertical: spacing.md,
+    borderRadius: radii.pill,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+  },
+  navigationButtonText: {
+    color: colors.background,
     fontSize: 16,
     fontWeight: "600",
   },
 });
+

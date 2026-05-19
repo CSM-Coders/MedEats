@@ -1,27 +1,68 @@
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
-from rest_framework.permissions import AllowAny, IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.permissions import (
+    AllowAny,
+    IsAdminUser,
+    IsAuthenticated,
+    IsAuthenticatedOrReadOnly,
+)
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.exceptions import PermissionDenied
 from django.utils import timezone
-from .models import Restaurant, Category, Post, PostLike, PostComment, Review, SavedRestaurant, VisitedRestaurant
+from rest_framework.authentication import SessionAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from datetime import datetime, timedelta
+from accounts.views import can_view_profile
+from django.views.generic import TemplateView
+from django.contrib.admin.views.decorators import staff_member_required
+from django.utils.decorators import method_decorator
+from .models import (
+    Restaurant,
+    RestaurantBranch,
+    Category,
+    Post,
+    PostLike,
+    PostComment,
+    Review,
+    SavedRestaurant,
+    VisitedRestaurant,
+)
 from .serializers import (
-    RestaurantSerializer, 
-    CategorySerializer, 
-    PostSerializer, 
+    RestaurantSerializer,
+    RestaurantOwnerWriteSerializer,
+    RestaurantBranchSerializer,
+    CategorySerializer,
+    PostSerializer,
     PostCreateSerializer,
     PostCommentSerializer,
     ReviewSerializer,
     SavedRestaurantSerializer,
-    VisitedRestaurantSerializer
+    VisitedRestaurantSerializer,
 )
 from .ai_service import (
     FoodieOutOfScopeError,
     get_foodie_recommendation,
 )
+from .permissions import (
+    IsOwnerOrReadOnly,
+    IsRestaurantAccount,
+    IsRestaurantOwnerOrAdmin,
+)
 
 User = get_user_model()
+
+DEFAULT_FOOD_CATEGORIES = [
+    "Colombian Traditional",
+    "Japanese & Sushi",
+    "Burgers & Grill",
+    "Italian & Pizza",
+    "Healthy Food",
+    "Mexican",
+    "Café & Bakery",
+    "Peruvian",
+]
 
 # ============================================================
 # VISTAS DE LA API (Endponits REST)
@@ -45,15 +86,33 @@ class RestaurantListAPIView(generics.ListAPIView):
 
     # 1. Indicamos qué datos queremos consultar del PostgreSQL:
     # "Selecciona ABSOLUTAMENTE TODOS los objetos guardados en la tabla Restaurant"
-    queryset = Restaurant.objects.all()
-
-    # 2. Indicamos cómo debemos traducir esa información bruta a JSON
-    # para tu frontend:
     serializer_class = RestaurantSerializer
 
     # Permiso de seguridad: En nuestro MVP permitimos que cualquier
     # persona que abra la app (sin haber hecho Log In) pueda ver los restaurantes en el mapa.
     permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        queryset = Restaurant.objects.select_related(
+            "category", "owner"
+        ).prefetch_related(
+            "branches",
+            "reviews",
+        )
+
+        search = self.request.query_params.get("search", "").strip()
+        if search:
+            queryset = queryset.filter(name__icontains=search)
+
+        category = self.request.query_params.get("category", "").strip()
+        if category:
+            queryset = queryset.filter(category__name__icontains=category)
+
+        owner = self.request.query_params.get("owner", "").strip()
+        if owner:
+            queryset = queryset.filter(owner__username__iexact=owner)
+
+        return queryset.order_by("name")
 
 
 class CategoryListAPIView(generics.ListAPIView):
@@ -62,9 +121,13 @@ class CategoryListAPIView(generics.ListAPIView):
     (Ayudará muchísimo para crear los filtros automáticos en tu HomeScreen).
     """
 
-    queryset = Category.objects.all()
     serializer_class = CategorySerializer
     permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        for category_name in DEFAULT_FOOD_CATEGORIES:
+            Category.objects.get_or_create(name=category_name)
+        return Category.objects.all().order_by("name")
 
 
 class RestaurantDetailAPIView(generics.RetrieveAPIView):
@@ -73,9 +136,191 @@ class RestaurantDetailAPIView(generics.RetrieveAPIView):
     Permitirá que la App móvil consulte y muestre los datos reales en su pantalla RestaurantDetailScreen.
     """
 
-    queryset = Restaurant.objects.all()
+    queryset = Restaurant.objects.select_related("category", "owner").prefetch_related(
+        "branches",
+        "reviews",
+    )
     serializer_class = RestaurantSerializer
     permission_classes = [AllowAny]
+
+
+class AdminRestaurantListCreateAPIView(generics.ListCreateAPIView):
+    """
+    CRUD administrativo de restaurantes.
+    Solo staff/admin puede gestionar toda la data.
+    """
+
+    permission_classes = [IsAdminUser]
+    serializer_class = RestaurantOwnerWriteSerializer
+    queryset = Restaurant.objects.select_related("category", "owner").prefetch_related(
+        "branches",
+        "reviews",
+    )
+
+
+class AdminRestaurantDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAdminUser]
+    serializer_class = RestaurantOwnerWriteSerializer
+    queryset = Restaurant.objects.select_related("category", "owner").prefetch_related(
+        "branches",
+        "reviews",
+    )
+
+
+class OwnerRestaurantListCreateAPIView(generics.ListCreateAPIView):
+    """
+    Gestión de restaurantes del dueño (cuenta restaurante).
+    """
+
+    permission_classes = [IsAuthenticated, IsRestaurantAccount]
+
+    def get_queryset(self):
+        return (
+            Restaurant.objects.select_related("category", "owner")
+            .prefetch_related("branches", "reviews")
+            .filter(owner=self.request.user)
+            .order_by("name")
+        )
+
+    def get_serializer_class(self):
+        if self.request.method == "GET":
+            return RestaurantSerializer
+        return RestaurantOwnerWriteSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
+
+
+class OwnerRestaurantDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [
+        IsAuthenticated,
+        IsRestaurantAccount,
+        IsRestaurantOwnerOrAdmin,
+    ]
+
+    def get_queryset(self):
+        return Restaurant.objects.select_related("category", "owner").prefetch_related(
+            "branches",
+            "reviews",
+        )
+
+    def get_serializer_class(self):
+        if self.request.method == "GET":
+            return RestaurantSerializer
+        return RestaurantOwnerWriteSerializer
+
+
+class OwnerRestaurantBranchListCreateAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsRestaurantAccount]
+
+    def get_restaurant(self, request, restaurant_id):
+        restaurant = get_object_or_404(Restaurant, id=restaurant_id)
+        if not request.user.is_staff and restaurant.owner_id != request.user.id:
+            return None
+        return restaurant
+
+    def get(self, request, restaurant_id):
+        restaurant = self.get_restaurant(request, restaurant_id)
+        if not restaurant:
+            return Response(
+                {
+                    "detail": "No tienes permisos para ver las sedes de este restaurante."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        branches = restaurant.branches.all().order_by("-is_primary", "address")
+        return Response(RestaurantBranchSerializer(branches, many=True).data)
+
+    def post(self, request, restaurant_id):
+        restaurant = self.get_restaurant(request, restaurant_id)
+        if not restaurant:
+            return Response(
+                {"detail": "No tienes permisos para crear sedes en este restaurante."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = RestaurantBranchSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # Priorizar coordenadas del móvil, sino usar geocodificador
+        lat = request.data.get("latitude")
+        lon = request.data.get("longitude")
+
+        if not lat or not lon:
+            address = request.data.get("address", "").strip()
+            from .utils import geocoder
+
+            lat_geo, lon_geo = geocoder.geocode(address)
+            lat = lat or lat_geo
+            lon = lon or lon_geo
+
+        branch = serializer.save(restaurant=restaurant, latitude=lat, longitude=lon)
+        return Response(
+            RestaurantBranchSerializer(branch).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class OwnerRestaurantBranchDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = RestaurantBranchSerializer
+    permission_classes = [
+        IsAuthenticated,
+        IsRestaurantAccount,
+        IsRestaurantOwnerOrAdmin,
+    ]
+    queryset = RestaurantBranch.objects.select_related(
+        "restaurant", "restaurant__owner"
+    )
+
+
+class OwnerRestaurantMenuUploadAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsRestaurantAccount]
+
+    def patch(self, request, restaurant_id):
+        restaurant = get_object_or_404(Restaurant, id=restaurant_id)
+        if not request.user.is_staff and restaurant.owner_id != request.user.id:
+            return Response(
+                {
+                    "detail": "No tienes permisos para editar el menú de este restaurante."
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Usar request.FILES para asegurar que el PDF se reciba correctamente
+        pdf_file = request.FILES.get("menu_pdf") or request.data.get("menu_pdf")
+
+        serializer = RestaurantOwnerWriteSerializer(
+            restaurant,
+            data={"menu_pdf": pdf_file},
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(
+            RestaurantSerializer(restaurant, context={"request": request}).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class OwnerRestaurantReviewsAPIView(generics.ListAPIView):
+    """
+    Dashboard de reseñas para cuentas restaurante.
+    """
+
+    permission_classes = [IsAuthenticated, IsRestaurantAccount]
+    serializer_class = ReviewSerializer
+
+    def get_queryset(self):
+        queryset = Review.objects.select_related(
+            "user", "restaurant", "user__profile"
+        ).filter(restaurant__owner=self.request.user)
+
+        restaurant_id = self.request.query_params.get("restaurant")
+        if restaurant_id:
+            queryset = queryset.filter(restaurant_id=restaurant_id)
+
+        return queryset.order_by("-created_at", "-id")
 
 
 class FoodieAssistantAPIView(APIView):
@@ -175,8 +420,6 @@ class FoodieAssistantAPIView(APIView):
 # VISTAS PARA POSTS (Feed Social)
 # ============================================================
 
-from .permissions import IsOwnerOrReadOnly
-
 
 class PostListCreateAPIView(generics.ListCreateAPIView):
     """
@@ -197,7 +440,25 @@ class PostListCreateAPIView(generics.ListCreateAPIView):
         # Filtro opcional por username del usuario que creó el post
         username = self.request.query_params.get("username", None)
         if username:
-            queryset = queryset.filter(user__username=username)
+            target_user = get_object_or_404(User, username__iexact=username)
+            if not can_view_profile(self.request.user, target_user):
+                raise PermissionDenied("This profile is private.")
+
+            queryset = queryset.filter(user=target_user)
+        else:
+            # Feed general: Excluir posts de perfiles privados que no sigue
+            if self.request.user.is_authenticated:
+                from accounts.models import Follow
+                from django.db.models import Q
+
+                following_ids = Follow.objects.filter(
+                    follower=self.request.user
+                ).values_list("following_id", flat=True)
+                queryset = queryset.filter(
+                    Q(user__profile__is_public=True)
+                    | Q(user=self.request.user)
+                    | Q(user_id__in=following_ids)
+                )
 
         return queryset
 
@@ -211,9 +472,113 @@ class PostListCreateAPIView(generics.ListCreateAPIView):
         serializer.save(user=self.request.user)
 
 
-class PostDetailAPIView(generics.RetrieveAPIView):
+class AnalyticsOverviewAPIView(APIView):
+    """
+    Endpoint que devuelve métricas agregadas de la plataforma.
+    Protegido: solo `is_staff` / admins pueden acceder.
+    Query params: `from` (YYYY-MM-DD), `to` (YYYY-MM-DD). Si faltan, usa últimos 7 días.
+    """
+
+    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        # Parsear fechas
+        from_param = request.query_params.get("from")
+        to_param = request.query_params.get("to")
+
+        try:
+            if to_param:
+                to_date = datetime.strptime(to_param, "%Y-%m-%d").date()
+            else:
+                to_date = timezone.localdate()
+
+            if from_param:
+                from_date = datetime.strptime(from_param, "%Y-%m-%d").date()
+            else:
+                from_date = to_date - timedelta(days=6)
+        except ValueError:
+            return Response(
+                {"detail": "Formato de fecha inválido. Use YYYY-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Conteos generales
+        total_users = User.objects.count()
+        new_users = User.objects.filter(
+            date_joined__date__gte=from_date, date_joined__date__lte=to_date
+        ).count()
+
+        total_restaurants = Restaurant.objects.count()
+        new_restaurants = Restaurant.objects.filter(
+            created_at__date__gte=from_date, created_at__date__lte=to_date
+        ).count()
+
+        total_posts = Post.objects.count()
+        new_posts = Post.objects.filter(
+            created_at__date__gte=from_date, created_at__date__lte=to_date
+        ).count()
+
+        total_reviews = Review.objects.count()
+        new_reviews = Review.objects.filter(
+            created_at__date__gte=from_date, created_at__date__lte=to_date
+        ).count()
+
+        total_likes = PostLike.objects.count()
+        total_comments = PostComment.objects.count()
+
+        # Campos opcionales si los modelos existen (migraciones previas)
+        try:
+            from .models import ContentReport
+
+            content_reports = ContentReport.objects.filter(
+                created_at__date__gte=from_date, created_at__date__lte=to_date
+            ).count()
+        except Exception:
+            content_reports = 0
+
+        try:
+            from .models import PostModeration
+
+            posts_removed = PostModeration.objects.filter(
+                action="deleted",
+                created_at__date__gte=from_date,
+                created_at__date__lte=to_date,
+            ).count()
+        except Exception:
+            posts_removed = 0
+
+        payload = {
+            "from": from_date.isoformat(),
+            "to": to_date.isoformat(),
+            "total_users": total_users,
+            "new_users": new_users,
+            "total_restaurants": total_restaurants,
+            "new_restaurants": new_restaurants,
+            "total_posts": total_posts,
+            "new_posts": new_posts,
+            "total_reviews": total_reviews,
+            "new_reviews": new_reviews,
+            "total_likes": total_likes,
+            "total_comments": total_comments,
+            "content_reports": content_reports,
+            "posts_removed": posts_removed,
+        }
+
+        return Response(payload, status=status.HTTP_200_OK)
+
+
+@method_decorator(staff_member_required, name="dispatch")
+class AnalyticsDashboardView(TemplateView):
+    """Simple admin dashboard page that loads analytics data and renders charts."""
+
+    template_name = "restaurants/analytics_dashboard.html"
+
+
+class PostDetailAPIView(generics.RetrieveDestroyAPIView):
     """
     GET: Obtiene los detalles de un solo post.
+    DELETE: Elimina un post (solo el propietario puede hacerlo).
     """
 
     permission_classes = [IsAuthenticated]
@@ -221,6 +586,18 @@ class PostDetailAPIView(generics.RetrieveAPIView):
         "likes", "comments"
     )
     serializer_class = PostSerializer
+
+    def delete(self, request, *args, **kwargs):
+        """
+        Permite eliminar un post solo si el usuario autenticado es el propietario.
+        """
+        post = self.get_object()
+        if post.user != request.user:
+            return Response(
+                {"detail": "No tienes permiso para eliminar este post."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().delete(request, *args, **kwargs)
 
 
 class PostCommentListCreateAPIView(generics.ListCreateAPIView):
@@ -342,6 +719,11 @@ class SavedRestaurantListCreateAPIView(APIView):
         username = request.query_params.get("username")
         if username:
             target_user = get_object_or_404(User, username__iexact=username)
+            if not can_view_profile(request.user, target_user):
+                return Response(
+                    {"detail": "This profile is private."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
         else:
             target_user = request.user
 
@@ -394,11 +776,18 @@ class VisitedRestaurantListCreateAPIView(APIView):
         username = request.query_params.get("username")
         if username:
             target_user = get_object_or_404(User, username__iexact=username)
+            if not can_view_profile(request.user, target_user):
+                return Response(
+                    {"detail": "This profile is private."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
         else:
             target_user = request.user
 
         visited_restaurants = (
-            VisitedRestaurant.objects.select_related("restaurant", "restaurant__category")
+            VisitedRestaurant.objects.select_related(
+                "restaurant", "restaurant__category"
+            )
             .filter(user=target_user)
             .order_by("-visit_date", "-updated_at", "-id")
         )

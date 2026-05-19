@@ -18,11 +18,27 @@ export type Restaurant = {
   description: string;
   menuHighlights: string[];
   whatsapp: string;
+  ownerId?: string;
+  ownerUsername?: string;
+  menuPdfUrl?: string;
+  reviewsCount?: number;
+  averageRating?: number | null;
+  branches?: RestaurantBranch[];
+};
+
+export type RestaurantBranch = {
+  id: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  isPrimary: boolean;
 };
 
 export type Review = {
   id: string;
   restaurantId: string;
+  restaurantName?: string;
   username: string;
   avatar: string;
   rating: number;
@@ -60,7 +76,11 @@ export type AppUser = {
   username: string;
   name: string;
   email?: string;
+  accountType?: "user" | "restaurant";
+  isRestaurantAccount?: boolean;
   avatarUrl?: string;
+  gender?: "male" | "female" | "other" | "no_say";
+  isPublic?: boolean;
   bio: string;
   location: string;
   followers: number;
@@ -68,6 +88,7 @@ export type AppUser = {
   posts: number;
   savedCount: number;
   visitedCount: number;
+  followStatus?: "following" | "requested" | "none";
 };
 
 export type VisitedRestaurant = {
@@ -96,4 +117,14 @@ export type HomeFilters = {
   category: string | null;
   minRating: number | null;
   maxDistanceKm: number | null;
+};
+
+export type RestaurantWriteInput = {
+  name: string;
+  category?: number | null;
+  image?: string;
+  location: string;
+  description: string;
+  whatsapp?: string;
+  rating?: number;
 };

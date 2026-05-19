@@ -12,10 +12,11 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 
+import { colors, radii, spacing } from "@/src/theme/designTokens";
 import { useAuth } from "@/src/context/auth-context";
-import {
-  getRegistrationFailedErrorMessage,
-  validateRegistrationCredentials,
+import { 
+  validateRegistrationCredentials, 
+  getRegistrationFailedErrorMessage 
 } from "@/src/services/authService";
 
 export default function RegisterScreen() {
@@ -24,6 +25,7 @@ export default function RegisterScreen() {
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [accountType, setAccountType] = useState<"user" | "restaurant">("user");
   const [usernameError, setUsernameError] = useState<string | null>(null);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
@@ -48,7 +50,7 @@ export default function RegisterScreen() {
     }
 
     try {
-      await register({ username, email, password });
+      await register({ username, email, password, accountType });
       router.replace("/(tabs)/home");
     } catch (error) {
       const message = extractErrorMessage(error);
@@ -79,9 +81,48 @@ export default function RegisterScreen() {
           </Text>
 
           <View style={styles.formGroup}>
+            <Text style={styles.label}>Tipo de cuenta</Text>
+            <View style={styles.accountTypeRow}>
+              <Pressable
+                style={[
+                  styles.accountTypeButton,
+                  accountType === "user" ? styles.accountTypeButtonActive : null,
+                ]}
+                onPress={() => setAccountType("user")}
+              >
+                <Text
+                  style={[
+                    styles.accountTypeText,
+                    accountType === "user" ? styles.accountTypeTextActive : null,
+                  ]}
+                >
+                  Usuario
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.accountTypeButton,
+                  accountType === "restaurant" ? styles.accountTypeButtonActive : null,
+                ]}
+                onPress={() => setAccountType("restaurant")}
+              >
+                <Text
+                  style={[
+                    styles.accountTypeText,
+                    accountType === "restaurant" ? styles.accountTypeTextActive : null,
+                  ]}
+                >
+                  Restaurante
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+
+          <View style={styles.formGroup}>
             <Text style={styles.label}>Username</Text>
             <TextInput
               placeholder="your_username"
+              placeholderTextColor={colors.placeholder}
               value={username}
               onChangeText={setUsername}
               autoCapitalize="none"
@@ -95,6 +136,7 @@ export default function RegisterScreen() {
             <Text style={styles.label}>Email</Text>
             <TextInput
               placeholder="name@example.com"
+              placeholderTextColor={colors.placeholder}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
@@ -109,6 +151,7 @@ export default function RegisterScreen() {
             <Text style={styles.label}>Password</Text>
             <TextInput
               placeholder="At least 8 chars, 1 uppercase and 1 number"
+              placeholderTextColor={colors.placeholder}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -127,7 +170,7 @@ export default function RegisterScreen() {
             disabled={isSubmitDisabled}
           >
             {isRegistering ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color={colors.background} />
             ) : (
               <Text style={styles.registerButtonText}>Create Account</Text>
             )}
@@ -149,17 +192,17 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#FFF4F0",
+    backgroundColor: colors.surfaceAlt,
   },
   container: {
     flex: 1,
     justifyContent: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: spacing.xl,
   },
   card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    padding: 20,
+    backgroundColor: colors.background,
+    borderRadius: radii.xl,
+    padding: spacing.xl,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.08,
@@ -169,45 +212,70 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: "800",
-    color: "#2D3436",
+    color: colors.text,
   },
   subtitle: {
-    marginTop: 6,
-    marginBottom: 20,
+    marginTop: spacing.xs,
+    marginBottom: spacing.xl,
     fontSize: 14,
-    color: "#636E72",
+    color: colors.textMuted,
   },
   formGroup: {
-    marginBottom: 14,
+    marginBottom: spacing.lg,
+  },
+  accountTypeRow: {
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  accountTypeButton: {
+    flex: 1,
+    height: 42,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: colors.surface,
+  },
+  accountTypeButtonActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.surfaceAlt,
+  },
+  accountTypeText: {
+    color: colors.textMuted,
+    fontWeight: "600",
+  },
+  accountTypeTextActive: {
+    color: colors.primary,
   },
   label: {
-    marginBottom: 6,
-    color: "#2D3436",
+    marginBottom: spacing.xs,
+    color: colors.text,
     fontWeight: "600",
   },
   input: {
     height: 46,
     borderWidth: 1,
-    borderColor: "#DFE6E9",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    backgroundColor: "#FBFCFD",
-    color: "#2D3436",
+    borderColor: colors.borderSoft,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.input,
+    color: colors.text,
   },
   inputError: {
-    borderColor: "#D63031",
+    borderColor: colors.danger,
   },
   errorText: {
     marginTop: 6,
-    color: "#D63031",
+    color: colors.danger,
     fontWeight: "500",
     fontSize: 12,
   },
   registerButton: {
-    marginTop: 8,
+    marginTop: spacing.sm,
     height: 48,
-    borderRadius: 12,
-    backgroundColor: "#FF6B35",
+    borderRadius: radii.md,
+    backgroundColor: colors.primary,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -215,25 +283,26 @@ const styles = StyleSheet.create({
     opacity: 0.55,
   },
   registerButtonText: {
-    color: "#FFFFFF",
+    color: colors.background,
     fontWeight: "700",
     fontSize: 16,
   },
   linkButton: {
-    marginTop: 14,
+    marginTop: spacing.lg,
     alignItems: "center",
   },
   linkText: {
-    color: "#636E72",
+    color: colors.textMuted,
     fontWeight: "600",
   },
   helperText: {
-    marginTop: 14,
+    marginTop: spacing.lg,
     fontSize: 12,
-    color: "#98A0A6",
+    color: colors.textFaint,
     textAlign: "center",
   },
 });
+
 
 function extractErrorMessage(error: unknown) {
   if (error instanceof Error && error.message.trim()) {

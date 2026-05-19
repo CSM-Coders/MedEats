@@ -372,9 +372,13 @@ def seed_data():
             },
         )
         if created:
-            print(f"✅ Review creada: {review.user.username} -> {review.restaurant.name}")
+            print(
+                f"✅ Review creada: {review.user.username} -> {review.restaurant.name}"
+            )
         else:
-            print(f"🔄 Review actualizada: {review.user.username} -> {review.restaurant.name}")
+            print(
+                f"🔄 Review actualizada: {review.user.username} -> {review.restaurant.name}"
+            )
 
     # ============================================================
     # POSTS DEMO PARA FEED (PRESENTACIÓN)

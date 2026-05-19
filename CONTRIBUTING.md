@@ -52,3 +52,20 @@ Every PR must include:
 5. Address review comments.
 6. Merge when CI is green and AC are validated.
 
+## 7) Desarrollo local (arranque estándar)
+
+Para que todos los desarrolladores arranquen el proyecto de forma consistente, añadimos un script unificado en la raíz del repo.
+
+- Asegúrate de usar Node 22.x: `nvm use` (el proyecto incluye `.nvmrc`).
+- Levanta backend + app móvil con una sola orden desde la raíz:
+
+```bash
+cd /path/to/MedEats
+nvm use
+npm run dev
+```
+
+Este comando valida la versión de Node, arranca el backend Django en `0.0.0.0:8000` y luego inicia Expo con caché limpia.
+
+Si prefieres iniciar los servicios por separado, la guía de `README.md` y `docs/RUNBOOK_OPERATIVO.md` describen el flujo manual.
+

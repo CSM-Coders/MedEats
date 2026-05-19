@@ -1,8 +1,16 @@
 from django.urls import path
 from .views import (
+    AdminRestaurantDetailAPIView,
+    AdminRestaurantListCreateAPIView,
     RestaurantListAPIView,
     CategoryListAPIView,
     RestaurantDetailAPIView,
+    OwnerRestaurantBranchDetailAPIView,
+    OwnerRestaurantBranchListCreateAPIView,
+    OwnerRestaurantDetailAPIView,
+    OwnerRestaurantListCreateAPIView,
+    OwnerRestaurantMenuUploadAPIView,
+    OwnerRestaurantReviewsAPIView,
     FoodieAssistantAPIView,
     PostListCreateAPIView,
     PostDetailAPIView,
@@ -10,6 +18,8 @@ from .views import (
     PostLikeAPIView,
     ReviewListCreateAPIView,
     ReviewDetailAPIView,
+    AnalyticsOverviewAPIView,
+    AnalyticsDashboardView,
     SavedRestaurantListCreateAPIView,
     SavedRestaurantDetailAPIView,
     VisitedRestaurantListCreateAPIView,
@@ -24,6 +34,48 @@ from .views import (
 # ============================================================
 
 urlpatterns = [
+    # Admin management endpoints (FR19, FR20)
+    path(
+        "admin/restaurants/",
+        AdminRestaurantListCreateAPIView.as_view(),
+        name="admin-restaurant-list-create",
+    ),
+    path(
+        "admin/restaurants/<int:pk>/",
+        AdminRestaurantDetailAPIView.as_view(),
+        name="admin-restaurant-detail",
+    ),
+    # Restaurant account endpoints
+    path(
+        "owner/restaurants/",
+        OwnerRestaurantListCreateAPIView.as_view(),
+        name="owner-restaurant-list-create",
+    ),
+    path(
+        "owner/restaurants/<int:pk>/",
+        OwnerRestaurantDetailAPIView.as_view(),
+        name="owner-restaurant-detail",
+    ),
+    path(
+        "owner/restaurants/<int:restaurant_id>/branches/",
+        OwnerRestaurantBranchListCreateAPIView.as_view(),
+        name="owner-restaurant-branch-list-create",
+    ),
+    path(
+        "owner/branches/<int:pk>/",
+        OwnerRestaurantBranchDetailAPIView.as_view(),
+        name="owner-restaurant-branch-detail",
+    ),
+    path(
+        "owner/restaurants/<int:restaurant_id>/menu/",
+        OwnerRestaurantMenuUploadAPIView.as_view(),
+        name="owner-restaurant-menu-upload",
+    ),
+    path(
+        "owner/reviews/",
+        OwnerRestaurantReviewsAPIView.as_view(),
+        name="owner-restaurant-reviews",
+    ),
     # Si React Native hace un GET a http://localhost:8000/api/restaurants/
     # Se disparará nuestra lista completa de restaurantes convertida a JSON.
     path("restaurants/", RestaurantListAPIView.as_view(), name="restaurant-list"),
@@ -62,4 +114,16 @@ urlpatterns = [
         name="post-comment-list-create",
     ),
     path("posts/<int:post_id>/like/", PostLikeAPIView.as_view(), name="post-like"),
+    # Analytics overview for admins
+    path(
+        "analytics/overview/",
+        AnalyticsOverviewAPIView.as_view(),
+        name="analytics-overview",
+    ),
+    # Admin dashboard that renders charts (requires staff login)
+    path(
+        "admin/analytics/dashboard/",
+        AnalyticsDashboardView.as_view(),
+        name="analytics-dashboard",
+    ),
 ]

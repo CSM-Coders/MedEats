@@ -92,8 +92,11 @@ export const currentUser: AppUser = {
   name: "Sofía Martínez",
   bio: "Descubriendo sabores por toda Medellín.",
   location: "Medellín, Colombia",
-  followers: 1200,
-  following: 348,
+  followers: 124,
+  following: 89,
+  posts: 0,
+  savedCount: 0,
+  visitedCount: 0,
 };
 
 export const initialPosts: Post[] = [

@@ -1,0 +1,13 @@
+{
+  "name": "medeats",
+  "private": true,
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "dev": "bash ./scripts/dev.sh",
+    "start": "npm run dev",
+    "dev:backend": "cd med-eats-backend && ./.venv/bin/python manage.py runserver 0.0.0.0:8000",
+    "dev:mobile": "cd med-eats-mobile && npm run start:clean"
+  }
+}

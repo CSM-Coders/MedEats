@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams , router } from "expo-router";
 import { View, Text, StyleSheet, Image, Pressable, FlatList, ActivityIndicator, Dimensions, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -6,9 +6,15 @@ import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/src/context/auth-context";
 import { fetchUserProfileByUsername, followUser, unfollowUser } from "@/src/services/userApi";
 import { fetchUserPosts } from "@/src/services/postApi";
-import { fetchSavedRestaurants, fetchVisitedRestaurants } from "@/src/services/restaurantApi";
-import { AppUser, Post, Restaurant } from "@/src/models/domain";
-import { router } from "expo-router";
+import {
+  fetchSavedRestaurants,
+  fetchVisitedRestaurants,
+} from "../../src/services/userCollectionsApi";
+import { AppUser, Post, SavedRestaurantRecord, VisitedRestaurantRecord } from "../../src/models/domain";
+import { colors, radii } from "../../src/theme/designTokens";
+import ProfileAvatar from "@/src/components/ProfileAvatar";
+
+type TabType = "posts" | "saved" | "visited";
 
 export default function UserProfileScreen() {
   const { username } = useLocalSearchParams<{ username: string }>();
@@ -17,26 +23,59 @@ export default function UserProfileScreen() {
   
   const [userProfile, setUserProfile] = useState<(AppUser & { isFollowing: boolean }) | null>(null);
   const [userPosts, setUserPosts] = useState<Post[]>([]);
-  const [savedRestaurants, setSavedRestaurants] = useState<Restaurant[]>([]);
-  const [visitedRestaurants, setVisitedRestaurants] = useState<Restaurant[]>([]);
+  const [savedRestaurants, setSavedRestaurants] = useState<SavedRestaurantRecord[]>([]);
+  const [visitedRestaurants, setVisitedRestaurants] = useState<VisitedRestaurantRecord[]>([]);
+  const [activeTab, setActiveTab] = useState<TabType>("posts");
   const [loading, setLoading] = useState(true);
   const [interactionLoading, setInteractionLoading] = useState(false);
+  const [isPrivateProfile, setIsPrivateProfile] = useState(false);
 
   const loadProfile = useCallback(async () => {
     const accessToken = await getAccessToken();
     if (!accessToken || !username) return;
 
     try {
-      const [profileData, postsData, savedData, visitedData] = await Promise.all([
-        fetchUserProfileByUsername(accessToken, username),
-        fetchUserPosts(accessToken, username),
-        fetchSavedRestaurants(accessToken, username),
-        fetchVisitedRestaurants(accessToken, username),
-      ]);
+      setIsPrivateProfile(false);
+      
+      // Cargar perfil de usuario
+      const profileData = await fetchUserProfileByUsername(accessToken, username);
       setUserProfile(profileData);
-      setUserPosts(postsData);
-      setSavedRestaurants(savedData);
-      setVisitedRestaurants(visitedData);
+      
+      const isMe = currentUser?.username === profileData.username;
+      const canViewContent = profileData.isPublic !== false || profileData.followStatus === "following" || isMe;
+
+      if (canViewContent) {
+        // Cargar posts, pero no fallar si hay error
+        try {
+          const postsData = await fetchUserPosts(accessToken, username);
+          setUserPosts(postsData);
+        } catch (postsError) {
+          console.error("Error loading user posts:", postsError);
+          setUserPosts([]);
+        }
+        
+        // Cargar restaurantes guardados, pero no fallar si hay error
+        try {
+          const savedData = await fetchSavedRestaurants(accessToken, username);
+          setSavedRestaurants(savedData);
+        } catch (savedError) {
+          console.error("Error loading saved restaurants:", savedError);
+          setSavedRestaurants([]);
+        }
+        
+        // Cargar restaurantes visitados, pero no fallar si hay error
+        try {
+          const visitedData = await fetchVisitedRestaurants(accessToken, username);
+          setVisitedRestaurants(visitedData);
+        } catch (visitedError) {
+          console.error("Error loading visited restaurants:", visitedError);
+          setVisitedRestaurants([]);
+        }
+      } else {
+        setUserPosts([]);
+        setSavedRestaurants([]);
+        setVisitedRestaurants([]);
+      }
     } catch (error) {
       console.error("Error loading profile:", error);
     } finally {
@@ -54,7 +93,8 @@ export default function UserProfileScreen() {
 
     setInteractionLoading(true);
     try {
-      if (userProfile.isFollowing) {
+      const isFollowingOrRequested = userProfile.followStatus === "following" || userProfile.followStatus === "requested";
+      if (isFollowingOrRequested) {
         await unfollowUser(accessToken, userProfile.username);
       } else {
         await followUser(accessToken, userProfile.username);
@@ -71,7 +111,7 @@ export default function UserProfileScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FF6B35" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
   }
@@ -85,29 +125,25 @@ export default function UserProfileScreen() {
   }
 
   const isMe = currentUser?.username === userProfile.username;
+  const isRestaurantAccount = currentUser?.isRestaurantAccount || currentUser?.accountType === "restaurant";
+  const showPrivateLock = userProfile.isPublic === false && userProfile.followStatus !== "following" && !isMe;
 
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#2D3436" />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>@{userProfile.username}</Text>
-        <Ionicons name="notifications-outline" size={24} color="#2D3436" />
+        <View style={{ width: 24 }} />
       </View>
 
       <ScrollView style={{ flex: 1 }} bounces={true}>
         {/* Profile Info */}
         <View style={styles.profileBlock}>
           <View style={styles.avatarContainer}>
-            {userProfile.avatarUrl ? (
-              <Image source={{ uri: userProfile.avatarUrl }} style={styles.avatarImage} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarText}>{userProfile.name.charAt(0).toUpperCase()}</Text>
-              </View>
-            )}
+            <ProfileAvatar uri={userProfile.avatarUrl} size={80} />
           </View>
 
           <View style={styles.statsRow}>
@@ -131,7 +167,7 @@ export default function UserProfileScreen() {
           {userProfile.bio ? <Text style={styles.bio}>{userProfile.bio}</Text> : null}
           {userProfile.location ? (
             <View style={styles.locationRow}>
-              <Ionicons name="location-outline" size={14} color="#636E72" />
+              <Ionicons name="location-outline" size={14} color={colors.textMuted} />
               <Text style={styles.location}> {userProfile.location}</Text>
             </View>
           ) : null}
@@ -140,121 +176,157 @@ export default function UserProfileScreen() {
         {/* Action Buttons */}
         <View style={styles.actionsRow}>
           {!isMe ? (
-            <>
-              <Pressable 
-                style={[
-                  styles.primaryButton, 
-                  userProfile.isFollowing && styles.secondaryButton
-                ]} 
-                onPress={handleFollowToggle}
-                disabled={interactionLoading}
-              >
-                {interactionLoading ? (
-                  <ActivityIndicator color={userProfile.isFollowing ? "#2D3436" : "#FFFFFF"} />
-                ) : (
-                  <Text style={[
-                    styles.primaryButtonText,
-                    userProfile.isFollowing && styles.secondaryButtonText
-                  ]}>
-                    {userProfile.isFollowing ? "Following" : "Follow"}
-                  </Text>
-                )}
-              </Pressable>
-              <Pressable style={styles.secondaryButton}>
-                <Text style={styles.secondaryButtonText}>Message</Text>
-              </Pressable>
-              <Pressable style={styles.iconButton}>
-                <Ionicons name="person-add-outline" size={20} color="#2D3436" />
-              </Pressable>
-            </>
-          ) : (
-            <Pressable style={styles.secondaryButton} onPress={() => router.push("/profile")}>
-              <Text style={styles.secondaryButtonText}>Edit Profile</Text>
-            </Pressable>
-          )}
-        </View>
-
-        {/* Highlights Section (Favorites & Visited) */}
-        <ScrollView 
-          horizontal 
-          showsHorizontalScrollIndicator={false} 
-          style={styles.highlightsContainer}
-          contentContainerStyle={styles.highlightsContent}
-        >
-          {/* Favorites Highlight */}
-          {savedRestaurants.length > 0 && (
-            <View style={styles.highlightItem}>
-              <View style={[styles.highlightCircle, { borderColor: "#FF6B35" }]}>
-                <Ionicons name="heart" size={28} color="#FF6B35" />
-              </View>
-              <Text style={styles.highlightLabel}>Favorites</Text>
-            </View>
-          )}
-          
-          {/* Visited Highlight */}
-          {visitedRestaurants.length > 0 && (
-            <View style={styles.highlightItem}>
-              <View style={[styles.highlightCircle, { borderColor: "#2D3436" }]}>
-                <Ionicons name="restaurant" size={28} color="#2D3436" />
-              </View>
-              <Text style={styles.highlightLabel}>Visited</Text>
-            </View>
-          )}
-
-          {/* Individual Restaurant Highlights (Mocking some) */}
-          {visitedRestaurants.slice(0, 3).map((rest, index) => (
             <Pressable 
-              key={index} 
-              style={styles.highlightItem}
-              onPress={() => router.push(`/restaurant/${rest.id}`)}
+              style={[
+                styles.primaryButton, 
+                (userProfile.followStatus === "following" || userProfile.followStatus === "requested") && styles.secondaryButton
+              ]} 
+              onPress={handleFollowToggle}
+              disabled={interactionLoading}
             >
-              <View style={styles.highlightCircle}>
-                <Image source={{ uri: rest.image }} style={styles.highlightImage} />
-              </View>
-              <Text style={styles.highlightLabel} numberOfLines={1}>{rest.name.split(" ")[0]}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-
-        {/* Tabs Bar */}
-        <View style={styles.tabsBar}>
-          <View style={[styles.tabItem, styles.activeTab]}>
-            <Ionicons name="grid" size={24} color="#2D3436" />
-          </View>
-          <View style={styles.tabItem}>
-            <Ionicons name="bookmark-outline" size={24} color="#636E72" />
-          </View>
-          <View style={styles.tabItem}>
-            <Ionicons name="person-outline" size={24} color="#636E72" />
-          </View>
-        </View>
-
-        {/* Grid de Posts */}
-        <View style={styles.gridContainer}>
-          {userPosts.length === 0 ? (
-            <View style={styles.emptyFeed}>
-              <Ionicons name="images-outline" size={48} color="#B2BEC3" />
-              <Text style={styles.emptyFeedText}>No posts yet</Text>
-            </View>
-          ) : (
-            <FlatList
-              data={userPosts}
-              keyExtractor={(item) => item.id}
-              numColumns={3}
-              scrollEnabled={false}
-              renderItem={({ item }) => (
-                <Pressable
-                  style={styles.gridItem}
-                  onPress={() => router.push(`/post/${item.id}`)}
-                >
-                  <Image source={{ uri: item.image }} style={styles.gridImage} />
-                  {/* Icon for carousel if we had multiple images */}
-                  {/* <View style={styles.gridIcon}><Ionicons name="copy" size={16} color="white" /></View> */}
-                </Pressable>
+              {interactionLoading ? (
+                <ActivityIndicator color={(userProfile.followStatus === "following" || userProfile.followStatus === "requested") ? colors.text : colors.background} />
+              ) : (
+                <Text style={[
+                  styles.primaryButtonText,
+                  (userProfile.followStatus === "following" || userProfile.followStatus === "requested") && styles.secondaryButtonText
+                ]}>
+                  {userProfile.followStatus === "following" 
+                    ? "Siguiendo" 
+                    : userProfile.followStatus === "requested" 
+                    ? "Solicitado" 
+                    : "Seguir"}
+                </Text>
               )}
-            />
+            </Pressable>
+          ) : (
+            <Pressable
+              style={styles.secondaryButton}
+              onPress={() => router.push(isRestaurantAccount ? "/my-restaurant" : "/edit-profile")}
+            >
+              <Text style={styles.secondaryButtonText}>
+                {isRestaurantAccount ? "Mi restaurante" : "Editar perfil"}
+              </Text>
+            </Pressable>
           )}
         </View>
+
+        {showPrivateLock ? (
+          <View style={styles.premiumPrivateCard}>
+            <View style={styles.lockCircle}>
+              <Ionicons name="lock-closed" size={30} color={colors.primary} />
+            </View>
+            <Text style={styles.privateTitle}>Este perfil es privado</Text>
+            <Text style={styles.privateText}>
+              La cuenta de @{userProfile.username} es privada. Sigue la cuenta para ver sus posts y actividad.
+            </Text>
+          </View>
+        ) : (
+          <>
+            {/* Tabs Bar */}
+            <View style={styles.tabsBar}>
+              <Pressable style={[styles.tabItem, activeTab === "posts" && styles.activeTab]} onPress={() => setActiveTab("posts")}>
+                <Ionicons name="grid" size={24} color={colors.text} />
+              </Pressable>
+              <Pressable style={[styles.tabItem, activeTab === "saved" && styles.activeTab]} onPress={() => setActiveTab("saved")}>
+                <Ionicons name="bookmark-outline" size={24} color={colors.textMuted} />
+              </Pressable>
+              <Pressable style={[styles.tabItem, activeTab === "visited" && styles.activeTab]} onPress={() => setActiveTab("visited")}>
+                <Ionicons name="person-outline" size={24} color={colors.textMuted} />
+              </Pressable>
+            </View>
+
+        {activeTab === "posts" && (
+          <View style={styles.gridContainer}>
+            {userPosts.length === 0 ? (
+              <View style={styles.emptyFeed}>
+                <Ionicons name="images-outline" size={48} color={colors.placeholder} />
+                <Text style={styles.emptyFeedText}>No posts yet</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={userPosts}
+                keyExtractor={(item) => item.id}
+                numColumns={3}
+                scrollEnabled={false}
+                renderItem={({ item }) => (
+                  <Pressable
+                    style={styles.gridItem}
+                    onPress={() => router.push(`/post/${item.id}`)}
+                  >
+                    <Image source={{ uri: item.image }} style={styles.gridImage} />
+                  </Pressable>
+                )}
+              />
+            )}
+          </View>
+        )}
+
+        {activeTab === "saved" && (
+          <View style={styles.collectionSection}>
+            {savedRestaurants.length === 0 ? (
+              <View style={styles.emptyFeed}>
+                <Ionicons name="bookmark-outline" size={48} color={colors.placeholder} />
+                <Text style={styles.emptyFeedText}>No saved restaurants yet</Text>
+              </View>
+            ) : (
+              savedRestaurants.map((record) => {
+                const restaurant = record.restaurant;
+                if (!restaurant) return null;
+
+                return (
+                  <Pressable
+                    key={record.id}
+                    style={styles.restaurantCard}
+                    onPress={() => router.push(`/restaurant/${restaurant.id}`)}
+                  >
+                    <Image source={{ uri: restaurant.image }} style={styles.restaurantImage} />
+                    <View style={styles.restaurantInfo}>
+                      <Text style={styles.restaurantName} numberOfLines={1}>{restaurant.name}</Text>
+                      <Text style={styles.restaurantMeta} numberOfLines={1}>{restaurant.category}</Text>
+                    </View>
+                    <Ionicons name="bookmark" size={20} color={colors.primary} />
+                  </Pressable>
+                );
+              })
+            )}
+          </View>
+        )}
+
+        {activeTab === "visited" && (
+          <View style={styles.collectionSection}>
+            {visitedRestaurants.length === 0 ? (
+              <View style={styles.emptyFeed}>
+                <Ionicons name="restaurant-outline" size={48} color={colors.placeholder} />
+                <Text style={styles.emptyFeedText}>No visited restaurants yet</Text>
+              </View>
+            ) : (
+              visitedRestaurants.map((record) => {
+                const restaurant = record.restaurant;
+                if (!restaurant) return null;
+
+                return (
+                  <Pressable
+                    key={record.id}
+                    style={styles.restaurantCard}
+                    onPress={() => router.push(`/restaurant/${restaurant.id}`)}
+                  >
+                    <Image source={{ uri: restaurant.image }} style={styles.restaurantImage} />
+                    <View style={styles.restaurantInfo}>
+                      <Text style={styles.restaurantName} numberOfLines={1}>{restaurant.name}</Text>
+                      <Text style={styles.restaurantMeta} numberOfLines={1}>
+                        {restaurant.category} · {record.rating}★
+                      </Text>
+                    </View>
+                    <Ionicons name="restaurant" size={20} color={colors.text} />
+                  </Pressable>
+                );
+              })
+            )}
+          </View>
+        )}
+          </>
+        )}
       </ScrollView>
     </View>
   );
@@ -265,10 +337,24 @@ const screenWidth = Dimensions.get("window").width;
 const itemSize = screenWidth / numColumns;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFFFFF" },
+  container: { flex: 1, backgroundColor: colors.background },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   errorContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
-  errorText: { color: "#636E72", fontSize: 16 },
+  errorText: { color: colors.textMuted, fontSize: 16 },
+  privateContainer: { flex: 1, backgroundColor: colors.background },
+  privateCard: {
+    flex: 1,
+    marginHorizontal: 16,
+    marginTop: 48,
+    borderRadius: radii.xl,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    gap: 12,
+  },
+  privateTitle: { fontSize: 22, fontWeight: "800", color: colors.text },
+  privateText: { color: colors.textMuted, textAlign: "center", lineHeight: 22 },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -277,7 +363,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   backButton: { padding: 4 },
-  headerTitle: { fontSize: 18, fontWeight: "700", color: "#2D3436" },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: colors.text },
   profileBlock: {
     flexDirection: "row",
     alignItems: "center",
@@ -291,29 +377,20 @@ const styles = StyleSheet.create({
     borderRadius: 43,
     padding: 3,
     borderWidth: 1,
-    borderColor: "#E1E1E1",
+    borderColor: colors.borderSoft,
     alignItems: "center",
     justifyContent: "center",
   },
   avatarImage: { width: "100%", height: "100%", borderRadius: 40 },
-  avatarPlaceholder: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 40,
-    backgroundColor: "#F3F4F6",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: { color: "#2D3436", fontSize: 32, fontWeight: "700" },
   statsRow: { flexDirection: "row", flex: 1, justifyContent: "space-around", marginLeft: 10 },
   statItem: { alignItems: "center" },
-  statValue: { fontSize: 18, fontWeight: "700", color: "#2D3436" },
-  statLabel: { color: "#2D3436", fontSize: 13 },
+  statValue: { fontSize: 18, fontWeight: "700", color: colors.text },
+  statLabel: { color: colors.text, fontSize: 13 },
   bioBlock: { paddingHorizontal: 16, paddingTop: 12 },
-  name: { fontSize: 15, fontWeight: "700", color: "#2D3436" },
-  bio: { color: "#2D3436", marginTop: 2, fontSize: 14, lineHeight: 18 },
+  name: { fontSize: 15, fontWeight: "700", color: colors.text },
+  bio: { color: colors.text, marginTop: 2, fontSize: 14, lineHeight: 18 },
   locationRow: { flexDirection: "row", alignItems: "center", marginTop: 4 },
-  location: { color: "#636E72", fontSize: 13 },
+  location: { color: colors.textMuted, fontSize: 13 },
   actionsRow: { 
     flexDirection: "row", 
     paddingHorizontal: 16, 
@@ -322,51 +399,35 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     flex: 1,
-    backgroundColor: "#0095F6", // Instagram Blue
+    backgroundColor: colors.primary,
     height: 34,
-    borderRadius: 8,
+    borderRadius: radii.sm,
     justifyContent: "center",
     alignItems: "center",
   },
-  primaryButtonText: { color: "#FFFFFF", fontWeight: "700", fontSize: 14 },
+  primaryButtonText: { color: colors.background, fontWeight: "700", fontSize: 14 },
   secondaryButton: {
     flex: 1,
-    backgroundColor: "#EFEFEF",
+    backgroundColor: colors.chip,
     height: 34,
-    borderRadius: 8,
+    borderRadius: radii.sm,
     justifyContent: "center",
     alignItems: "center",
   },
-  secondaryButtonText: { color: "#2D3436", fontWeight: "700", fontSize: 14 },
+  secondaryButtonText: { color: colors.text, fontWeight: "700", fontSize: 14 },
   iconButton: {
     width: 34,
     height: 34,
-    backgroundColor: "#EFEFEF",
-    borderRadius: 8,
+    backgroundColor: colors.chip,
+    borderRadius: radii.sm,
     justifyContent: "center",
     alignItems: "center",
   },
-  highlightsContainer: { marginTop: 20, paddingLeft: 16 },
-  highlightsContent: { paddingRight: 32, gap: 18 },
-  highlightItem: { alignItems: "center", gap: 6 },
-  highlightCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    borderWidth: 1,
-    borderColor: "#E1E1E1",
-    padding: 3,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FFFFFF"
-  },
-  highlightImage: { width: "100%", height: "100%", borderRadius: 30 },
-  highlightLabel: { fontSize: 12, color: "#2D3436", maxWidth: 70 },
   tabsBar: {
     flexDirection: "row",
     marginTop: 24,
     borderTopWidth: 1,
-    borderTopColor: "#F3F4F6",
+    borderTopColor: colors.border,
   },
   tabItem: {
     flex: 1,
@@ -376,8 +437,21 @@ const styles = StyleSheet.create({
   },
   activeTab: {
     borderTopWidth: 2,
-    borderTopColor: "#2D3436",
+    borderTopColor: colors.text,
   },
+  collectionSection: { paddingHorizontal: 16, paddingTop: 12, gap: 10 },
+  restaurantCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 10,
+    borderRadius: radii.md,
+    backgroundColor: colors.surface,
+  },
+  restaurantImage: { width: 58, height: 58, borderRadius: 12, backgroundColor: colors.chip },
+  restaurantInfo: { flex: 1 },
+  restaurantName: { fontSize: 14, fontWeight: "700", color: colors.text },
+  restaurantMeta: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   emptyFeed: {
     flex: 1,
     justifyContent: "center",
@@ -385,8 +459,33 @@ const styles = StyleSheet.create({
     marginTop: 40,
     gap: 12,
   },
-  emptyFeedText: { color: "#B2BEC3", fontSize: 16 },
+  emptyFeedText: { color: colors.placeholder, fontSize: 16 },
   gridContainer: { flex: 1 },
   gridItem: { width: itemSize, height: itemSize, padding: 1 },
-  gridImage: { flex: 1, backgroundColor: "#F3F4F6" },
+  gridImage: { flex: 1, backgroundColor: colors.chip },
+  premiumPrivateCard: {
+    marginHorizontal: 16,
+    marginTop: 24,
+    marginBottom: 48,
+    borderRadius: radii.xl,
+    backgroundColor: colors.surfaceAlt,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 40,
+    paddingHorizontal: 24,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+  },
+  lockCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.surface,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    marginBottom: 8,
+  },
 });

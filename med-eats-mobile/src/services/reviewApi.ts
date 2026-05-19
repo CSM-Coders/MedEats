@@ -4,6 +4,7 @@ import { Review } from "@/src/models/domain";
 type ReviewApiItem = {
   id: number | string;
   username: string;
+  restaurant_name?: string;
   avatar: string;
   rating: string | number;
   comment: string;
@@ -15,8 +16,15 @@ function mapReview(item: ReviewApiItem, restaurantId: string): Review {
   return {
     id: String(item.id),
     restaurantId: restaurantId,
+    restaurantName: item.restaurant_name,
     username: item.username,
-    avatar: item.avatar,
+    avatar: (() => {
+      const raw = item.avatar || "";
+      if (!raw) return "";
+      if (/^https?:\/\//i.test(raw)) return raw;
+      // relative path -> prefix API_BASE_URL
+      return raw.startsWith("/") ? `${API_BASE_URL}${raw}` : `${API_BASE_URL}/${raw}`;
+    })(),
     rating: Number(item.rating) || 0,
     comment: item.comment,
     date: item.created_at?.slice(0, 10) || "",

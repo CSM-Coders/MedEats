@@ -10,10 +10,18 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npm install
    ```
 
-2. Start the app
+2. Use the recommended Node version
 
    ```bash
-   npx expo start
+   nvm use
+   ```
+
+   This project is pinned to Node 22 for Expo stability.
+
+3. Start the app
+
+   ```bash
+   npm run start:clean
    ```
 
 In the output, you'll find options to open the app in a
@@ -24,6 +32,17 @@ In the output, you'll find options to open the app in a
 - [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
 
 You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+
+## Stable local startup
+
+If Expo shows a connection error or Metro gets stuck, use this order:
+
+1. Stop any previous Expo process.
+2. Run `nvm use` so Node 22 is active.
+3. Start with `npm run start:clean`.
+4. Open the app again from Expo Go or the simulator.
+
+If you are using a physical iPhone, make sure it is on the same Wi-Fi network as the computer running Expo.
 
 ## Get a fresh project
 

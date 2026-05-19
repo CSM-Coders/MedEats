@@ -9,14 +9,14 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useCallback } from "react";
+import { useCallback , useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
-import { FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFeed } from "@/src/context/feed-context";
 import PostCommentModal from "@/src/components/PostCommentModal";
-import { useState } from "react";
 import { useAuth } from "@/src/context/auth-context";
+import { colors, radii, spacing } from "@/src/theme/designTokens";
 
 function stars(rating: number) {
   return [1, 2, 3, 4, 5].map((star) => (
@@ -24,7 +24,7 @@ function stars(rating: number) {
       key={star}
       name={star <= Math.round(rating) ? "star" : "star-outline"}
       size={13}
-      color="#FF6B35"
+      color={colors.primary}
     />
   ));
 }
@@ -58,17 +58,18 @@ export default function FeedScreen() {
   if (isLoadingPosts) {
     return (
       <View style={[styles.container, { alignItems: "center", justifyContent: "center" }]}>
-        <Text style={styles.subtitle}>Loading feed...</Text>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.subtitle, { marginTop: spacing.sm }]}>Loading feed...</Text>
       </View>
     );
   }
 
   if (feedError) {
     return (
-      <View style={[styles.container, { alignItems: "center", justifyContent: "center", paddingHorizontal: 24 }]}> 
+      <View style={[styles.container, { alignItems: "center", justifyContent: "center", paddingHorizontal: spacing.xl }]}> 
         <Text style={styles.title}>Feed unavailable</Text>
-        <Text style={[styles.subtitle, { textAlign: "center", marginTop: 8 }]}>{feedError}</Text>
-        <Pressable style={[styles.restaurantBox, { marginTop: 14 }]} onPress={() => refreshPosts()}>
+        <Text style={[styles.subtitle, { textAlign: "center", marginTop: spacing.sm }]}>{feedError}</Text>
+        <Pressable style={[styles.restaurantBox, { marginTop: spacing.lg }]} onPress={() => refreshPosts()}>
           <Text style={styles.restaurantName}>Retry</Text>
         </Pressable>
       </View>
@@ -77,9 +78,14 @@ export default function FeedScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 8 }]}> 
-        <Text style={styles.title}>MedEats</Text>
-        <Text style={styles.subtitle}>Discover food in Medellín</Text>
+      <View style={[styles.header, { paddingTop: insets.top + 8, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }]}> 
+        <View>
+          <Text style={styles.title}>MedEats</Text>
+          <Text style={styles.subtitle}>Discover food in Medellín</Text>
+        </View>
+        <Pressable style={styles.headerIcon} onPress={() => router.push("/search")}>
+          <Ionicons name="search" size={22} color={colors.text} />
+        </Pressable>
       </View>
 
       <FlatList
@@ -92,7 +98,15 @@ export default function FeedScreen() {
               style={styles.userRow} 
               onPress={() => handleUserPress(item.username)}
             >
-              <Image source={{ uri: item.userAvatar }} style={styles.avatar} />
+              {item.userAvatar ? (
+                <Image source={{ uri: item.userAvatar }} style={styles.avatar} />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <Text style={styles.avatarText}>
+                    {(item.username || "U").charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
               <View style={{ flex: 1 }}>
                 <Text style={styles.username}>{item.username}</Text>
                 <Text style={styles.date}>{item.date}</Text>
@@ -106,13 +120,13 @@ export default function FeedScreen() {
                 <Ionicons
                   name={item.isLiked ? "heart" : "heart-outline"}
                   size={22}
-                  color={item.isLiked ? "#E63946" : "#2D3436"}
+                  color={item.isLiked ? colors.primaryDark : colors.text}
                 />
                 <Text style={styles.actionText}>{item.likes}</Text>
               </Pressable>
 
               <Pressable style={styles.actionButton} onPress={() => openComments(item.id)}>
-                <Ionicons name="chatbubble-outline" size={21} color="#2D3436" />
+                <Ionicons name="chatbubble-outline" size={21} color={colors.text} />
                 <Text style={styles.actionText}>{item.comments}</Text>
               </Pressable>
             </View>
@@ -125,7 +139,7 @@ export default function FeedScreen() {
                 <Text style={styles.restaurantName}>{item.restaurantName}</Text>
                 <View style={styles.starsRow}>{stars(item.rating)}</View>
               </View>
-              <Ionicons name="chevron-forward" size={18} color="#636E72" />
+              <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
             </Pressable>
 
             <Text style={styles.caption}>
@@ -148,54 +162,69 @@ export default function FeedScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FFFFFF" },
+  container: { flex: 1, backgroundColor: colors.background },
   header: {
     borderBottomWidth: 1,
-    borderBottomColor: "#F1F2F6",
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+    borderBottomColor: colors.border,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
   },
-  title: { fontSize: 28, fontWeight: "700", color: "#2D3436" },
-  subtitle: { color: "#636E72", marginTop: 2 },
-  listContent: { paddingBottom: 24 },
+  title: { fontSize: 28, fontWeight: "700", color: colors.text },
+  headerIcon: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
+  subtitle: { color: colors.textMuted, marginTop: 2 },
+  listContent: { paddingBottom: spacing.xxl },
   card: {
     borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
-    paddingBottom: 14,
-    marginBottom: 4,
+    borderBottomColor: colors.border,
+    paddingBottom: spacing.md + 2,
+    marginBottom: spacing.xs,
   },
   userRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 10,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    gap: spacing.md,
   },
   avatar: { width: 40, height: 40, borderRadius: 20 },
-  username: { fontWeight: "700", color: "#2D3436" },
-  date: { color: "#8C8C8C", fontSize: 12 },
-  postImage: { width: "100%", height: 330, backgroundColor: "#EFEFEF" },
+  avatarPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.chip,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarText: {
+    color: colors.textMuted,
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  username: { fontWeight: "700", color: colors.text },
+  date: { color: colors.textFaint, fontSize: 12 },
+  postImage: { width: "100%", height: 330, backgroundColor: colors.chip },
   actionsRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    gap: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
   },
   actionButton: { flexDirection: "row", alignItems: "center", gap: 4 },
-  actionText: { color: "#2D3436", fontWeight: "600" },
+  actionText: { color: colors.text, fontWeight: "600" },
   restaurantBox: {
-    marginHorizontal: 12,
-    marginBottom: 8,
-    backgroundColor: "#FFF3EC",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  restaurantName: { fontWeight: "700", color: "#2D3436" },
+  restaurantName: { fontWeight: "700", color: colors.text },
   starsRow: { flexDirection: "row", gap: 2, marginTop: 4 },
-  caption: { paddingHorizontal: 12, color: "#2D3436", fontSize: 14 },
+  caption: { paddingHorizontal: spacing.md, color: colors.text, fontSize: 14 },
 });
+
