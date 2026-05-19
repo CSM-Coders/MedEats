@@ -1,7 +1,14 @@
 import logging
-from geopy.geocoders import Nominatim
 
 logger = logging.getLogger(__name__)
+
+try:
+    from geopy.geocoders import Nominatim
+
+    GEOPY_AVAILABLE = True
+except Exception:
+    Nominatim = None
+    GEOPY_AVAILABLE = False
 
 
 class GeocodingService:
@@ -23,7 +30,10 @@ class GeocodingService:
 
         # User agent único para evitar el error 429
         ua = user_agent or f"MedEats_App_Production_{random.randint(1000, 9999)}"
-        self.geolocator = Nominatim(user_agent=ua)
+        if GEOPY_AVAILABLE and Nominatim is not None:
+            self.geolocator = Nominatim(user_agent=ua)
+        else:
+            self.geolocator = None
         self.last_request_time = 0
 
     def _prepare_address(self, address: str) -> str:
@@ -99,6 +109,10 @@ class GeocodingService:
         import time
 
         try:
+            # If no geolocator is available (geopy not installed), skip real requests
+            if not self.geolocator:
+                return None
+
             # Respetar el límite de 1 segundo de Nominatim para evitar Error 429
             elapsed = time.time() - self.last_request_time
             if elapsed < 1.2:

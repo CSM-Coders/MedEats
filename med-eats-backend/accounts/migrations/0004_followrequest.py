@@ -62,7 +62,7 @@ class Migration(migrations.Migration):
                         fields=("requester", "target"), name="unique_follow_request"
                     ),
                     models.CheckConstraint(
-                        condition=models.Q(
+                        check=models.Q(
                             ("requester", models.F("target")), _negated=True
                         ),
                         name="prevent_self_follow_request",
