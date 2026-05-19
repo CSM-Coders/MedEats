@@ -93,7 +93,9 @@ class RestaurantListAPIView(generics.ListAPIView):
     permission_classes = [AllowAny]
 
     def get_queryset(self):
-        queryset = Restaurant.objects.select_related("category", "owner").prefetch_related(
+        queryset = Restaurant.objects.select_related(
+            "category", "owner"
+        ).prefetch_related(
             "branches",
             "reviews",
         )
@@ -190,7 +192,11 @@ class OwnerRestaurantListCreateAPIView(generics.ListCreateAPIView):
 
 
 class OwnerRestaurantDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsAuthenticated, IsRestaurantAccount, IsRestaurantOwnerOrAdmin]
+    permission_classes = [
+        IsAuthenticated,
+        IsRestaurantAccount,
+        IsRestaurantOwnerOrAdmin,
+    ]
 
     def get_queryset(self):
         return Restaurant.objects.select_related("category", "owner").prefetch_related(
@@ -217,7 +223,9 @@ class OwnerRestaurantBranchListCreateAPIView(APIView):
         restaurant = self.get_restaurant(request, restaurant_id)
         if not restaurant:
             return Response(
-                {"detail": "No tienes permisos para ver las sedes de este restaurante."},
+                {
+                    "detail": "No tienes permisos para ver las sedes de este restaurante."
+                },
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -234,18 +242,19 @@ class OwnerRestaurantBranchListCreateAPIView(APIView):
 
         serializer = RestaurantBranchSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
+
         # Priorizar coordenadas del móvil, sino usar geocodificador
         lat = request.data.get("latitude")
         lon = request.data.get("longitude")
-        
+
         if not lat or not lon:
             address = request.data.get("address", "").strip()
             from .utils import geocoder
+
             lat_geo, lon_geo = geocoder.geocode(address)
             lat = lat or lat_geo
             lon = lon or lon_geo
-        
+
         branch = serializer.save(restaurant=restaurant, latitude=lat, longitude=lon)
         return Response(
             RestaurantBranchSerializer(branch).data,
@@ -255,8 +264,14 @@ class OwnerRestaurantBranchListCreateAPIView(APIView):
 
 class OwnerRestaurantBranchDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = RestaurantBranchSerializer
-    permission_classes = [IsAuthenticated, IsRestaurantAccount, IsRestaurantOwnerOrAdmin]
-    queryset = RestaurantBranch.objects.select_related("restaurant", "restaurant__owner")
+    permission_classes = [
+        IsAuthenticated,
+        IsRestaurantAccount,
+        IsRestaurantOwnerOrAdmin,
+    ]
+    queryset = RestaurantBranch.objects.select_related(
+        "restaurant", "restaurant__owner"
+    )
 
 
 class OwnerRestaurantMenuUploadAPIView(APIView):
@@ -266,13 +281,15 @@ class OwnerRestaurantMenuUploadAPIView(APIView):
         restaurant = get_object_or_404(Restaurant, id=restaurant_id)
         if not request.user.is_staff and restaurant.owner_id != request.user.id:
             return Response(
-                {"detail": "No tienes permisos para editar el menú de este restaurante."},
+                {
+                    "detail": "No tienes permisos para editar el menú de este restaurante."
+                },
                 status=status.HTTP_403_FORBIDDEN,
             )
 
         # Usar request.FILES para asegurar que el PDF se reciba correctamente
         pdf_file = request.FILES.get("menu_pdf") or request.data.get("menu_pdf")
-        
+
         serializer = RestaurantOwnerWriteSerializer(
             restaurant,
             data={"menu_pdf": pdf_file},
@@ -295,9 +312,9 @@ class OwnerRestaurantReviewsAPIView(generics.ListAPIView):
     serializer_class = ReviewSerializer
 
     def get_queryset(self):
-        queryset = Review.objects.select_related("user", "restaurant", "user__profile").filter(
-            restaurant__owner=self.request.user
-        )
+        queryset = Review.objects.select_related(
+            "user", "restaurant", "user__profile"
+        ).filter(restaurant__owner=self.request.user)
 
         restaurant_id = self.request.query_params.get("restaurant")
         if restaurant_id:
@@ -433,11 +450,14 @@ class PostListCreateAPIView(generics.ListCreateAPIView):
             if self.request.user.is_authenticated:
                 from accounts.models import Follow
                 from django.db.models import Q
-                following_ids = Follow.objects.filter(follower=self.request.user).values_list("following_id", flat=True)
+
+                following_ids = Follow.objects.filter(
+                    follower=self.request.user
+                ).values_list("following_id", flat=True)
                 queryset = queryset.filter(
-                    Q(user__profile__is_public=True) |
-                    Q(user=self.request.user) |
-                    Q(user_id__in=following_ids)
+                    Q(user__profile__is_public=True)
+                    | Q(user=self.request.user)
+                    | Q(user_id__in=following_ids)
                 )
 
         return queryset
@@ -765,7 +785,9 @@ class VisitedRestaurantListCreateAPIView(APIView):
             target_user = request.user
 
         visited_restaurants = (
-            VisitedRestaurant.objects.select_related("restaurant", "restaurant__category")
+            VisitedRestaurant.objects.select_related(
+                "restaurant", "restaurant__category"
+            )
             .filter(user=target_user)
             .order_by("-visit_date", "-updated_at", "-id")
         )

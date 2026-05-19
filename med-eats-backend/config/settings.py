@@ -42,6 +42,7 @@ def parse_list_env(var_name: str, default: list[str] | None = None) -> list[str]
 
     return [item.strip() for item in value.split(",") if item.strip()]
 
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -177,6 +178,7 @@ STATIC_URL = "static/"
 # Media files (Archivos subidos por los usuarios como fotos y videos)
 MEDIA_URL = "/media/"
 import os
+
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 # Default primary key field type

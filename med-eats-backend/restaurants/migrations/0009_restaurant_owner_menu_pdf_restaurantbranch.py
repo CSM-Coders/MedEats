@@ -48,11 +48,17 @@ class Migration(migrations.Migration):
                         verbose_name="ID",
                     ),
                 ),
-                ("name", models.CharField(max_length=200, verbose_name="Nombre de la sede")),
+                (
+                    "name",
+                    models.CharField(max_length=200, verbose_name="Nombre de la sede"),
+                ),
                 ("address", models.CharField(max_length=255, verbose_name="Dirección")),
                 ("latitude", models.FloatField(verbose_name="Latitud")),
                 ("longitude", models.FloatField(verbose_name="Longitud")),
-                ("is_primary", models.BooleanField(default=False, verbose_name="Sede principal")),
+                (
+                    "is_primary",
+                    models.BooleanField(default=False, verbose_name="Sede principal"),
+                ),
                 ("created_at", models.DateTimeField(auto_now_add=True)),
                 ("updated_at", models.DateTimeField(auto_now=True)),
                 (

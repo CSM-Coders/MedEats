@@ -107,23 +107,27 @@ class RestaurantBranchSerializer(serializers.ModelSerializer):
         address = attrs.get("address", "").strip()
         if not address:
             raise serializers.ValidationError({"address": "Address is required."})
-        
+
         # Priorizar coordenadas enviadas, sino usar geocodificador
         lat = attrs.get("latitude")
         lon = attrs.get("longitude")
-        
+
         if not lat or not lon:
             lat_geo, lon_geo = geocoder.geocode(address)
             attrs["latitude"] = lat or lat_geo
             attrs["longitude"] = lon or lon_geo
-        
+
         return attrs
 
 
 class RestaurantOwnerWriteSerializer(serializers.ModelSerializer):
-    image_file = serializers.ImageField(write_only=True, required=False, allow_null=True)
-    category_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
-    
+    image_file = serializers.ImageField(
+        write_only=True, required=False, allow_null=True
+    )
+    category_id = serializers.IntegerField(
+        write_only=True, required=False, allow_null=True
+    )
+
     class Meta:
         model = Restaurant
         fields = [
@@ -151,7 +155,9 @@ class RestaurantOwnerWriteSerializer(serializers.ModelSerializer):
 
         filename = getattr(value, "name", "") or ""
         if not filename.lower().endswith(".pdf"):
-            raise serializers.ValidationError("Only PDF files are allowed for menu upload.")
+            raise serializers.ValidationError(
+                "Only PDF files are allowed for menu upload."
+            )
 
         return value
 
@@ -193,10 +199,10 @@ class RestaurantOwnerWriteSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         image_file = validated_data.pop("image_file", None)
         category_id = validated_data.pop("category_id", None)
-        
+
         if image_file:
             validated_data["image"] = image_file
-        
+
         # Asignar categoría por ID o por defecto
         if category_id:
             validated_data["category_id"] = category_id
@@ -206,39 +212,39 @@ class RestaurantOwnerWriteSerializer(serializers.ModelSerializer):
                 default_cat = Category.objects.first()
             if default_cat:
                 validated_data["category"] = default_cat
-        
+
         # Si el móvil no envió coordenadas, usar fallback del servidor
         if not validated_data.get("latitude") or not validated_data.get("longitude"):
             location = validated_data.get("location", "")
             lat, lon = geocoder.geocode(location)
             validated_data["latitude"] = lat
             validated_data["longitude"] = lon
-        
+
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
         image_file = validated_data.pop("image_file", None)
         category_id = validated_data.pop("category_id", None)
-        
+
         if image_file:
             instance.image = image_file
-        
+
         if category_id:
             instance.category_id = category_id
-        
+
         # Si el móvil no envió coordenadas nuevas, geocodificar como fallback
         new_lat = validated_data.get("latitude")
         new_lon = validated_data.get("longitude")
         new_location = validated_data.get("location", instance.location)
-        
+
         if not new_lat and not new_lon and new_location != instance.location:
             lat, lon = geocoder.geocode(new_location)
             validated_data["latitude"] = lat
             validated_data["longitude"] = lon
-        
+
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-        
+
         instance.save()
         instance.refresh_from_db()
         return instance
@@ -279,7 +285,11 @@ class ReviewSerializer(serializers.ModelSerializer):
         if getattr(profile, "avatar_image", None):
             request = self.context.get("request")
             try:
-                return request.build_absolute_uri(profile.avatar_image.url) if request else profile.avatar_image.url
+                return (
+                    request.build_absolute_uri(profile.avatar_image.url)
+                    if request
+                    else profile.avatar_image.url
+                )
             except Exception:
                 return str(profile.avatar_image)
 
@@ -365,11 +375,11 @@ class PostSerializer(serializers.ModelSerializer):
     def get_image(self, obj):
         if not obj.image:
             return ""
-        
+
         raw_val = str(obj.image)
         if raw_val.startswith("http"):
             return raw_val
-            
+
         request = self.context.get("request")
         if request and hasattr(obj.image, "url"):
             try:
@@ -395,7 +405,11 @@ class PostSerializer(serializers.ModelSerializer):
         if getattr(profile, "avatar_image", None):
             request = self.context.get("request")
             try:
-                return request.build_absolute_uri(profile.avatar_image.url) if request else profile.avatar_image.url
+                return (
+                    request.build_absolute_uri(profile.avatar_image.url)
+                    if request
+                    else profile.avatar_image.url
+                )
             except Exception:
                 return str(profile.avatar_image)
 

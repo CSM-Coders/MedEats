@@ -30,9 +30,7 @@ class RegisterSerializer(serializers.Serializer):
         return normalized
 
     def create(self, validated_data):
-        account_type = validated_data.pop(
-            "account_type", UserProfile.ACCOUNT_TYPE_USER
-        )
+        account_type = validated_data.pop("account_type", UserProfile.ACCOUNT_TYPE_USER)
         user = User.objects.create_user(
             username=validated_data["username"],
             email=validated_data["email"],
@@ -116,7 +114,9 @@ class UserSerializer(serializers.ModelSerializer):
 
 class UserProfileUpdateSerializer(serializers.ModelSerializer):
     username = serializers.CharField(write_only=True, required=False, allow_blank=False)
-    avatar_file = serializers.ImageField(write_only=True, required=False, allow_null=True)
+    avatar_file = serializers.ImageField(
+        write_only=True, required=False, allow_null=True
+    )
 
     class Meta:
         model = UserProfile
@@ -144,8 +144,14 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
     def validate_avatar_file(self, value):
         if not value:
             return value
-        if not getattr(value, "name", "").lower().endswith((".jpg", ".jpeg", ".png", ".webp")):
-            raise serializers.ValidationError("Only JPG, PNG or WEBP images are allowed.")
+        if (
+            not getattr(value, "name", "")
+            .lower()
+            .endswith((".jpg", ".jpeg", ".png", ".webp"))
+        ):
+            raise serializers.ValidationError(
+                "Only JPG, PNG or WEBP images are allowed."
+            )
         return value
 
     def update(self, instance, validated_data):
@@ -261,7 +267,9 @@ class PublicProfileSerializer(serializers.ModelSerializer):
             return "none"
         if obj.user.follower_relationships.filter(follower=request.user).exists():
             return "following"
-        if FollowRequest.objects.filter(requester=request.user, target=obj.user, status="pending").exists():
+        if FollowRequest.objects.filter(
+            requester=request.user, target=obj.user, status="pending"
+        ).exists():
             return "requested"
         return "none"
 
@@ -273,7 +281,9 @@ class PublicProfileSerializer(serializers.ModelSerializer):
         if instance.avatar_image:
             request = self.context.get("request")
             if request:
-                data["avatar_url"] = request.build_absolute_uri(instance.avatar_image.url)
+                data["avatar_url"] = request.build_absolute_uri(
+                    instance.avatar_image.url
+                )
             else:
                 data["avatar_url"] = instance.avatar_image.url
         return data

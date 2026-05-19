@@ -1,4 +1,4 @@
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams , router } from "expo-router";
 import { View, Text, StyleSheet, Image, Pressable, FlatList, ActivityIndicator, Dimensions, ScrollView } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -12,7 +12,6 @@ import {
 } from "../../src/services/userCollectionsApi";
 import { AppUser, Post, SavedRestaurantRecord, VisitedRestaurantRecord } from "../../src/models/domain";
 import { colors, radii } from "../../src/theme/designTokens";
-import { router } from "expo-router";
 import ProfileAvatar from "@/src/components/ProfileAvatar";
 
 type TabType = "posts" | "saved" | "visited";

@@ -9,45 +9,61 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('restaurants', '0004_savedrestaurant_visitedrestaurant'),
+        ("restaurants", "0004_savedrestaurant_visitedrestaurant"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='review',
-            options={'ordering': ['-created_at'], 'verbose_name': 'Reseña', 'verbose_name_plural': 'Reseñas'},
+            name="review",
+            options={
+                "ordering": ["-created_at"],
+                "verbose_name": "Reseña",
+                "verbose_name_plural": "Reseñas",
+            },
         ),
         migrations.AddField(
-            model_name='review',
-            name='created_at',
-            field=models.DateTimeField(auto_now_add=True, default=django.utils.timezone.now, verbose_name='Fecha de creación'),
+            model_name="review",
+            name="created_at",
+            field=models.DateTimeField(
+                auto_now_add=True,
+                default=django.utils.timezone.now,
+                verbose_name="Fecha de creación",
+            ),
             preserve_default=False,
         ),
         migrations.AddField(
-            model_name='review',
-            name='updated_at',
-            field=models.DateTimeField(auto_now=True, verbose_name='Última actualización'),
+            model_name="review",
+            name="updated_at",
+            field=models.DateTimeField(
+                auto_now=True, verbose_name="Última actualización"
+            ),
         ),
         migrations.AddField(
-            model_name='review',
-            name='user',
-            field=models.ForeignKey(default=1, on_delete=django.db.models.deletion.CASCADE, related_name='restaurant_reviews', to=settings.AUTH_USER_MODEL, verbose_name='Usuario'),
+            model_name="review",
+            name="user",
+            field=models.ForeignKey(
+                default=1,
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="restaurant_reviews",
+                to=settings.AUTH_USER_MODEL,
+                verbose_name="Usuario",
+            ),
         ),
         migrations.AlterUniqueTogether(
-            name='review',
-            unique_together={('user', 'restaurant')},
+            name="review",
+            unique_together={("user", "restaurant")},
         ),
         migrations.RemoveField(
-            model_name='review',
-            name='avatar',
+            model_name="review",
+            name="avatar",
         ),
         migrations.RemoveField(
-            model_name='review',
-            name='date',
+            model_name="review",
+            name="date",
         ),
         migrations.RemoveField(
-            model_name='review',
-            name='username',
+            model_name="review",
+            name="username",
         ),
     ]

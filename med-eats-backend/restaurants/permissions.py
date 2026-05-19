@@ -42,5 +42,5 @@ class IsOwnerOrReadOnly(permissions.BasePermission):
 
         # El permiso de escritura solo se permite al propietario del objeto.
         # Soporta modelos con campo 'user' o 'owner'.
-        owner_field = getattr(obj, 'user', getattr(obj, 'owner', None))
+        owner_field = getattr(obj, "user", getattr(obj, "owner", None))
         return owner_field == request.user

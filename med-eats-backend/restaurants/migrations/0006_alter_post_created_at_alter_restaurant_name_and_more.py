@@ -6,28 +6,42 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('restaurants', '0005_alter_review_options_alter_review_unique_together_and_more'),
+        (
+            "restaurants",
+            "0005_alter_review_options_alter_review_unique_together_and_more",
+        ),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='post',
-            name='created_at',
+            model_name="post",
+            name="created_at",
             field=models.DateTimeField(auto_now_add=True, db_index=True),
         ),
         migrations.AlterField(
-            model_name='restaurant',
-            name='name',
-            field=models.CharField(db_index=True, max_length=200, verbose_name='Nombre del restaurante'),
+            model_name="restaurant",
+            name="name",
+            field=models.CharField(
+                db_index=True, max_length=200, verbose_name="Nombre del restaurante"
+            ),
         ),
         migrations.AlterField(
-            model_name='restaurant',
-            name='rating',
-            field=models.DecimalField(blank=True, db_index=True, decimal_places=1, max_digits=3, null=True, verbose_name='Calificación'),
+            model_name="restaurant",
+            name="rating",
+            field=models.DecimalField(
+                blank=True,
+                db_index=True,
+                decimal_places=1,
+                max_digits=3,
+                null=True,
+                verbose_name="Calificación",
+            ),
         ),
         migrations.AlterField(
-            model_name='review',
-            name='created_at',
-            field=models.DateTimeField(auto_now_add=True, db_index=True, verbose_name='Fecha de creación'),
+            model_name="review",
+            name="created_at",
+            field=models.DateTimeField(
+                auto_now_add=True, db_index=True, verbose_name="Fecha de creación"
+            ),
         ),
     ]

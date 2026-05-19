@@ -1,6 +1,8 @@
 import React, { forwardRef } from "react";
 import { StyleSheet, View } from "react-native";
 import MapViewComponent, { Marker } from "react-native-maps";
+// Some CI environments don't have this native dependency installed; disable unresolved import linting here
+// eslint-disable-next-line import/no-unresolved
 import MapViewDirections from "react-native-maps-directions";
 import { Restaurant } from "@/src/models/domain";
 import { MEDELLIN_REGION } from "@/src/services/mockData";

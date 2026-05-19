@@ -191,7 +191,9 @@ class Review(models.Model):
         db_index=True,
         verbose_name="Fecha de creación",
     )
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="Última actualización")
+    updated_at = models.DateTimeField(
+        auto_now=True, verbose_name="Última actualización"
+    )
 
     class Meta:
         verbose_name = "Reseña"
@@ -216,7 +218,9 @@ class Post(models.Model):
         related_name="posts",
         verbose_name="Restaurante",
     )
-    image = models.FileField(upload_to="posts/", max_length=500, verbose_name="Imagen/Video")
+    image = models.FileField(
+        upload_to="posts/", max_length=500, verbose_name="Imagen/Video"
+    )
     rating = models.PositiveSmallIntegerField(verbose_name="Calificación")
     caption = models.TextField(blank=True, verbose_name="Caption")
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)

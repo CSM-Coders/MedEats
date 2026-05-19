@@ -217,7 +217,9 @@ class ReviewAPITests(APITestCase):
         self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(create_response.data["comment"], payload["comment"])
 
-        list_response = self.client.get(f"{self.review_list_url}?restaurant={self.restaurant.id}")
+        list_response = self.client.get(
+            f"{self.review_list_url}?restaurant={self.restaurant.id}"
+        )
         self.assertEqual(list_response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(list_response.data), 1)
         self.assertEqual(list_response.data[0]["comment"], payload["comment"])

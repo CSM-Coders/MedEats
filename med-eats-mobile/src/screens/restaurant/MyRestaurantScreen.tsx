@@ -1,6 +1,8 @@
 import { useCallback, useMemo, useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
+// expo modules may be absent in CI; silence unresolved import lint here
+// eslint-disable-next-line import/no-unresolved
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import * as Location from "expo-location";

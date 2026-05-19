@@ -9,13 +9,12 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useCallback } from "react";
+import { useCallback , useState } from "react";
 import { useFocusEffect } from "@react-navigation/native";
 import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFeed } from "@/src/context/feed-context";
 import PostCommentModal from "@/src/components/PostCommentModal";
-import { useState } from "react";
 import { useAuth } from "@/src/context/auth-context";
 import { colors, radii, spacing } from "@/src/theme/designTokens";
 

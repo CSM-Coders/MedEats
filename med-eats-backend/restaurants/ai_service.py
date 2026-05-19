@@ -198,7 +198,10 @@ def _keyword_score(
     user_coords: tuple[float, float] | None = None,
     excluded_restaurant_id: int | None = None,
 ) -> float:
-    if excluded_restaurant_id is not None and int(candidate.get("id", 0)) == excluded_restaurant_id:
+    if (
+        excluded_restaurant_id is not None
+        and int(candidate.get("id", 0)) == excluded_restaurant_id
+    ):
         return float("-inf")
 
     message_norm = _normalize_text(message)
@@ -244,7 +247,9 @@ def _keyword_score(
         try:
             rest_lat = float(candidate.get("latitude"))
             rest_lon = float(candidate.get("longitude"))
-            distance_km = _haversine_km(user_coords[0], user_coords[1], rest_lat, rest_lon)
+            distance_km = _haversine_km(
+                user_coords[0], user_coords[1], rest_lat, rest_lon
+            )
             # 15 pts si está a 0 km y decrece linealmente hasta 0 pts a los 15 km.
             score += max(0.0, 15.0 - distance_km)
         except (TypeError, ValueError):
@@ -261,7 +266,11 @@ def _fallback_result(
 ) -> FoodieAssistantResult:
     message_norm = _normalize_text(user_message)
     available_restaurants = (
-        [item for item in restaurants if int(item.get("id", 0)) != excluded_restaurant_id]
+        [
+            item
+            for item in restaurants
+            if int(item.get("id", 0)) != excluded_restaurant_id
+        ]
         if excluded_restaurant_id is not None
         else restaurants
     )
@@ -287,7 +296,9 @@ def _fallback_result(
             )
             return any(term in text for term in intent_terms)
 
-        intent_pool = [item for item in available_restaurants if candidate_matches_intent(item)]
+        intent_pool = [
+            item for item in available_restaurants if candidate_matches_intent(item)
+        ]
         pool = intent_pool if intent_pool else available_restaurants
 
         def distance_for(item: dict[str, Any]) -> float:
@@ -397,9 +408,7 @@ def _call_gemini(
 
     excluded_context = ""
     if excluded_restaurant_id is not None:
-        excluded_context = (
-            f"No recomiendes el restaurante con id {excluded_restaurant_id}; el usuario pidió otra opción distinta.\n\n"
-        )
+        excluded_context = f"No recomiendes el restaurante con id {excluded_restaurant_id}; el usuario pidió otra opción distinta.\n\n"
 
     prompt = (
         "Eres un asistente foodie de Medellin. Entiendes jerga local como 'antojito' y 'parche'. "
@@ -407,7 +416,7 @@ def _call_gemini(
         "Si el usuario pide algo cerca, privilegia el restaurante más cercano con buena coincidencia de intención. "
         "Si el usuario pide otra opción o una alternativa, evita repetir el restaurante anterior. "
         "Responde SOLO JSON valido con esta forma: "
-        '{"restaurant_id": <numero>, "explanation": "<texto breve en espanol>"}. '\
+        '{"restaurant_id": <numero>, "explanation": "<texto breve en espanol>"}. '
         "No inventes ids. Usa exactamente uno de los restaurantes listados.\n\n"
         f"{location_context}"
         f"{excluded_context}"
@@ -434,7 +443,9 @@ def _call_gemini(
     ]
     # Preserva orden y evita duplicados.
     seen_models: set[str] = set()
-    unique_models = [m for m in candidate_models if not (m in seen_models or seen_models.add(m))]
+    unique_models = [
+        m for m in candidate_models if not (m in seen_models or seen_models.add(m))
+    ]
 
     raw = ""
     last_exc: Exception | None = None
@@ -466,7 +477,9 @@ def _call_gemini(
             raise RuntimeError(f"Error llamando Gemini: {exc}") from exc
 
     if not raw:
-        raise RuntimeError(f"No se pudo llamar Gemini con los modelos configurados: {last_exc}")
+        raise RuntimeError(
+            f"No se pudo llamar Gemini con los modelos configurados: {last_exc}"
+        )
 
     data = json.loads(raw)
     text = (
