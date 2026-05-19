@@ -73,7 +73,7 @@ class Follow(models.Model):
                 name="unique_follow_relation",
             ),
             models.CheckConstraint(
-                check=~Q(follower=models.F("following")),
+                condition=~Q(follower=models.F("following")),
                 name="prevent_self_follow",
             ),
         ]
@@ -117,7 +117,7 @@ class FollowRequest(models.Model):
                 name="unique_follow_request",
             ),
             models.CheckConstraint(
-                check=~Q(requester=models.F("target")),
+                condition=~Q(requester=models.F("target")),
                 name="prevent_self_follow_request",
             ),
         ]
