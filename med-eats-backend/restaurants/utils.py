@@ -90,7 +90,9 @@ class GeocodingService:
             return coords
 
         # Fallback absoluto: Centro de Medellín
-        logger.warning("All geocoding strategies failed for: %s. Using defaults.", address)
+        logger.warning(
+            "All geocoding strategies failed for: %s. Using defaults.", address
+        )
         return self.DEFAULT_LAT, self.DEFAULT_LON
 
     def _do_geocode(self, full_address: str):
