@@ -9,5 +9,5 @@ sqlparse==0.5.5
 python-dotenv
 geopy==2.4.1
 
-black
+black==24.8.0
 ruff
