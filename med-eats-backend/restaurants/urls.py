@@ -18,6 +18,8 @@ from .views import (
     PostLikeAPIView,
     ReviewListCreateAPIView,
     ReviewDetailAPIView,
+    AnalyticsOverviewAPIView,
+    AnalyticsDashboardView,
     SavedRestaurantListCreateAPIView,
     SavedRestaurantDetailAPIView,
     VisitedRestaurantListCreateAPIView,
@@ -112,4 +114,16 @@ urlpatterns = [
         name="post-comment-list-create",
     ),
     path("posts/<int:post_id>/like/", PostLikeAPIView.as_view(), name="post-like"),
+    # Analytics overview for admins
+    path(
+        "analytics/overview/",
+        AnalyticsOverviewAPIView.as_view(),
+        name="analytics-overview",
+    ),
+    # Admin dashboard that renders charts (requires staff login)
+    path(
+        "admin/analytics/dashboard/",
+        AnalyticsDashboardView.as_view(),
+        name="analytics-dashboard",
+    ),
 ]

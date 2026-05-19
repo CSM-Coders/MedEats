@@ -11,7 +11,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied
 from django.utils import timezone
+from rest_framework.authentication import SessionAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from datetime import datetime, timedelta
 from accounts.views import can_view_profile
+from django.views.generic import TemplateView
+from django.contrib.admin.views.decorators import staff_member_required
+from django.utils.decorators import method_decorator
 from .models import (
     Restaurant,
     RestaurantBranch,
@@ -444,6 +450,109 @@ class PostListCreateAPIView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+
+class AnalyticsOverviewAPIView(APIView):
+    """
+    Endpoint que devuelve métricas agregadas de la plataforma.
+    Protegido: solo `is_staff` / admins pueden acceder.
+    Query params: `from` (YYYY-MM-DD), `to` (YYYY-MM-DD). Si faltan, usa últimos 7 días.
+    """
+
+    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    permission_classes = [IsAdminUser]
+
+    def get(self, request):
+        # Parsear fechas
+        from_param = request.query_params.get("from")
+        to_param = request.query_params.get("to")
+
+        try:
+            if to_param:
+                to_date = datetime.strptime(to_param, "%Y-%m-%d").date()
+            else:
+                to_date = timezone.localdate()
+
+            if from_param:
+                from_date = datetime.strptime(from_param, "%Y-%m-%d").date()
+            else:
+                from_date = to_date - timedelta(days=6)
+        except ValueError:
+            return Response(
+                {"detail": "Formato de fecha inválido. Use YYYY-MM-DD."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Conteos generales
+        total_users = User.objects.count()
+        new_users = User.objects.filter(
+            date_joined__date__gte=from_date, date_joined__date__lte=to_date
+        ).count()
+
+        total_restaurants = Restaurant.objects.count()
+        new_restaurants = Restaurant.objects.filter(
+            created_at__date__gte=from_date, created_at__date__lte=to_date
+        ).count()
+
+        total_posts = Post.objects.count()
+        new_posts = Post.objects.filter(
+            created_at__date__gte=from_date, created_at__date__lte=to_date
+        ).count()
+
+        total_reviews = Review.objects.count()
+        new_reviews = Review.objects.filter(
+            created_at__date__gte=from_date, created_at__date__lte=to_date
+        ).count()
+
+        total_likes = PostLike.objects.count()
+        total_comments = PostComment.objects.count()
+
+        # Campos opcionales si los modelos existen (migraciones previas)
+        try:
+            from .models import ContentReport
+
+            content_reports = ContentReport.objects.filter(
+                created_at__date__gte=from_date, created_at__date__lte=to_date
+            ).count()
+        except Exception:
+            content_reports = 0
+
+        try:
+            from .models import PostModeration
+
+            posts_removed = PostModeration.objects.filter(
+                action="deleted",
+                created_at__date__gte=from_date,
+                created_at__date__lte=to_date,
+            ).count()
+        except Exception:
+            posts_removed = 0
+
+        payload = {
+            "from": from_date.isoformat(),
+            "to": to_date.isoformat(),
+            "total_users": total_users,
+            "new_users": new_users,
+            "total_restaurants": total_restaurants,
+            "new_restaurants": new_restaurants,
+            "total_posts": total_posts,
+            "new_posts": new_posts,
+            "total_reviews": total_reviews,
+            "new_reviews": new_reviews,
+            "total_likes": total_likes,
+            "total_comments": total_comments,
+            "content_reports": content_reports,
+            "posts_removed": posts_removed,
+        }
+
+        return Response(payload, status=status.HTTP_200_OK)
+
+
+@method_decorator(staff_member_required, name="dispatch")
+class AnalyticsDashboardView(TemplateView):
+    """Simple admin dashboard page that loads analytics data and renders charts."""
+
+    template_name = "restaurants/analytics_dashboard.html"
 
 
 class PostDetailAPIView(generics.RetrieveDestroyAPIView):
