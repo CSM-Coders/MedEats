@@ -68,13 +68,15 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     # ----- Librerías de terceros -----
-    "rest_framework",  # Para crear APIs REST (endpoints JSON)
-    "corsheaders",  # Para permitir peticiones desde React Native
-    "rest_framework_simplejwt",  # JWT para autenticación real
-    "rest_framework_simplejwt.token_blacklist",  # Para invalidar tokens al cerrar sesión
+    "rest_framework",
+    "corsheaders",
+    "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     # ----- Nuestras apps -----
-    "restaurants",  # App de restaurantes
-    "accounts",  # App de autenticación
+    "restaurants",
+    "accounts",
+    # [P1-4] django-cleanup debe ir AL FINAL para interceptar señales de borrado
+    "django_cleanup.apps.CleanupConfig",
 ]
 
 MIDDLEWARE = [
@@ -175,9 +177,35 @@ USE_TZ = True
 STATIC_URL = "static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
-# Media files (Archivos subidos por los usuarios como fotos y videos)
-MEDIA_URL = "/media/"
-MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+# [P1-4] Storage — S3 en producción, local en desarrollo
+USE_S3 = parse_bool_env("USE_S3", default=not DEBUG)
+
+if USE_S3:
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+            "OPTIONS": {
+                "bucket_name": os.environ["AWS_S3_BUCKET"],
+                "region_name": os.getenv("AWS_S3_REGION", "us-east-1"),
+                "custom_domain": os.getenv("CLOUDFRONT_DOMAIN"),
+                "default_acl": "private",
+                "file_overwrite": False,
+                "object_parameters": {
+                    "CacheControl": "max-age=86400",
+                },
+            },
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
+    MEDIA_URL = "https://{}/".format(
+        os.getenv("CLOUDFRONT_DOMAIN") or os.getenv("AWS_S3_BUCKET", "")
+    )
+else:
+    # Desarrollo local — comportamiento original
+    MEDIA_URL = "/media/"
+    MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 # ============================================================
 # [P1-1] Redis: caché y sesiones

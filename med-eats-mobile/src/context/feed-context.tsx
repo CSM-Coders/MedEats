@@ -25,7 +25,9 @@ type FeedContextValue = {
   userPosts: Post[];
   isLoadingPosts: boolean;
   feedError: string | null;
+  hasMore: boolean;
   refreshPosts: () => Promise<void>;
+  loadMore: () => Promise<void>;
   toggleLike: (postId: string) => Promise<void>;
   createPost: (input: NewPostInput) => Promise<void>;
 };
@@ -36,6 +38,9 @@ export function FeedProvider({ children }: { children: ReactNode }) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoadingPosts, setIsLoadingPosts] = useState(false);
   const [feedError, setFeedError] = useState<string | null>(null);
+  // [P2-7] Estado para paginación cursor-based
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
   const { user, getAccessToken } = useAuth();
 
   const refreshPosts = useCallback(async () => {
@@ -48,8 +53,10 @@ export function FeedProvider({ children }: { children: ReactNode }) {
 
     setIsLoadingPosts(true);
     try {
-      const data = await fetchPosts(accessToken);
+      const { posts: data, nextCursor: cursor } = await fetchPosts(accessToken);
       setPosts(data);
+      setNextCursor(cursor);
+      setHasMore(cursor !== null);
       setFeedError(null);
     } catch {
       setFeedError("Unable to load feed right now.");
@@ -57,6 +64,22 @@ export function FeedProvider({ children }: { children: ReactNode }) {
       setIsLoadingPosts(false);
     }
   }, [getAccessToken]);
+
+  const loadMore = useCallback(async () => {
+    if (!hasMore || isLoadingPosts || !nextCursor) return;
+
+    const accessToken = await getAccessToken();
+    if (!accessToken) return;
+
+    try {
+      const { posts: data, nextCursor: cursor } = await fetchPosts(accessToken, nextCursor);
+      setPosts((prev) => [...prev, ...data]);
+      setNextCursor(cursor);
+      setHasMore(cursor !== null);
+    } catch {
+      // No interrumpir la UX si falla la carga de más posts
+    }
+  }, [hasMore, isLoadingPosts, nextCursor, getAccessToken]);
 
   useEffect(() => {
     if (!user) {
@@ -142,11 +165,13 @@ export function FeedProvider({ children }: { children: ReactNode }) {
       userPosts,
       isLoadingPosts,
       feedError,
+      hasMore,
       refreshPosts,
+      loadMore,
       toggleLike,
       createPost,
     }),
-    [posts, userPosts, isLoadingPosts, feedError, refreshPosts, toggleLike, createPost]
+    [posts, userPosts, isLoadingPosts, feedError, hasMore, refreshPosts, loadMore, toggleLike, createPost]
   );
 
   return <FeedContext.Provider value={value}>{children}</FeedContext.Provider>;

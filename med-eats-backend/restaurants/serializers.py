@@ -10,7 +10,6 @@ from .models import (
     SavedRestaurant,
     VisitedRestaurant,
 )
-from .utils import geocoder
 
 # ============================================================
 # SERIALIZADORES (Traducción Base de Datos -> JSON)
@@ -49,7 +48,8 @@ class RestaurantSerializer(serializers.ModelSerializer):
     owner_username = serializers.CharField(source="owner.username", read_only=True)
     branches = serializers.SerializerMethodField()
     menu_pdf_url = serializers.SerializerMethodField()
-    reviews_count = serializers.IntegerField(source="reviews.count", read_only=True)
+    # [P1-6] SerializerMethodField para usar valores anotados y evitar N+1
+    reviews_count = serializers.SerializerMethodField()
     average_rating = serializers.SerializerMethodField()
 
     class Meta:
@@ -81,7 +81,13 @@ class RestaurantSerializer(serializers.ModelSerializer):
 
         return raw_val
 
+    def get_reviews_count(self, obj):
+        return getattr(obj, "reviews_count_db", obj.reviews.count())
+
     def get_average_rating(self, obj):
+        val = getattr(obj, "average_rating_db", None)
+        if val is not None:
+            return round(float(val), 1)
         avg = obj.reviews.aggregate(avg=Avg("rating"))["avg"]
         return round(float(avg), 1) if avg is not None else None
 
@@ -106,14 +112,10 @@ class RestaurantBranchSerializer(serializers.ModelSerializer):
         if not address:
             raise serializers.ValidationError({"address": "Address is required."})
 
-        # Priorizar coordenadas enviadas, sino usar geocodificador
-        lat = attrs.get("latitude")
-        lon = attrs.get("longitude")
-
-        if not lat or not lon:
-            lat_geo, lon_geo = geocoder.geocode(address)
-            attrs["latitude"] = lat or lat_geo
-            attrs["longitude"] = lon or lon_geo
+        # [P1-3] Usar coordenadas del cliente si existen; sino provisionales del
+        # centro de Medellín. El dueño puede editar la sede para afinar la posición.
+        attrs.setdefault("latitude", attrs.get("latitude") or 6.2442)
+        attrs.setdefault("longitude", attrs.get("longitude") or -75.5812)
 
         return attrs
 
@@ -151,11 +153,23 @@ class RestaurantOwnerWriteSerializer(serializers.ModelSerializer):
         if not value:
             return value
 
-        filename = getattr(value, "name", "") or ""
-        if not filename.lower().endswith(".pdf"):
-            raise serializers.ValidationError(
-                "Only PDF files are allowed for menu upload."
-            )
+        # [P1-5] Validar tamaño (10 MB) y tipo real por magic bytes
+        MAX_SIZE = 10 * 1024 * 1024
+        if value.size > MAX_SIZE:
+            raise serializers.ValidationError("El PDF no puede superar 10MB.")
+
+        try:
+            import magic  # python-magic
+
+            header = value.read(8)
+            value.seek(0)
+            if not header.startswith(b"%PDF"):
+                raise serializers.ValidationError("El archivo debe ser un PDF válido.")
+        except ImportError:
+            # Fallback si python-magic no está instalado: validar por extensión
+            filename = getattr(value, "name", "") or ""
+            if not filename.lower().endswith(".pdf"):
+                raise serializers.ValidationError("Solo se permiten archivos PDF.")
 
         return value
 
@@ -195,13 +209,15 @@ class RestaurantOwnerWriteSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
+        # [P1-3] Geocodificación asíncrona — no bloquea el request HTTP
+        from .tasks import geocode_restaurant_task
+
         image_file = validated_data.pop("image_file", None)
         category_id = validated_data.pop("category_id", None)
 
         if image_file:
             validated_data["image"] = image_file
 
-        # Asignar categoría por ID o por defecto
         if category_id:
             validated_data["category_id"] = category_id
         elif not validated_data.get("category"):
@@ -211,16 +227,19 @@ class RestaurantOwnerWriteSerializer(serializers.ModelSerializer):
             if default_cat:
                 validated_data["category"] = default_cat
 
-        # Si el móvil no envió coordenadas, usar fallback del servidor
+        # Coordenadas provisionales del centro de Medellín — la task las actualiza
         if not validated_data.get("latitude") or not validated_data.get("longitude"):
-            location = validated_data.get("location", "")
-            lat, lon = geocoder.geocode(location)
-            validated_data["latitude"] = lat
-            validated_data["longitude"] = lon
+            validated_data["latitude"] = 6.2442
+            validated_data["longitude"] = -75.5812
 
-        return super().create(validated_data)
+        instance = super().create(validated_data)
+        geocode_restaurant_task.delay(instance.id)
+        return instance
 
     def update(self, instance, validated_data):
+        # [P1-3] Geocodificación asíncrona solo si cambió la dirección
+        from .tasks import geocode_restaurant_task
+
         image_file = validated_data.pop("image_file", None)
         category_id = validated_data.pop("category_id", None)
 
@@ -230,20 +249,18 @@ class RestaurantOwnerWriteSerializer(serializers.ModelSerializer):
         if category_id:
             instance.category_id = category_id
 
-        # Si el móvil no envió coordenadas nuevas, geocodificar como fallback
-        new_lat = validated_data.get("latitude")
-        new_lon = validated_data.get("longitude")
         new_location = validated_data.get("location", instance.location)
-
-        if not new_lat and not new_lon and new_location != instance.location:
-            lat, lon = geocoder.geocode(new_location)
-            validated_data["latitude"] = lat
-            validated_data["longitude"] = lon
+        location_changed = new_location != instance.location
+        has_new_coords = validated_data.get("latitude") and validated_data.get("longitude")
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
 
         instance.save()
+
+        if location_changed and not has_new_coords:
+            geocode_restaurant_task.delay(instance.id)
+
         instance.refresh_from_db()
         return instance
 
@@ -347,8 +364,9 @@ class PostSerializer(serializers.ModelSerializer):
     user_avatar = serializers.SerializerMethodField()
     restaurant_id = serializers.CharField(source="restaurant.id", read_only=True)
     restaurant_name = serializers.CharField(source="restaurant.name", read_only=True)
-    likes_count = serializers.IntegerField(source="likes.count", read_only=True)
-    comments_count = serializers.IntegerField(source="comments.count", read_only=True)
+    # [P1-6] SerializerMethodField para usar valores anotados y evitar N+1
+    likes_count = serializers.SerializerMethodField()
+    comments_count = serializers.SerializerMethodField()
     is_liked = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
 
@@ -387,11 +405,19 @@ class PostSerializer(serializers.ModelSerializer):
 
         return raw_val
 
+    def get_likes_count(self, obj):
+        return getattr(obj, "likes_count_db", obj.likes.count())
+
+    def get_comments_count(self, obj):
+        return getattr(obj, "comments_count_db", obj.comments.count())
+
     def get_is_liked(self, obj):
+        annotated = getattr(obj, "is_liked_db", None)
+        if annotated is not None:
+            return annotated
         request = self.context.get("request")
         if not request or not request.user.is_authenticated:
             return False
-
         return obj.likes.filter(user=request.user).exists()
 
     def get_user_avatar(self, obj):

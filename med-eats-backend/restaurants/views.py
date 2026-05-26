@@ -1,6 +1,16 @@
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
+from django.db.models import Avg, Count, Exists, OuterRef
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
+from django.views.generic import TemplateView
+from django.contrib.admin.views.decorators import staff_member_required
+from datetime import datetime, timedelta
 from rest_framework import generics, status
+from rest_framework.authentication import SessionAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.permissions import (
     AllowAny,
     IsAdminUser,
@@ -10,14 +20,8 @@ from rest_framework.permissions import (
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied
-from django.utils import timezone
-from rest_framework.authentication import SessionAuthentication
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from datetime import datetime, timedelta
 from accounts.views import can_view_profile
-from django.views.generic import TemplateView
-from django.contrib.admin.views.decorators import staff_member_required
-from django.utils.decorators import method_decorator
+from config.pagination import PostCursorPagination
 from .models import (
     Restaurant,
     RestaurantBranch,
@@ -53,16 +57,44 @@ from .permissions import (
 
 User = get_user_model()
 
-DEFAULT_FOOD_CATEGORIES = [
-    "Colombian Traditional",
-    "Japanese & Sushi",
-    "Burgers & Grill",
-    "Italian & Pizza",
-    "Healthy Food",
-    "Mexican",
-    "Café & Bakery",
-    "Peruvian",
-]
+
+# ============================================================
+# [P1-6] Helpers de querysets con annotate() para eliminar N+1
+# ============================================================
+
+def get_annotated_restaurant_queryset():
+    """Queryset de restaurantes con rating y conteo calculados en SQL."""
+    return (
+        Restaurant.objects.annotate(
+            average_rating_db=Avg("reviews__rating"),
+            reviews_count_db=Count("reviews", distinct=True),
+        )
+        .select_related("category", "owner")
+        .prefetch_related("branches")
+    )
+
+
+def get_annotated_post_queryset(user=None):
+    """Queryset de posts con likes, comments e is_liked calculados en SQL."""
+    qs = Post.objects.select_related(
+        "user", "user__profile", "restaurant", "restaurant__category"
+    ).prefetch_related("likes", "comments")
+
+    if user and user.is_authenticated:
+        qs = qs.annotate(
+            likes_count_db=Count("likes", distinct=True),
+            comments_count_db=Count("comments", distinct=True),
+            is_liked_db=Exists(
+                PostLike.objects.filter(post=OuterRef("pk"), user=user)
+            ),
+        )
+    else:
+        qs = qs.annotate(
+            likes_count_db=Count("likes", distinct=True),
+            comments_count_db=Count("comments", distinct=True),
+        )
+    return qs
+
 
 # ============================================================
 # VISTAS DE LA API (Endponits REST)
@@ -79,26 +111,12 @@ DEFAULT_FOOD_CATEGORIES = [
 
 
 class RestaurantListAPIView(generics.ListAPIView):
-    """
-    Ruta web que devuelve tu lista completa de restaurantes.
-    Simulará exactamente lo que hace tu archivo mockData.ts (const restaurants).
-    """
-
-    # 1. Indicamos qué datos queremos consultar del PostgreSQL:
-    # "Selecciona ABSOLUTAMENTE TODOS los objetos guardados en la tabla Restaurant"
     serializer_class = RestaurantSerializer
-
-    # Permiso de seguridad: En nuestro MVP permitimos que cualquier
-    # persona que abra la app (sin haber hecho Log In) pueda ver los restaurantes en el mapa.
     permission_classes = [AllowAny]
 
     def get_queryset(self):
-        queryset = Restaurant.objects.select_related(
-            "category", "owner"
-        ).prefetch_related(
-            "branches",
-            "reviews",
-        )
+        # [P1-6] Usa queryset anotado para evitar N+1 en rating y reviews_count
+        queryset = get_annotated_restaurant_queryset()
 
         search = self.request.query_params.get("search", "").strip()
         if search:
@@ -116,32 +134,26 @@ class RestaurantListAPIView(generics.ListAPIView):
 
 
 class CategoryListAPIView(generics.ListAPIView):
-    """
-    Ruta adicional para ver todas las categorías de comida que existen.
-    (Ayudará muchísimo para crear los filtros automáticos en tu HomeScreen).
-    """
-
     serializer_class = CategorySerializer
     permission_classes = [AllowAny]
 
     def get_queryset(self):
-        for category_name in DEFAULT_FOOD_CATEGORIES:
-            Category.objects.get_or_create(name=category_name)
+        # [P1-9] Categorías creadas por seed_categories — no get_or_create en request
         return Category.objects.all().order_by("name")
+
+    # [P1-8] Cache 1 hora — las categorías cambian muy raramente
+    @method_decorator(cache_page(60 * 60))
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
 
 
 class RestaurantDetailAPIView(generics.RetrieveAPIView):
-    """
-    Ruta para ver los detalles de un solo restaurante usando su ID.
-    Permitirá que la App móvil consulte y muestre los datos reales en su pantalla RestaurantDetailScreen.
-    """
-
-    queryset = Restaurant.objects.select_related("category", "owner").prefetch_related(
-        "branches",
-        "reviews",
-    )
     serializer_class = RestaurantSerializer
     permission_classes = [AllowAny]
+
+    def get_queryset(self):
+        # [P1-6] Usa queryset anotado
+        return get_annotated_restaurant_queryset()
 
 
 class AdminRestaurantListCreateAPIView(generics.ListCreateAPIView):
@@ -243,19 +255,8 @@ class OwnerRestaurantBranchListCreateAPIView(APIView):
         serializer = RestaurantBranchSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # Priorizar coordenadas del móvil, sino usar geocodificador
-        lat = request.data.get("latitude")
-        lon = request.data.get("longitude")
-
-        if not lat or not lon:
-            address = request.data.get("address", "").strip()
-            from .utils import geocoder
-
-            lat_geo, lon_geo = geocoder.geocode(address)
-            lat = lat or lat_geo
-            lon = lon or lon_geo
-
-        branch = serializer.save(restaurant=restaurant, latitude=lat, longitude=lon)
+        # [P1-3] Las coordenadas provisionales las maneja el serializer.validate()
+        branch = serializer.save(restaurant=restaurant)
         return Response(
             RestaurantBranchSerializer(branch).data,
             status=status.HTTP_201_CREATED,
@@ -423,30 +424,27 @@ class FoodieAssistantAPIView(APIView):
 
 class PostListCreateAPIView(generics.ListCreateAPIView):
     """
-    GET: Lista todos los posts del feed social.
+    GET: Lista todos los posts del feed social (paginado con cursor).
     POST: Crea un nuevo post (requiere autenticación).
     Soporta filtrado por username con query parameter ?username=algo.
     """
 
     permission_classes = [IsAuthenticated]
+    # [P1-7] Paginación cursor-based — el frontend debe usar ?cursor= para paginar
+    pagination_class = PostCursorPagination
 
     def get_queryset(self):
-        queryset = (
-            Post.objects.select_related("user", "restaurant")
-            .prefetch_related("likes", "comments")
-            .all()
-        )
+        # [P1-6] Usa queryset anotado para evitar N+1
+        queryset = get_annotated_post_queryset(self.request.user)
 
-        # Filtro opcional por username del usuario que creó el post
         username = self.request.query_params.get("username", None)
         if username:
             target_user = get_object_or_404(User, username__iexact=username)
             if not can_view_profile(self.request.user, target_user):
                 raise PermissionDenied("This profile is private.")
-
             queryset = queryset.filter(user=target_user)
         else:
-            # Feed general: Excluir posts de perfiles privados que no sigue
+            # Feed general: excluir posts de perfiles privados que no sigue
             if self.request.user.is_authenticated:
                 from accounts.models import Follow
                 from django.db.models import Q
@@ -502,6 +500,12 @@ class AnalyticsOverviewAPIView(APIView):
                 {"detail": "Formato de fecha inválido. Use YYYY-MM-DD."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # [P1-8] Cache de 5 minutos para analytics
+        cache_key = f"analytics:{from_date}:{to_date}"
+        cached = cache.get(cache_key)
+        if cached:
+            return Response(cached)
 
         # Conteos generales
         total_users = User.objects.count()
@@ -565,6 +569,7 @@ class AnalyticsOverviewAPIView(APIView):
             "posts_removed": posts_removed,
         }
 
+        cache.set(cache_key, payload, timeout=300)
         return Response(payload, status=status.HTTP_200_OK)
 
 

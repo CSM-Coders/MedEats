@@ -14,6 +14,13 @@ django-redis==5.4.0
 celery==5.4.0
 redis==5.2.1
 
+# [P1-4] Storage S3 + limpieza de archivos huérfanos + validación MIME
+django-storages[s3]==1.14.4
+boto3==1.35.0
+django-cleanup==9.0.0
+python-magic==0.4.27
+whitenoise==6.8.2
+
 # [P3-1] Servidor WSGI de producción
 gunicorn==23.0.0
 

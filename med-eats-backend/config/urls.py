@@ -16,9 +16,33 @@ Including another URLconf
 """
 
 from django.contrib import admin
+from django.db import connection
+from django.http import JsonResponse
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+
+
+def health_check(request):
+    """Endpoint para load balancers y orquestadores de contenedores."""
+    checks = {"status": "ok", "db": "unknown", "cache": "unknown"}
+
+    try:
+        connection.ensure_connection()
+        checks["db"] = "ok"
+    except Exception:
+        checks["db"] = "error"
+        checks["status"] = "degraded"
+
+    try:
+        from django.core.cache import cache
+
+        cache.set("health_check", "ok", timeout=10)
+        checks["cache"] = "ok" if cache.get("health_check") == "ok" else "error"
+    except Exception:
+        checks["cache"] = "error"
+
+    return JsonResponse(checks, status=200 if checks["status"] == "ok" else 503)
 
 # ============================================================
 # RUTAS BACKEND PRINCIPALES (El índice base)
@@ -30,11 +54,10 @@ from django.conf.urls.static import static
 # ============================================================
 
 urlpatterns = [
-    # El Panel Administrativo privado que nos dio Django
+    # [P1-13] Health check para load balancers y Docker healthcheck
+    path("health/", health_check, name="health-check"),
     path("admin/", admin.site.urls),
-    # Endpoints de autenticación JWT (Versión 1)
     path("api/v1/auth/", include("accounts.urls")),
-    # Apps de negocio (Versión 1)
     path("api/v1/", include("restaurants.urls")),
 ]
 

@@ -57,19 +57,44 @@ function getAuthHeaders(accessToken: string) {
   };
 }
 
-export async function fetchPosts(accessToken: string): Promise<Post[]> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/posts/`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
+type PaginatedPostsResponse = {
+  results: PostApiItem[];
+  next: string | null;
+  previous: string | null;
+};
+
+function extractCursor(nextUrl: string | null): string | null {
+  if (!nextUrl) return null;
+  try {
+    const url = new URL(nextUrl);
+    return url.searchParams.get("cursor");
+  } catch {
+    return null;
+  }
+}
+
+// [P2-7] fetchPosts ahora devuelve posts + cursor para paginación infinita
+export async function fetchPosts(
+  accessToken: string,
+  cursor?: string
+): Promise<{ posts: Post[]; nextCursor: string | null }> {
+  const url = cursor
+    ? `${API_BASE_URL}/api/v1/posts/?cursor=${encodeURIComponent(cursor)}`
+    : `${API_BASE_URL}/api/v1/posts/`;
+
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
   });
 
   if (!response.ok) {
     throw new Error("Unable to load posts");
   }
 
-  const payload = (await response.json()) as PostApiItem[];
-  return payload.map(mapPost);
+  const payload = (await response.json()) as PaginatedPostsResponse;
+  return {
+    posts: payload.results.map(mapPost),
+    nextCursor: extractCursor(payload.next),
+  };
 }
 
 export async function fetchPostById(accessToken: string, postId: string): Promise<Post> {
@@ -87,19 +112,19 @@ export async function fetchPostById(accessToken: string, postId: string): Promis
   return mapPost(payload);
 }
 
+// [P2-7] fetchUserPosts también maneja respuesta paginada
 export async function fetchUserPosts(accessToken: string, username: string): Promise<Post[]> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/posts/?username=${username}`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/posts/?username=${encodeURIComponent(username)}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  );
 
   if (!response.ok) {
     throw new Error("Unable to load user posts");
   }
 
-  const payload = (await response.json()) as PostApiItem[];
-  return payload.map(mapPost);
+  const payload = (await response.json()) as PaginatedPostsResponse;
+  return payload.results.map(mapPost);
 }
 
 export async function createPostApi(
