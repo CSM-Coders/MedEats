@@ -138,6 +138,12 @@ class Restaurant(models.Model):
                 name="unique_restaurant_per_owner",
             )
         ]
+        # [P2-10] Índices para acelerar filtros frecuentes
+        indexes = [
+            models.Index(fields=["category"], name="restaurant_category_idx"),
+            models.Index(fields=["owner"], name="restaurant_owner_idx"),
+            models.Index(fields=["created_at"], name="restaurant_created_idx"),
+        ]
 
 
 class RestaurantBranch(models.Model):
@@ -200,6 +206,11 @@ class Review(models.Model):
         verbose_name_plural = "Reseñas"
         unique_together = ("user", "restaurant")
         ordering = ["-created_at"]
+        # [P2-10] Índices para acelerar listados por restaurante y usuario
+        indexes = [
+            models.Index(fields=["restaurant"], name="review_restaurant_idx"),
+            models.Index(fields=["user"], name="review_user_idx"),
+        ]
 
     def __str__(self):
         return f"{self.user.username} - {self.restaurant.name} ({self.rating})"
@@ -228,6 +239,12 @@ class Post(models.Model):
 
     class Meta:
         ordering = ["-created_at", "-id"]
+        # [P2-10] Composite index alineado con el ordering del feed cursor-paginated
+        indexes = [
+            models.Index(fields=["-created_at", "-id"], name="post_feed_idx"),
+            models.Index(fields=["user"], name="post_user_idx"),
+            models.Index(fields=["restaurant"], name="post_restaurant_idx"),
+        ]
 
     def __str__(self):
         return f"{self.user.username} - {self.restaurant.name}"
@@ -326,3 +343,199 @@ class VisitedRestaurant(models.Model):
             )
         ]
         ordering = ["-visit_date", "-updated_at", "-id"]
+
+
+# ============================================================
+# [P2-1] Modelos de moderación y analytics
+# ------------------------------------------------------------
+# Estos modelos ya existían en la migración 0013 pero no estaban
+# definidos como clases Python. Ahora son importables directamente
+# desde models y AnalyticsOverviewAPIView ya no necesita try/except.
+# ============================================================
+
+
+class ContentReport(models.Model):
+    REASON_CHOICES = [
+        ("spam", "Spam"),
+        ("harassment", "Acoso"),
+        ("hate_speech", "Discurso de odio"),
+        ("inappropriate_content", "Contenido inapropiado"),
+        ("misinformation", "Desinformación"),
+        ("other", "Otro"),
+    ]
+    STATUS_CHOICES = [
+        ("pending", "Pendiente"),
+        ("reviewed", "Revisado"),
+        ("dismissed", "Rechazado"),
+        ("actioned", "Accionado"),
+    ]
+
+    reporter = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="content_reports",
+        verbose_name="Reportero",
+    )
+    post = models.ForeignKey(
+        "Post",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="reports",
+        verbose_name="Post reportado",
+    )
+    comment = models.ForeignKey(
+        "PostComment",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="reports",
+        verbose_name="Comentario reportado",
+    )
+    reason = models.CharField(
+        max_length=50, choices=REASON_CHOICES, verbose_name="Razón del reporte"
+    )
+    description = models.TextField(blank=True, verbose_name="Descripción adicional")
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default="pending",
+        db_index=True,
+        verbose_name="Estado",
+    )
+    admin_notes = models.TextField(blank=True, verbose_name="Notas del administrador")
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reviewed_reports",
+        verbose_name="Revisado por",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Reporte de contenido"
+        verbose_name_plural = "Reportes de contenido"
+        ordering = ["-created_at"]
+
+
+class PlatformAnalytics(models.Model):
+    date = models.DateField(db_index=True, verbose_name="Fecha")
+    total_users = models.IntegerField(default=0, verbose_name="Total de usuarios")
+    new_users = models.IntegerField(default=0, verbose_name="Nuevos usuarios")
+    active_users = models.IntegerField(default=0, verbose_name="Usuarios activos")
+    total_restaurants = models.IntegerField(default=0, verbose_name="Total de restaurantes")
+    new_restaurants = models.IntegerField(default=0, verbose_name="Nuevos restaurantes")
+    total_posts = models.IntegerField(default=0, verbose_name="Total de posts")
+    new_posts = models.IntegerField(default=0, verbose_name="Nuevos posts")
+    total_reviews = models.IntegerField(default=0, verbose_name="Total de reseñas")
+    new_reviews = models.IntegerField(default=0, verbose_name="Nuevas reseñas")
+    total_likes = models.IntegerField(default=0, verbose_name="Total de likes")
+    total_comments = models.IntegerField(default=0, verbose_name="Total de comentarios")
+    content_reports = models.IntegerField(default=0, verbose_name="Reportes de contenido")
+    posts_removed = models.IntegerField(default=0, verbose_name="Posts removidos")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Analytics de la plataforma"
+        verbose_name_plural = "Analytics de la plataforma"
+        ordering = ["-date"]
+        constraints = [
+            models.UniqueConstraint(fields=["date"], name="unique_analytics_per_date"),
+        ]
+
+
+class PostModeration(models.Model):
+    ACTION_CHOICES = [
+        ("hidden", "Oculto"),
+        ("deleted", "Eliminado"),
+        ("flagged", "Marcado para revisión"),
+        ("restored", "Restaurado"),
+    ]
+    REASON_CHOICES = [
+        ("spam", "Spam"),
+        ("harassment", "Acoso"),
+        ("hate_speech", "Discurso de odio"),
+        ("inappropriate_content", "Contenido inapropiado"),
+        ("misinformation", "Desinformación"),
+        ("other", "Otro"),
+    ]
+
+    post = models.OneToOneField(
+        "Post",
+        on_delete=models.CASCADE,
+        related_name="moderation",
+        verbose_name="Post",
+    )
+    moderator = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="moderated_posts",
+        verbose_name="Moderador",
+    )
+    action = models.CharField(max_length=20, choices=ACTION_CHOICES, verbose_name="Acción")
+    reason = models.CharField(
+        max_length=50, choices=REASON_CHOICES, verbose_name="Razón de moderación"
+    )
+    notes = models.TextField(blank=True, verbose_name="Notas")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Moderación de post"
+        verbose_name_plural = "Moderaciones de posts"
+        ordering = ["-created_at"]
+
+
+class AdminAuditLog(models.Model):
+    ACTION_CHOICES = [
+        ("create", "Crear"),
+        ("update", "Actualizar"),
+        ("delete", "Eliminar"),
+        ("moderate", "Moderar"),
+        ("restore", "Restaurar"),
+    ]
+    MODEL_TYPE_CHOICES = [
+        ("restaurant", "Restaurante"),
+        ("post", "Post"),
+        ("comment", "Comentario"),
+        ("user", "Usuario"),
+    ]
+
+    admin_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="admin_audit_logs",
+        verbose_name="Usuario administrador",
+    )
+    action = models.CharField(max_length=20, choices=ACTION_CHOICES, verbose_name="Acción")
+    model_type = models.CharField(
+        max_length=20, choices=MODEL_TYPE_CHOICES, verbose_name="Tipo de modelo"
+    )
+    object_id = models.PositiveIntegerField(verbose_name="ID del objeto")
+    object_name = models.CharField(max_length=255, verbose_name="Nombre del objeto")
+    changes = models.JSONField(default=dict, blank=True, verbose_name="Cambios realizados")
+    ip_address = models.GenericIPAddressField(
+        null=True, blank=True, verbose_name="Dirección IP"
+    )
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = "Log de auditoría del admin"
+        verbose_name_plural = "Logs de auditoría del admin"
+        ordering = ["-timestamp"]
+        indexes = [
+            models.Index(
+                fields=["admin_user", "-timestamp"],
+                name="restaurants_admin_u_728c9f_idx",
+            ),
+            models.Index(
+                fields=["model_type", "object_id"],
+                name="restaurants_model_t_f7e0ab_idx",
+            ),
+        ]

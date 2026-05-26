@@ -8,6 +8,7 @@
 // ============================================================
 
 import { Restaurant } from "@/src/models/domain";
+import { ApiRestaurant } from "@/src/types/api";
 
 export function normalizeText(value: string): string {
   return value
@@ -17,17 +18,17 @@ export function normalizeText(value: string): string {
     .trim();
 }
 
-export function mapApiRestaurant(item: any): Restaurant {
+export function mapApiRestaurant(item: Partial<ApiRestaurant>): Restaurant {
   return {
     id: String(item.id),
-    name: item.name,
+    name: item.name ?? "",
     category: item.category || "Restaurante",
-    rating: parseFloat(item.rating) || 0,
-    image: item.image,
-    latitude: item.latitude,
-    longitude: item.longitude,
-    location: item.location,
-    description: item.description,
+    rating: parseFloat(item.rating ?? "0") || 0,
+    image: item.image ?? "",
+    latitude: item.latitude ?? 0,
+    longitude: item.longitude ?? 0,
+    location: item.location ?? "",
+    description: item.description ?? "",
     menuHighlights: item.menu_highlights || [],
     whatsapp: item.whatsapp || "",
   };

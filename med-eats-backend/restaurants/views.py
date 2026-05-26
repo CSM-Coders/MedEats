@@ -22,6 +22,7 @@ from rest_framework.views import APIView
 from rest_framework.exceptions import PermissionDenied
 from accounts.views import can_view_profile
 from config.pagination import PostCursorPagination
+from config.throttling import AIChatRateThrottle
 from .models import (
     Restaurant,
     RestaurantBranch,
@@ -32,6 +33,9 @@ from .models import (
     Review,
     SavedRestaurant,
     VisitedRestaurant,
+    # [P2-1] Modelos ya definidos formalmente
+    ContentReport,
+    PostModeration,
 )
 from .serializers import (
     RestaurantSerializer,
@@ -330,6 +334,8 @@ class FoodieAssistantAPIView(APIView):
     """
 
     permission_classes = [AllowAny]
+    # [P2-2] 20 consultas/hora por IP — Gemini cuesta dinero por request
+    throttle_classes = [AIChatRateThrottle]
 
     def post(self, request):
         message = str(request.data.get("message", "")).strip()
@@ -339,7 +345,10 @@ class FoodieAssistantAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        queryset = Restaurant.objects.select_related("category").all()
+        # [P2-3] Limitar a 200 restaurantes top por rating para no inflar el prompt
+        queryset = Restaurant.objects.select_related("category").order_by(
+            "-rating", "name"
+        )[:200]
         restaurants = list(
             queryset.values(
                 "id",
@@ -399,7 +408,12 @@ class FoodieAssistantAPIView(APIView):
                 },
                 status=status.HTTP_200_OK,
             )
-        restaurant = queryset.filter(id=result.restaurant_id).first()
+        # [P2-3] queryset arriba viene sliced [:200] — no se puede filtrar; recargamos
+        restaurant = (
+            Restaurant.objects.select_related("category")
+            .filter(id=result.restaurant_id)
+            .first()
+        )
 
         if not restaurant:
             return Response(
@@ -539,26 +553,16 @@ class AnalyticsOverviewAPIView(APIView):
         total_likes = PostLike.objects.count()
         total_comments = PostComment.objects.count()
 
-        # Campos opcionales si los modelos existen (migraciones previas)
-        try:
-            from .models import ContentReport
+        # [P2-1] Importados directamente arriba; sin try/except
+        content_reports = ContentReport.objects.filter(
+            created_at__date__gte=from_date, created_at__date__lte=to_date
+        ).count()
 
-            content_reports = ContentReport.objects.filter(
-                created_at__date__gte=from_date, created_at__date__lte=to_date
-            ).count()
-        except Exception:
-            content_reports = 0
-
-        try:
-            from .models import PostModeration
-
-            posts_removed = PostModeration.objects.filter(
-                action="deleted",
-                created_at__date__gte=from_date,
-                created_at__date__lte=to_date,
-            ).count()
-        except Exception:
-            posts_removed = 0
+        posts_removed = PostModeration.objects.filter(
+            action="deleted",
+            created_at__date__gte=from_date,
+            created_at__date__lte=to_date,
+        ).count()
 
         payload = {
             "from": from_date.isoformat(),

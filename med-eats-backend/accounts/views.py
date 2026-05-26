@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from config.throttling import LoginRateThrottle, RegisterRateThrottle
 from .models import Follow, UserProfile, FollowRequest
 from .serializers import (
     PublicProfileSerializer,
@@ -52,6 +53,8 @@ def build_auth_response(user):
 
 class RegisterAPIView(APIView):
     permission_classes = [AllowAny]
+    # [P2-2] 5 registros/hora por IP — bloquea creación masiva de cuentas
+    throttle_classes = [RegisterRateThrottle]
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -70,6 +73,8 @@ class RegisterAPIView(APIView):
 
 class LoginAPIView(APIView):
     permission_classes = [AllowAny]
+    # [P2-2] 10 intentos/minuto por IP — defensa contra brute force
+    throttle_classes = [LoginRateThrottle]
 
     def post(self, request):
         username = request.data.get("username", "").strip()
@@ -104,7 +109,12 @@ class MeAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        UserProfile.objects.get_or_create(user=request.user)
+        # [P2-9] La signal ensure_user_profile garantiza que el perfil existe.
+        # get_or_create solo se usa como red de seguridad para datos corruptos.
+        try:
+            request.user.profile
+        except UserProfile.DoesNotExist:
+            UserProfile.objects.create(user=request.user)
         return Response(UserSerializer(request.user).data)
 
 

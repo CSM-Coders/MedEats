@@ -29,6 +29,34 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(dotenv_path=BASE_DIR / ".env")
 
+# ============================================================
+# [P1-12] Sentry — captura de errores y trazas de performance
+# ============================================================
+SENTRY_DSN = os.getenv("SENTRY_DSN", "")
+if SENTRY_DSN:
+    import sentry_sdk
+    from sentry_sdk.integrations.django import DjangoIntegration
+    from sentry_sdk.integrations.celery import CeleryIntegration
+    from sentry_sdk.integrations.redis import RedisIntegration
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        integrations=[
+            DjangoIntegration(
+                transaction_style="url",
+                middleware_spans=True,
+                signals_spans=False,
+            ),
+            CeleryIntegration(monitor_beat_tasks=True),
+            RedisIntegration(),
+        ],
+        traces_sample_rate=0.1,
+        profiles_sample_rate=0.05,
+        environment=os.getenv("ENVIRONMENT", "development"),
+        send_default_pii=False,
+        before_send=lambda event, hint: event,
+    )
+
 
 def parse_bool_env(var_name: str, default: bool = False) -> bool:
     value = os.getenv(var_name)
@@ -127,11 +155,12 @@ DATABASES = {
         "PASSWORD": os.getenv("DB_PASSWORD", ""),
         "HOST": os.getenv("DB_HOST", "localhost"),
         "PORT": os.getenv("DB_PORT", "5432"),
-        # [P1-11] Connection pooling — keep connections alive 10 min por worker
+        # [P1-11] Connection pooling — keep connections alive 10 min por worker.
+        # "read committed" ya es el default de PostgreSQL, así que no hace falta
+        # forzarlo explícitamente (libpq parsea mal el espacio interno).
         "CONN_MAX_AGE": 600,
         "OPTIONS": {
             "connect_timeout": 10,
-            "options": "-c default_transaction_isolation=read committed",
         },
         "TEST": {
             "NAME": "medeats_test",
