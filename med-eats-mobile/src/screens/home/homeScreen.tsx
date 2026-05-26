@@ -6,6 +6,14 @@
 // - búsqueda por texto
 // - búsqueda semántica básica (AI-like)
 // - filtros por categoría, rating y distancia
+//
+// [P2-5] La lógica de mapa, fetching de restaurantes y chat con Foodie
+// vive ahora en hooks dedicados (useMapNavigation, useRestaurants,
+// useFoodieChat). Este componente solo se encarga de:
+//   - estado local de búsqueda / filtros / inputs
+//   - composición JSX
+//   - coordinar el flujo entre los hooks (ej. al recibir una
+//     recomendación de Foodie, seleccionar el restaurante en el mapa)
 // ============================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -13,7 +21,6 @@ import {
   ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
-  Linking,
   Modal,
   Platform,
   Pressable,
@@ -24,7 +31,6 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import MapViewComponent from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect } from "@react-navigation/native";
 import { HomeFilters, Restaurant } from "@/src/models/domain";
@@ -36,15 +42,12 @@ import {
 } from "../../services/mockData";
 import MapView from "./components/mapView";
 import RestaurantCard from "./components/restaurantCard";
-import { API_BASE_URL } from "../../config/api";
-import { fetchRestaurants as fetchRestaurantsApi } from "../../services/restaurantApi";
 import { colors, radii, spacing } from "../../theme/designTokens";
-// [P2-5] Helpers puros extra\u00eddos de este archivo
-import {
-  getRestaurantMapPoints,
-  mapApiRestaurant,
-  rankLocalFoodieMatch,
-} from "./utils/foodieMatching";
+// [P2-5] Helpers puros + hooks extraídos
+import { getRestaurantMapPoints } from "./utils/foodieMatching";
+import { useRestaurants } from "./hooks/useRestaurants";
+import { useMapNavigation } from "./hooks/useMapNavigation";
+import { useFoodieChat } from "./hooks/useFoodieChat";
 
 const initialFilters: HomeFilters = {
   category: null,
@@ -52,68 +55,34 @@ const initialFilters: HomeFilters = {
   maxDistanceKm: null,
 };
 
-type FoodieRecommendation = {
-  restaurant: Restaurant;
-  explanation: string;
-};
-
-type FoodieChatMessage = {
-  id: string;
-  role: "assistant" | "user";
-  text: string;
-};
-
 export default function HomeScreen() {
+  // Estado local que no cubren los hooks (búsqueda, filtros, inputs del chat)
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
-  const [selectedLocation, setSelectedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
-  const [navigationData, setNavigationData] = useState<{ distance: number; duration: number } | null>(null);
-  const [navigationState, setNavigationState] = useState<"discovery" | "preview" | "active">("discovery");
   const [showFilters, setShowFilters] = useState(false);
-  // `filters` = filtros APLICADOS al mapa (solo cambian al presionar "Buscar")
-  // `stagedFilters` = filtros SELECCIONADOS en el panel (pueden cambiar sin afectar el mapa)
   const [filters, setFilters] = useState<HomeFilters>(initialFilters);
   const [stagedFilters, setStagedFilters] = useState<HomeFilters>(initialFilters);
-  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [foodieLoading, setFoodieLoading] = useState(false);
-  const [foodieRecommendation, setFoodieRecommendation] =
-    useState<FoodieRecommendation | null>(null);
-  const [isFoodieChatOpen, setIsFoodieChatOpen] = useState(false);
   const [chatInput, setChatInput] = useState("");
   const [chatInputHeight, setChatInputHeight] = useState(42);
-  const [chatMessages, setChatMessages] = useState<FoodieChatMessage[]>([
-    {
-      id: "welcome",
-      role: "assistant",
-      text: "Soy Foodie AI. Cuéntame qué se te antoja y te recomiendo el mejor restaurante.",
-    },
-  ]);
 
-  // ============================================================
-  // CONEXIÓN CON EL BACKEND APENAS CARGA LA APP (Sprint 1)
-  // ------------------------------------------------------------
-  // Usamos un "useEffect": Es una función de React que ejecuta nuestro
-  // código exactamente una vez cuando la pantalla se muestra por primera vez.
-  // En lugar de usar los fijos de mockData.ts, pedimos a Django la lista por internet.
-  // ============================================================
-  const loadRestaurants = useCallback(async () => {
-    try {
-      const data = await fetchRestaurantsApi();
-      setRestaurants(data);
-    } catch (error) {
-      console.error("Error conectando con Django:", error);
-      setRestaurants([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const insets = useSafeAreaInsets();
+  const { location: userLocation } = useUserLocation();
+
+  // [P2-5] Hook: mapa + selección + estado de navegación
+  const mapNav = useMapNavigation(userLocation);
+
+  // [P2-5] Hook: fetching y caché en memoria de los restaurantes.
+  // Los argumentos se pasan vacíos porque homeScreen aplica un filtrado más
+  // rico (con sedes y distancia) y usa solo `restaurants` y `loading`.
+  const { restaurants, loading, reload } = useRestaurants(initialFilters, "");
+
+  // [P2-5] Hook: chat con Foodie AI + recomendación
+  const foodieChat = useFoodieChat(restaurants, userLocation);
 
   // Refrescar datos cada vez que el usuario vuelve a la pantalla de inicio
   useFocusEffect(
     useCallback(() => {
-      loadRestaurants();
-    }, [loadRestaurants])
+      reload();
+    }, [reload])
   );
 
   // ============================================================
@@ -128,19 +97,25 @@ export default function HomeScreen() {
       if (skipResetRef.current) {
         skipResetRef.current = false;
       } else {
-        mapRef.current?.animateToRegion(MEDELLIN_REGION, 500);
+        mapNav.resetCamera();
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery]);
 
-  const mapRef = useRef<MapViewComponent>(null);
-  const insets = useSafeAreaInsets();
-  const { location: userLocation } = useUserLocation();
-  const isRestaurantCardOpen = Boolean(selectedRestaurant && navigationState === "discovery");
+  const isRestaurantCardOpen = Boolean(
+    mapNav.selectedRestaurant && mapNav.navigationState === "discovery"
+  );
 
   const categories = useMemo(
-    () => [...new Set(restaurants.filter(r => r && r.category).map((restaurant) => restaurant.category))],
-    [restaurants] // <-- ¡Actualizado! Ahora depende de los restaurantes que vienen de BD
+    () => [
+      ...new Set(
+        restaurants
+          .filter((r) => r && r.category)
+          .map((restaurant) => restaurant.category)
+      ),
+    ],
+    [restaurants]
   );
 
   const isAiSearch = useMemo(() => {
@@ -151,102 +126,98 @@ export default function HomeScreen() {
     return restaurants.some((restaurant) =>
       semanticCategoryMatches(searchQuery, restaurant.category)
     );
-  }, [searchQuery, restaurants]); // <-- ¡Actualizado! Funciona en tiempo real
+  }, [searchQuery, restaurants]);
 
   const searchResults = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
     const flattened: any[] = [];
 
-    restaurants.filter(r => r && r.id).forEach((restaurant) => {
-      const name = (restaurant.name || "").toLowerCase();
-      const category = (restaurant.category || "").toLowerCase();
-      const location = (restaurant.location || "").toLowerCase();
+    restaurants
+      .filter((r) => r && r.id)
+      .forEach((restaurant) => {
+        const name = (restaurant.name || "").toLowerCase();
+        const category = (restaurant.category || "").toLowerCase();
+        const location = (restaurant.location || "").toLowerCase();
 
-      const directMatch =
-        !query ||
-        name.includes(query) ||
-        category.includes(query) ||
-        location.includes(query);
+        const directMatch =
+          !query ||
+          name.includes(query) ||
+          category.includes(query) ||
+          location.includes(query);
 
-      const semanticMatch = query
-        ? semanticCategoryMatches(query, restaurant.category || "")
-        : false;
+        const semanticMatch = query
+          ? semanticCategoryMatches(query, restaurant.category || "")
+          : false;
 
-      const searchMatch = directMatch || semanticMatch;
+        const searchMatch = directMatch || semanticMatch;
 
-      const categoryMatch =
-        !filters.category || restaurant.category === filters.category;
+        const categoryMatch =
+          !filters.category || restaurant.category === filters.category;
 
-      const ratingMatch =
-        !filters.minRating || restaurant.rating >= filters.minRating;
+        const ratingMatch =
+          !filters.minRating || restaurant.rating >= filters.minRating;
 
-      // Solo procesamos si el restaurante base cumple los filtros de categoría/rating
-      if (searchMatch && categoryMatch && ratingMatch) {
-        const originLat = userLocation?.latitude ?? MEDELLIN_REGION.latitude;
-        const originLon = userLocation?.longitude ?? MEDELLIN_REGION.longitude;
+        if (searchMatch && categoryMatch && ratingMatch) {
+          const originLat = userLocation?.latitude ?? MEDELLIN_REGION.latitude;
+          const originLon = userLocation?.longitude ?? MEDELLIN_REGION.longitude;
 
-        // 1. Sede Principal
-        const distMain = getDistanceKm(originLat, originLon, restaurant.latitude, restaurant.longitude);
-        if (!filters.maxDistanceKm || distMain <= filters.maxDistanceKm) {
-          flattened.push({
-            id: `main-${restaurant.id}`,
-            restaurant,
-            name: restaurant.name,
-            location: restaurant.location,
-            latitude: restaurant.latitude,
-            longitude: restaurant.longitude,
-            distance: distMain,
-            isBranch: false,
-          });
-        }
-
-        // 2. Sedes Adicionales
-        (restaurant.branches || []).forEach((branch) => {
-          const distBranch = getDistanceKm(originLat, originLon, branch.latitude, branch.longitude);
-          if (!filters.maxDistanceKm || distBranch <= filters.maxDistanceKm) {
+          // 1. Sede principal
+          const distMain = getDistanceKm(
+            originLat,
+            originLon,
+            restaurant.latitude,
+            restaurant.longitude
+          );
+          if (!filters.maxDistanceKm || distMain <= filters.maxDistanceKm) {
             flattened.push({
-              id: `branch-${branch.id}`,
+              id: `main-${restaurant.id}`,
               restaurant,
-              name: `${restaurant.name} (Sede)`,
-              location: branch.address,
-              latitude: branch.latitude,
-              longitude: branch.longitude,
-              distance: distBranch,
-              isBranch: true,
+              name: restaurant.name,
+              location: restaurant.location,
+              latitude: restaurant.latitude,
+              longitude: restaurant.longitude,
+              distance: distMain,
+              isBranch: false,
             });
           }
-        });
-      }
-    });
+
+          // 2. Sedes adicionales
+          (restaurant.branches || []).forEach((branch) => {
+            const distBranch = getDistanceKm(
+              originLat,
+              originLon,
+              branch.latitude,
+              branch.longitude
+            );
+            if (!filters.maxDistanceKm || distBranch <= filters.maxDistanceKm) {
+              flattened.push({
+                id: `branch-${branch.id}`,
+                restaurant,
+                name: `${restaurant.name} (Sede)`,
+                location: branch.address,
+                latitude: branch.latitude,
+                longitude: branch.longitude,
+                distance: distBranch,
+                isBranch: true,
+              });
+            }
+          });
+        }
+      });
 
     return flattened.sort((a, b) => a.distance - b.distance);
   }, [filters, searchQuery, userLocation, restaurants]);
 
   const filteredRestaurants = useMemo(() => {
     const uniqueMap = new Map();
-    searchResults.forEach(item => {
+    searchResults.forEach((item) => {
       uniqueMap.set(item.restaurant.id, item.restaurant);
     });
     return Array.from(uniqueMap.values());
   }, [searchResults]);
 
-  const focusRestaurantOnMap = (latitude: number, longitude: number) => {
-    requestAnimationFrame(() => {
-      mapRef.current?.animateToRegion(
-        {
-          latitude: latitude - 0.0022,
-          longitude,
-          latitudeDelta: 0.005,
-          longitudeDelta: 0.005,
-        },
-        700
-      );
-    });
-  };
-
-
   const handleSearchSubmit = () => {
-    if (selectedRestaurant) return;
+    if (mapNav.selectedRestaurant) return;
     Keyboard.dismiss();
 
     if (searchResults.length === 0) {
@@ -255,158 +226,50 @@ export default function HomeScreen() {
 
     const item = searchResults[0];
     skipResetRef.current = true;
-    setSelectedRestaurant(item.restaurant);
-    setSelectedLocation({ latitude: item.latitude, longitude: item.longitude });
-    setNavigationData(null);
+    mapNav.setSelectedRestaurant(item.restaurant);
+    mapNav.setSelectedLocation({ latitude: item.latitude, longitude: item.longitude });
+    mapNav.setNavigationData(null);
     setShowFilters(false);
     setSearchQuery("");
 
-    focusRestaurantOnMap(item.latitude, item.longitude);
+    mapNav.focusOnMap(item.latitude, item.longitude);
   };
 
   const handleShowRoute = (restaurant: Restaurant) => {
     Keyboard.dismiss();
-    setNavigationState("preview");
-    
-    const destLat = selectedLocation?.latitude ?? restaurant.latitude;
-    const destLon = selectedLocation?.longitude ?? restaurant.longitude;
-    
-    if (!selectedLocation) {
-      setSelectedLocation({ latitude: destLat, longitude: destLon });
+    mapNav.setNavigationState("preview");
+
+    const destLat = mapNav.selectedLocation?.latitude ?? restaurant.latitude;
+    const destLon = mapNav.selectedLocation?.longitude ?? restaurant.longitude;
+
+    if (!mapNav.selectedLocation) {
+      mapNav.setSelectedLocation({ latitude: destLat, longitude: destLon });
     }
 
-    const userLat = userLocation?.latitude ?? MEDELLIN_REGION.latitude;
-    const userLon = userLocation?.longitude ?? MEDELLIN_REGION.longitude;
-
-    mapRef.current?.fitToCoordinates(
-      [
-        { latitude: userLat, longitude: userLon },
-        { latitude: destLat, longitude: destLon }
-      ],
-      {
-        edgePadding: { top: 100, right: 100, bottom: 400, left: 100 },
-        animated: true,
-      }
-    );
+    mapNav.fitRouteOnMap(destLat, destLon);
   };
 
   const handleLocationPreviewPress = (item: any) => {
-    if (selectedRestaurant) return;
+    if (mapNav.selectedRestaurant) return;
     Keyboard.dismiss();
     skipResetRef.current = true;
-    setSelectedRestaurant(item.restaurant);
-    setSelectedLocation({ latitude: item.latitude, longitude: item.longitude });
-    setNavigationState("discovery");
-    setNavigationData(null);
+    mapNav.setSelectedRestaurant(item.restaurant);
+    mapNav.setSelectedLocation({ latitude: item.latitude, longitude: item.longitude });
+    mapNav.setNavigationState("discovery");
+    mapNav.setNavigationData(null);
     setShowFilters(false);
     setSearchQuery("");
 
-    const userLat = userLocation?.latitude ?? MEDELLIN_REGION.latitude;
-    const userLon = userLocation?.longitude ?? MEDELLIN_REGION.longitude;
-
-    focusRestaurantOnMap(item.latitude, item.longitude);
+    mapNav.focusOnMap(item.latitude, item.longitude);
   };
 
-  const handleStartNavigation = () => {
-    setNavigationState("active");
-    const userLat = userLocation?.latitude ?? MEDELLIN_REGION.latitude;
-    const userLon = userLocation?.longitude ?? MEDELLIN_REGION.longitude;
-
-    // En modo navegación real, el usuario suele estar un poco más abajo del centro
-    // para ver más camino adelante. Ajustamos ligeramente la latitud visual.
-    mapRef.current?.animateCamera({
-      center: { 
-        latitude: userLat + 0.001, // Desplazamos la cámara un poco hacia adelante
-        longitude: userLon 
-      },
-      pitch: 60,
-      heading: 0,
-      altitude: 500,
-      zoom: 19,
-    }, { duration: 1000 });
-  };
-
-  const handleExitNavigation = () => {
-    // Primero detenemos cualquier animación de navegación
-    const latitude = userLocation?.latitude ?? MEDELLIN_REGION.latitude;
-    const longitude = userLocation?.longitude ?? MEDELLIN_REGION.longitude;
-
-    if (mapRef.current) {
-      mapRef.current.animateCamera({
-        center: { latitude, longitude },
-        pitch: 0,
-        heading: 0,
-        altitude: 15000,
-        zoom: 13,
-      }, { duration: 800 });
-    }
-
-    // Limpiamos los estados de navegación
-    setNavigationState("discovery");
-    setNavigationData(null);
-    setSelectedRestaurant(null);
-    setSelectedLocation(null);
-  };
-
-  const runFoodieSearch = async (question: string): Promise<FoodieRecommendation | null> => {
-    const normalizedQuestion = question.trim();
-    if (!normalizedQuestion) return null;
-
-    const fallbackRestaurant = rankLocalFoodieMatch(
-      normalizedQuestion,
-      restaurants,
-      userLocation
-    );
-    const fallbackRecommendation = fallbackRestaurant
-      ? {
-          restaurant: fallbackRestaurant,
-          explanation: `Te recomiendo ${fallbackRestaurant.name} porque encaja mejor con "${normalizedQuestion}".`,
-        }
-      : null;
-
-    let recommendation: FoodieRecommendation | null = null;
-
-    try {
-      setFoodieLoading(true);
-      const response = await fetch(`${API_BASE_URL}/api/v1/ai/foodie-chat/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: normalizedQuestion,
-          latitude: userLocation?.latitude ?? null,
-          longitude: userLocation?.longitude ?? null,
-          excluded_restaurant_id: foodieRecommendation ? Number(foodieRecommendation.restaurant.id) : null,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("No se pudo consultar Foodie AI");
-      }
-
-      const payload = await response.json();
-
-      if (payload.detail && !payload.restaurant) {
-        const assistantText = String(payload.detail);
-        setChatMessages((prev) => [
-          ...prev,
-          { id: `a-${Date.now()}`, role: "assistant", text: assistantText },
-        ]);
-        setFoodieRecommendation(null);
-        return null;
-      }
-
-      const restaurant = mapApiRestaurant(payload.restaurant);
-
-      recommendation = {
-        restaurant,
-        explanation: payload.explanation || "Te encontré una recomendación ideal para tu plan.",
-      };
-
-      setFoodieRecommendation(recommendation);
-      setSelectedRestaurant(restaurant);
-
-      const points = getRestaurantMapPoints(restaurant);
-      mapRef.current?.animateToRegion(
+  // Orquestación: chat → selección + animación de cámara
+  const runFoodieSearch = async (question: string) => {
+    const recommendation = await foodieChat.ask(question);
+    if (recommendation) {
+      mapNav.setSelectedRestaurant(recommendation.restaurant);
+      const points = getRestaurantMapPoints(recommendation.restaurant);
+      mapNav.mapRef.current?.animateToRegion(
         {
           latitude: points[0].latitude,
           longitude: points[0].longitude,
@@ -415,52 +278,20 @@ export default function HomeScreen() {
         },
         700
       );
-    } catch (error) {
-      console.error("Error consultando Foodie AI:", error);
-      const nearestFallback = rankLocalFoodieMatch(
-        normalizedQuestion,
-        restaurants,
-        userLocation
-      );
-      recommendation = fallbackRecommendation;
-      if (!recommendation && nearestFallback) {
-        recommendation = {
-          restaurant: nearestFallback,
-          explanation: "Tomé una recomendación local basada en tu búsqueda y cercanía.",
-        };
-      }
-
-      if (recommendation) {
-        setFoodieRecommendation(recommendation);
-        setSelectedRestaurant(recommendation.restaurant);
-        const points = getRestaurantMapPoints(recommendation.restaurant);
-        mapRef.current?.animateToRegion(
-          {
-            latitude: points[0].latitude,
-            longitude: points[0].longitude,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          },
-          700
-        );
-      }
-    } finally {
-      setFoodieLoading(false);
     }
-
     return recommendation;
   };
 
   const handleOpenFoodieChat = () => {
     Keyboard.dismiss();
-    setIsFoodieChatOpen(true);
+    foodieChat.setIsOpen(true);
   };
 
   const handleSendFoodieMessage = async () => {
     const question = chatInput.trim();
     if (!question) return;
 
-    setChatMessages((prev) => [
+    foodieChat.setMessages((prev) => [
       ...prev,
       { id: `u-${Date.now()}`, role: "user", text: question },
     ]);
@@ -471,16 +302,16 @@ export default function HomeScreen() {
       ? `${recommendation.explanation}\n\nRecomendado: ${recommendation.restaurant.name}`
       : "No encontré una recomendación clara, intenta con más detalles.";
 
-    setChatMessages((prev) => [
+    foodieChat.setMessages((prev) => [
       ...prev,
       { id: `a-${Date.now()}`, role: "assistant", text: assistantText },
     ]);
   };
 
   const clearSearchAndFilters = () => {
-    setSelectedRestaurant(null);
-    setSelectedLocation(null);
-    setFoodieRecommendation(null);
+    mapNav.setSelectedRestaurant(null);
+    mapNav.setSelectedLocation(null);
+    foodieChat.setRecommendation(null);
     Keyboard.dismiss();
     setSearchQuery("");
     setFilters(initialFilters);
@@ -488,7 +319,7 @@ export default function HomeScreen() {
     setShowFilters(false);
 
     setTimeout(() => {
-      mapRef.current?.animateToRegion(MEDELLIN_REGION, 700);
+      mapNav.resetCamera();
     }, 100);
   };
 
@@ -496,279 +327,299 @@ export default function HomeScreen() {
     return (
       <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
         <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={{ marginTop: 12, color: colors.textMuted }}>Cargando restaurantes desde PostgreSQL...</Text>
+        <Text style={{ marginTop: 12, color: colors.textMuted }}>
+          Cargando restaurantes desde PostgreSQL...
+        </Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <Pressable 
-        style={styles.container} 
+      <Pressable
+        style={styles.container}
         onPress={() => {
-          if (navigationState === "discovery") {
-            setSelectedRestaurant(null);
+          if (mapNav.navigationState === "discovery") {
+            mapNav.setSelectedRestaurant(null);
           }
         }}
       >
         {/* Cuando hay filtros activos, mostramos solo los restaurantes que coincidan.
             Cuando no hay filtros, mostramos TODOS para que ninún pin desaparezca. */}
         <MapView
-          ref={mapRef}
+          ref={mapNav.mapRef}
           restaurants={
             filters.category || filters.minRating || filters.maxDistanceKm
               ? filteredRestaurants
               : restaurants
           }
           selectedMarker={{
-            restaurantId: selectedRestaurant?.id ?? null,
-            latitude: selectedLocation?.latitude ?? null,
-            longitude: selectedLocation?.longitude ?? null,
+            restaurantId: mapNav.selectedRestaurant?.id ?? null,
+            latitude: mapNav.selectedLocation?.latitude ?? null,
+            longitude: mapNav.selectedLocation?.longitude ?? null,
           }}
           onMarkerPress={(restaurant, location) => {
-            if (navigationState === "active" || isRestaurantCardOpen) return;
-            setSelectedRestaurant(restaurant);
-            const focusLocation = location || { latitude: restaurant.latitude, longitude: restaurant.longitude };
-            setSelectedLocation(focusLocation);
-            focusRestaurantOnMap(focusLocation.latitude, focusLocation.longitude);
+            if (mapNav.navigationState === "active" || isRestaurantCardOpen) return;
+            mapNav.setSelectedRestaurant(restaurant);
+            const focusLocation =
+              location || { latitude: restaurant.latitude, longitude: restaurant.longitude };
+            mapNav.setSelectedLocation(focusLocation);
+            mapNav.focusOnMap(focusLocation.latitude, focusLocation.longitude);
           }}
           origin={userLocation}
-          destination={navigationState !== "discovery" ? selectedLocation : null}
+          destination={mapNav.navigationState !== "discovery" ? mapNav.selectedLocation : null}
           onDirectionsReady={(result) => {
-            setNavigationData({
+            mapNav.setNavigationData({
               distance: result.distance,
-              duration: result.duration
+              duration: result.duration,
             });
           }}
         />
       </Pressable>
 
-      {navigationState === "discovery" && (
+      {mapNav.navigationState === "discovery" && (
         <View style={[styles.searchContainer, { top: insets.top + 8 }]}>
           <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color={colors.textMuted} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search by name or food type"
-            placeholderTextColor={colors.placeholder}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            onSubmitEditing={handleSearchSubmit}
-            returnKeyType="search"
-          />
+            <Ionicons name="search" size={20} color={colors.textMuted} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search by name or food type"
+              placeholderTextColor={colors.placeholder}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              onSubmitEditing={handleSearchSubmit}
+              returnKeyType="search"
+            />
+
+            <Pressable
+              onPress={() => setShowFilters((value) => !value)}
+              hitSlop={8}
+              style={styles.iconButton}
+            >
+              <Ionicons name="options-outline" size={20} color={colors.textMuted} />
+            </Pressable>
+
+            {(searchQuery.length > 0 ||
+              filters.category ||
+              filters.minRating ||
+              filters.maxDistanceKm) && (
+              <Pressable onPress={clearSearchAndFilters} hitSlop={8}>
+                <Ionicons name="close-circle" size={20} color={colors.placeholder} />
+              </Pressable>
+            )}
+          </View>
 
           <Pressable
-            onPress={() => setShowFilters((value) => !value)}
-            hitSlop={8}
-            style={styles.iconButton}
+            style={[styles.foodieAskButton, foodieChat.loading && styles.foodieAskButtonDisabled]}
+            onPress={handleOpenFoodieChat}
+            disabled={foodieChat.loading}
           >
-            <Ionicons name="options-outline" size={20} color={colors.textMuted} />
+            <Ionicons name="sparkles" size={16} color={colors.background} />
+            <Text style={styles.foodieAskButtonText}>
+              {foodieChat.loading ? "Foodie AI está pensando..." : "Preguntarle a Foodie AI"}
+            </Text>
           </Pressable>
 
-          {(searchQuery.length > 0 || filters.category || filters.minRating || filters.maxDistanceKm) && (
-            <Pressable onPress={clearSearchAndFilters} hitSlop={8}>
-              <Ionicons name="close-circle" size={20} color={colors.placeholder} />
-            </Pressable>
+          {searchQuery.trim().length > 0 && searchResults.length > 0 && (
+            <View style={styles.resultsCount}>
+              <Text style={styles.resultsText}>
+                {searchResults.length} {searchResults.length === 1 ? "ubicación" : "ubicaciones"}
+              </Text>
+              {isAiSearch && <Text style={styles.aiBadge}>AI</Text>}
+            </View>
+          )}
+
+          {searchQuery.trim().length > 0 && searchResults.length > 0 && (
+            <View style={styles.searchResultsPanel}>
+              <Text style={styles.searchResultsTitle}>Resultados</Text>
+              <ScrollView
+                style={styles.searchResultsList}
+                keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled
+              >
+                {searchResults.slice(0, 8).map((item) => (
+                  <Pressable
+                    key={item.id}
+                    style={styles.searchResultItem}
+                    onPress={() => handleLocationPreviewPress(item)}
+                  >
+                    <View style={styles.searchResultTextWrap}>
+                      <Text style={styles.searchResultName}>{item.name}</Text>
+                      <Text style={styles.searchResultMeta}>
+                        {item.restaurant.category} · {item.location}
+                      </Text>
+                    </View>
+                    <View style={styles.searchResultRating}>
+                      <Ionicons name="star" size={14} color={colors.primary} />
+                      <Text style={styles.searchResultRatingText}>
+                        {item.restaurant.rating.toFixed(1)}
+                      </Text>
+                    </View>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {foodieChat.recommendation && (
+            <View style={styles.foodieAnswerCard}>
+              <Pressable
+                onPress={() => foodieChat.setRecommendation(null)}
+                style={styles.foodieAnswerClose}
+                hitSlop={8}
+              >
+                <Ionicons name="close" size={18} color={colors.textMuted} />
+              </Pressable>
+              <Text style={styles.foodieAnswerTitle}>Foodie AI recomienda</Text>
+              <Text style={styles.foodieAnswerRestaurant}>
+                {foodieChat.recommendation.restaurant.name}
+              </Text>
+              <Text style={styles.foodieAnswerText}>{foodieChat.recommendation.explanation}</Text>
+            </View>
+          )}
+
+          {showFilters && (
+            <View style={styles.filterPanel}>
+              <Text style={styles.filterTitle}>Filtros</Text>
+
+              <Text style={styles.filterLabel}>Categoría</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow}>
+                <Pressable
+                  style={[styles.chip, !stagedFilters.category && styles.chipActive]}
+                  onPress={() => setStagedFilters((prev) => ({ ...prev, category: null }))}
+                >
+                  <Text style={[styles.chipText, !stagedFilters.category && styles.chipTextActive]}>
+                    Todas
+                  </Text>
+                </Pressable>
+
+                {categories.map((category) => (
+                  <Pressable
+                    key={category}
+                    style={[styles.chip, stagedFilters.category === category && styles.chipActive]}
+                    onPress={() =>
+                      setStagedFilters((prev) => ({
+                        ...prev,
+                        category: prev.category === category ? null : category,
+                      }))
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        stagedFilters.category === category && styles.chipTextActive,
+                      ]}
+                    >
+                      {category}
+                    </Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+
+              <Text style={styles.filterLabel}>Rating mínimo</Text>
+              <View style={styles.inlineRow}>
+                {[4, 4.5].map((value) => (
+                  <Pressable
+                    key={value}
+                    style={[styles.chip, stagedFilters.minRating === value && styles.chipActive]}
+                    onPress={() =>
+                      setStagedFilters((prev) => ({
+                        ...prev,
+                        minRating: prev.minRating === value ? null : value,
+                      }))
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        stagedFilters.minRating === value && styles.chipTextActive,
+                      ]}
+                    >
+                      {value}+
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <Text style={styles.filterLabel}>Distancia</Text>
+              <View style={styles.inlineRow}>
+                {[2, 5].map((value) => (
+                  <Pressable
+                    key={value}
+                    style={[styles.chip, stagedFilters.maxDistanceKm === value && styles.chipActive]}
+                    onPress={() =>
+                      setStagedFilters((prev) => ({
+                        ...prev,
+                        maxDistanceKm: prev.maxDistanceKm === value ? null : value,
+                      }))
+                    }
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        stagedFilters.maxDistanceKm === value && styles.chipTextActive,
+                      ]}
+                    >
+                      {value} km
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              {/* Botones de acción del filtro */}
+              <View style={styles.filterActions}>
+                <Pressable
+                  style={styles.filterClearBtn}
+                  onPress={() => {
+                    setStagedFilters(initialFilters);
+                    setFilters(initialFilters);
+                    setShowFilters(false);
+                    setTimeout(() => {
+                      mapNav.resetCamera();
+                    }, 100);
+                  }}
+                >
+                  <Text style={styles.filterClearText}>Limpiar</Text>
+                </Pressable>
+                <Pressable
+                  style={styles.filterApplyBtn}
+                  onPress={() => {
+                    setFilters(stagedFilters);
+                    setShowFilters(false);
+                    const noFilters =
+                      !stagedFilters.category &&
+                      !stagedFilters.minRating &&
+                      !stagedFilters.maxDistanceKm;
+                    if (noFilters) {
+                      setTimeout(() => {
+                        mapNav.resetCamera();
+                      }, 100);
+                    }
+                  }}
+                >
+                  <Text style={styles.filterApplyText}>Buscar</Text>
+                </Pressable>
+              </View>
+            </View>
           )}
         </View>
-
-        <Pressable
-          style={[styles.foodieAskButton, foodieLoading && styles.foodieAskButtonDisabled]}
-          onPress={handleOpenFoodieChat}
-          disabled={foodieLoading}
-        >
-          <Ionicons name="sparkles" size={16} color={colors.background} />
-          <Text style={styles.foodieAskButtonText}>
-            {foodieLoading ? "Foodie AI está pensando..." : "Preguntarle a Foodie AI"}
-          </Text>
-        </Pressable>
-
-        {searchQuery.trim().length > 0 && searchResults.length > 0 && (
-          <View style={styles.resultsCount}>
-            <Text style={styles.resultsText}>
-              {searchResults.length} {searchResults.length === 1 ? "ubicación" : "ubicaciones"}
-            </Text>
-            {isAiSearch && <Text style={styles.aiBadge}>AI</Text>}
-          </View>
-        )}
-
-        {searchQuery.trim().length > 0 && searchResults.length > 0 && (
-          <View style={styles.searchResultsPanel}>
-            <Text style={styles.searchResultsTitle}>Resultados</Text>
-            <ScrollView
-              style={styles.searchResultsList}
-              keyboardShouldPersistTaps="handled"
-              nestedScrollEnabled
-            >
-              {searchResults.slice(0, 8).map((item) => (
-                <Pressable
-                  key={item.id}
-                  style={styles.searchResultItem}
-                  onPress={() => handleLocationPreviewPress(item)}
-                >
-                  <View style={styles.searchResultTextWrap}>
-                    <Text style={styles.searchResultName}>{item.name}</Text>
-                    <Text style={styles.searchResultMeta}>
-                      {item.restaurant.category} · {item.location}
-                    </Text>
-                  </View>
-                  <View style={styles.searchResultRating}>
-                    <Ionicons name="star" size={14} color={colors.primary} />
-                    <Text style={styles.searchResultRatingText}>
-                      {item.restaurant.rating.toFixed(1)}
-                    </Text>
-                  </View>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
-        {foodieRecommendation && (
-          <View style={styles.foodieAnswerCard}>
-            <Pressable 
-              onPress={() => setFoodieRecommendation(null)} 
-              style={styles.foodieAnswerClose}
-              hitSlop={8}
-            >
-              <Ionicons name="close" size={18} color={colors.textMuted} />
-            </Pressable>
-            <Text style={styles.foodieAnswerTitle}>Foodie AI recomienda</Text>
-            <Text style={styles.foodieAnswerRestaurant}>
-              {foodieRecommendation.restaurant.name}
-            </Text>
-            <Text style={styles.foodieAnswerText}>{foodieRecommendation.explanation}</Text>
-          </View>
-        )}
-
-        {showFilters && (
-          <View style={styles.filterPanel}>
-            <Text style={styles.filterTitle}>Filtros</Text>
-
-            <Text style={styles.filterLabel}>Categoría</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow}>
-              <Pressable
-                style={[styles.chip, !stagedFilters.category && styles.chipActive]}
-                onPress={() => setStagedFilters((prev) => ({ ...prev, category: null }))}
-              >
-                <Text style={[styles.chipText, !stagedFilters.category && styles.chipTextActive]}>Todas</Text>
-              </Pressable>
-
-              {categories.map((category) => (
-                <Pressable
-                  key={category}
-                  style={[styles.chip, stagedFilters.category === category && styles.chipActive]}
-                  onPress={() =>
-                    setStagedFilters((prev) => ({
-                      ...prev,
-                      category: prev.category === category ? null : category,
-                    }))
-                  }
-                >
-                  <Text style={[styles.chipText, stagedFilters.category === category && styles.chipTextActive]}>
-                    {category}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-
-            <Text style={styles.filterLabel}>Rating mínimo</Text>
-            <View style={styles.inlineRow}>
-              {[4, 4.5].map((value) => (
-                <Pressable
-                  key={value}
-                  style={[styles.chip, stagedFilters.minRating === value && styles.chipActive]}
-                  onPress={() =>
-                    setStagedFilters((prev) => ({
-                      ...prev,
-                      minRating: prev.minRating === value ? null : value,
-                    }))
-                  }
-                >
-                  <Text style={[styles.chipText, stagedFilters.minRating === value && styles.chipTextActive]}>
-                    {value}+
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-
-            <Text style={styles.filterLabel}>Distancia</Text>
-            <View style={styles.inlineRow}>
-              {[2, 5].map((value) => (
-                <Pressable
-                  key={value}
-                  style={[styles.chip, stagedFilters.maxDistanceKm === value && styles.chipActive]}
-                  onPress={() =>
-                    setStagedFilters((prev) => ({
-                      ...prev,
-                      maxDistanceKm: prev.maxDistanceKm === value ? null : value,
-                    }))
-                  }
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      stagedFilters.maxDistanceKm === value && styles.chipTextActive,
-                    ]}
-                  >
-                    {value} km
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-
-            {/* BOTONES DE ACCIÓN DEL FILTRO */}
-            <View style={styles.filterActions}>
-              <Pressable
-                style={styles.filterClearBtn}
-                onPress={() => {
-                  setStagedFilters(initialFilters);
-                  setFilters(initialFilters);
-                  setShowFilters(false);
-                  setTimeout(() => {
-                    mapRef.current?.animateToRegion(MEDELLIN_REGION, 600);
-                  }, 100);
-                }}
-              >
-                <Text style={styles.filterClearText}>Limpiar</Text>
-              </Pressable>
-              <Pressable
-                style={styles.filterApplyBtn}
-                onPress={() => {
-                  setFilters(stagedFilters);
-                  setShowFilters(false);
-                  // Si no hay filtros activos, recentrar el mapa
-                  const noFilters = !stagedFilters.category && !stagedFilters.minRating && !stagedFilters.maxDistanceKm;
-                  if (noFilters) {
-                    setTimeout(() => {
-                      mapRef.current?.animateToRegion(MEDELLIN_REGION, 600);
-                    }, 100);
-                  }
-                }}
-              >
-                <Text style={styles.filterApplyText}>Buscar</Text>
-              </Pressable>
-            </View>
-          </View>
-        )}
-      </View>
-    )}
+      )}
 
       <Pressable
         style={[
           styles.locationButton,
-          navigationState === "active" 
-            ? { top: insets.top + 20, right: 20, bottom: undefined } 
-            : { bottom: 32, right: 16 }
+          mapNav.navigationState === "active"
+            ? { top: insets.top + 20, right: 20, bottom: undefined }
+            : { bottom: 32, right: 16 },
         ]}
         onPress={() => {
           const latitude = userLocation?.latitude ?? MEDELLIN_REGION.latitude;
           const longitude = userLocation?.longitude ?? MEDELLIN_REGION.longitude;
 
-          if (navigationState === "active") {
-            handleStartNavigation(); // Recentra la vista de conducción
+          if (mapNav.navigationState === "active") {
+            mapNav.startNavigation();
           } else {
-            mapRef.current?.animateToRegion(
+            mapNav.mapRef.current?.animateToRegion(
               {
                 latitude,
                 longitude,
@@ -780,31 +631,31 @@ export default function HomeScreen() {
           }
         }}
       >
-        <Ionicons 
-          name={navigationState === "active" ? "locate" : "navigate"} 
-          size={24} 
-          color={colors.primary} 
+        <Ionicons
+          name={mapNav.navigationState === "active" ? "locate" : "navigate"}
+          size={24}
+          color={colors.primary}
         />
       </Pressable>
 
-      {selectedRestaurant && navigationState === "discovery" && (
+      {mapNav.selectedRestaurant && mapNav.navigationState === "discovery" && (
         <View style={styles.cardContainer}>
           <RestaurantCard
-            restaurant={selectedRestaurant}
+            restaurant={mapNav.selectedRestaurant}
             onClose={() => {
-              setSelectedRestaurant(null);
-              setSelectedLocation(null);
-              setNavigationData(null);
+              mapNav.setSelectedRestaurant(null);
+              mapNav.setSelectedLocation(null);
+              mapNav.setNavigationData(null);
             }}
-            onShowRoute={() => handleShowRoute(selectedRestaurant)}
+            onShowRoute={() => handleShowRoute(mapNav.selectedRestaurant!)}
           />
         </View>
       )}
 
       {/* PREVIEW HUD - LA PRIMERA IMAGEN (TODA LA RUTA) */}
-      {selectedRestaurant && selectedLocation && navigationState === "preview" && (
+      {mapNav.selectedRestaurant && mapNav.selectedLocation && mapNav.navigationState === "preview" && (
         <View style={[styles.navHud, { bottom: insets.bottom + 20 }]}>
-          {!navigationData ? (
+          {!mapNav.navigationData ? (
             <View style={styles.navLoading}>
               <ActivityIndicator size="small" color={colors.primary} />
               <Text style={styles.navLoadingText}>Trazando ruta...</Text>
@@ -813,22 +664,24 @@ export default function HomeScreen() {
             <>
               <View style={styles.navInfo}>
                 <View>
-                  <Text style={styles.navTime}>{Math.round(navigationData.duration)} min</Text>
-                  <Text style={styles.navDistance}>{navigationData.distance.toFixed(1)} km</Text>
+                  <Text style={styles.navTime}>{Math.round(mapNav.navigationData.duration)} min</Text>
+                  <Text style={styles.navDistance}>{mapNav.navigationData.distance.toFixed(1)} km</Text>
                 </View>
                 <View style={styles.navDestWrap}>
                   <Text style={styles.navDestLabel}>Hacia</Text>
-                  <Text style={styles.navDestName} numberOfLines={1}>{selectedRestaurant.name}</Text>
+                  <Text style={styles.navDestName} numberOfLines={1}>
+                    {mapNav.selectedRestaurant.name}
+                  </Text>
                 </View>
               </View>
 
               <View style={styles.navActions}>
-                <Pressable style={styles.startNavBtn} onPress={handleStartNavigation}>
+                <Pressable style={styles.startNavBtn} onPress={mapNav.startNavigation}>
                   <Ionicons name="navigate" size={24} color={colors.background} />
                   <Text style={styles.startNavText}>Iniciar viaje</Text>
                 </Pressable>
-                
-                <Pressable style={styles.exitNavBtn} onPress={handleExitNavigation}>
+
+                <Pressable style={styles.exitNavBtn} onPress={mapNav.exitNavigation}>
                   <Text style={styles.exitNavText}>Cancelar</Text>
                 </Pressable>
               </View>
@@ -838,26 +691,26 @@ export default function HomeScreen() {
       )}
 
       {/* ACTIVE NAVIGATION HUD - LA SEGUNDA IMAGEN (NAVEGANDO) */}
-      {selectedRestaurant && navigationData && navigationState === "active" && (
+      {mapNav.selectedRestaurant && mapNav.navigationData && mapNav.navigationState === "active" && (
         <View style={[styles.activeNavHud, { bottom: insets.bottom + 20 }]}>
           <View style={styles.activeNavContent}>
-             <View style={styles.activeNavStats}>
-                <Text style={styles.activeNavTime}>{Math.round(navigationData.duration)} min</Text>
-                <Text style={styles.activeNavDistance}>{navigationData.distance.toFixed(1)} km</Text>
-             </View>
-             
-             <Pressable style={styles.activeExitBtn} onPress={handleExitNavigation}>
-                <Text style={styles.activeExitText}>Salir</Text>
-             </Pressable>
+            <View style={styles.activeNavStats}>
+              <Text style={styles.activeNavTime}>{Math.round(mapNav.navigationData.duration)} min</Text>
+              <Text style={styles.activeNavDistance}>{mapNav.navigationData.distance.toFixed(1)} km</Text>
+            </View>
+
+            <Pressable style={styles.activeExitBtn} onPress={mapNav.exitNavigation}>
+              <Text style={styles.activeExitText}>Salir</Text>
+            </Pressable>
           </View>
         </View>
       )}
 
       <Modal
-        visible={isFoodieChatOpen}
+        visible={foodieChat.isOpen}
         animationType="slide"
         transparent
-        onRequestClose={() => setIsFoodieChatOpen(false)}
+        onRequestClose={() => foodieChat.setIsOpen(false)}
       >
         <KeyboardAvoidingView
           style={styles.chatOverlay}
@@ -866,7 +719,7 @@ export default function HomeScreen() {
           <View style={styles.chatSheet}>
             <View style={styles.chatHeader}>
               <Text style={styles.chatTitle}>Foodie AI</Text>
-              <Pressable onPress={() => setIsFoodieChatOpen(false)}>
+              <Pressable onPress={() => foodieChat.setIsOpen(false)}>
                 <Ionicons name="close" size={22} color={colors.text} />
               </Pressable>
             </View>
@@ -876,7 +729,7 @@ export default function HomeScreen() {
               contentContainerStyle={styles.chatMessagesContent}
               keyboardShouldPersistTaps="handled"
             >
-              {chatMessages.map((message) => (
+              {foodieChat.messages.map((message) => (
                 <View
                   key={message.id}
                   style={[
@@ -921,8 +774,11 @@ export default function HomeScreen() {
                 }}
               />
               <Pressable
-                style={[styles.chatSendBtn, (!chatInput.trim() || foodieLoading) && styles.chatSendBtnDisabled]}
-                disabled={!chatInput.trim() || foodieLoading}
+                style={[
+                  styles.chatSendBtn,
+                  (!chatInput.trim() || foodieChat.loading) && styles.chatSendBtnDisabled,
+                ]}
+                disabled={!chatInput.trim() || foodieChat.loading}
                 onPress={handleSendFoodieMessage}
               >
                 <Ionicons name="send" size={16} color={colors.background} />
@@ -1047,7 +903,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 16,
   },
-  // NAVEGACIÓN HUD
   navHud: {
     position: "absolute",
     left: spacing.xl,
@@ -1163,7 +1018,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.text,
   },
-  // ACTIVE NAV HUD (GOOGLE MAPS STYLE)
   activeNavHud: {
     position: "absolute",
     left: spacing.xl,
@@ -1225,7 +1079,6 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 4,
   },
-
   cardContainer: {
     position: "absolute",
     bottom: 32,
@@ -1459,4 +1312,3 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
 });
-
