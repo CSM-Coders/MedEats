@@ -1,13 +1,12 @@
 // ============================================================
 // [P2-5] Hook: useRestaurants
 // ------------------------------------------------------------
-// Encapsula el fetching de restaurantes, los filtros aplicados
-// y la búsqueda por texto. Implementado exactamente como sugiere
-// el plan de refactorización.
+// Encapsula el fetching de restaurantes desde el backend y un
+// filtro básico en memoria. Integrado en HomeScreen.tsx.
 //
-// NOTA: aún NO integrado en HomeScreen.tsx — la integración
-// requiere validación en vivo del mapa/filtros y se hará en una
-// segunda iteración con testing UI.
+// HomeScreen consume `restaurants`, `loading` y `reload`; el
+// filtrado más rico (con sedes y distancia) lo hace localmente
+// la pantalla porque `filtered` aquí solo soporta filtros simples.
 // ============================================================
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -24,9 +23,13 @@ export function useRestaurants(filters: HomeFilters, searchQuery: string) {
     setError(null);
     try {
       const data = await fetchRestaurants();
-      setRestaurants(data);
-    } catch {
+      // [Hardening] Filtrar restaurantes inválidos en la fuente
+      const safe = (data || []).filter((r) => r && r.id);
+      setRestaurants(safe);
+    } catch (err) {
+      console.error("[useRestaurants] fetch failed:", err);
       setError("No se pudieron cargar los restaurantes.");
+      setRestaurants([]);
     } finally {
       setLoading(false);
     }
@@ -37,10 +40,12 @@ export function useRestaurants(filters: HomeFilters, searchQuery: string) {
   }, [load]);
 
   const filtered = useMemo(() => {
+    const query = (searchQuery || "").toLowerCase();
     return restaurants.filter((r) => {
+      if (!r) return false;
       if (filters.category && r.category !== filters.category) return false;
-      if (filters.minRating && r.rating < filters.minRating) return false;
-      if (searchQuery && !r.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+      if (filters.minRating && (r.rating ?? 0) < filters.minRating) return false;
+      if (query && !(r.name || "").toLowerCase().includes(query)) {
         return false;
       }
       return true;

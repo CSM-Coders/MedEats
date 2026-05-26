@@ -216,6 +216,26 @@ export default function HomeScreen() {
     return Array.from(uniqueMap.values());
   }, [searchResults]);
 
+  // [Hardening] Si el restaurante seleccionado deja de estar en la lista
+  // visible por un cambio de filtros, lo limpiamos para que MapView no
+  // intente enfocar un marker inexistente y la RestaurantCard no muestre
+  // datos obsoletos.
+  useEffect(() => {
+    if (!mapNav.selectedRestaurant) return;
+    const filtersActive =
+      filters.category || filters.minRating || filters.maxDistanceKm;
+    if (!filtersActive) return;
+    const stillVisible = filteredRestaurants.some(
+      (r) => r.id === mapNav.selectedRestaurant?.id
+    );
+    if (!stillVisible) {
+      mapNav.setSelectedRestaurant(null);
+      mapNav.setSelectedLocation(null);
+      mapNav.setNavigationData(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, filteredRestaurants]);
+
   const handleSearchSubmit = () => {
     if (mapNav.selectedRestaurant) return;
     Keyboard.dismiss();
@@ -264,22 +284,32 @@ export default function HomeScreen() {
   };
 
   // Orquestación: chat → selección + animación de cámara
+  // [Hardening] Todo envuelto en try/catch para que un fallo de red,
+  // del backend o del mapa nunca tumbe la pantalla.
   const runFoodieSearch = async (question: string) => {
-    const recommendation = await foodieChat.ask(question);
-    if (recommendation) {
-      mapNav.setSelectedRestaurant(recommendation.restaurant);
-      const points = getRestaurantMapPoints(recommendation.restaurant);
-      mapNav.mapRef.current?.animateToRegion(
-        {
-          latitude: points[0].latitude,
-          longitude: points[0].longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        },
-        700
-      );
+    try {
+      const recommendation = await foodieChat.ask(question);
+      if (recommendation && recommendation.restaurant) {
+        mapNav.setSelectedRestaurant(recommendation.restaurant);
+        const points = getRestaurantMapPoints(recommendation.restaurant);
+        const first = points && points[0];
+        if (first && Number.isFinite(first.latitude) && Number.isFinite(first.longitude)) {
+          mapNav.mapRef.current?.animateToRegion(
+            {
+              latitude: first.latitude,
+              longitude: first.longitude,
+              latitudeDelta: 0.01,
+              longitudeDelta: 0.01,
+            },
+            700
+          );
+        }
+      }
+      return recommendation;
+    } catch (err) {
+      console.error("[Foodie] runFoodieSearch failed:", err);
+      return null;
     }
-    return recommendation;
   };
 
   const handleOpenFoodieChat = () => {
@@ -297,15 +327,27 @@ export default function HomeScreen() {
     ]);
     setChatInput("");
 
-    const recommendation = await runFoodieSearch(question);
-    const assistantText = recommendation
-      ? `${recommendation.explanation}\n\nRecomendado: ${recommendation.restaurant.name}`
-      : "No encontré una recomendación clara, intenta con más detalles.";
+    try {
+      const recommendation = await runFoodieSearch(question);
+      const assistantText = recommendation
+        ? `${recommendation.explanation}\n\nRecomendado: ${recommendation.restaurant.name}`
+        : "No encontré una recomendación clara, intenta con más detalles.";
 
-    foodieChat.setMessages((prev) => [
-      ...prev,
-      { id: `a-${Date.now()}`, role: "assistant", text: assistantText },
-    ]);
+      foodieChat.setMessages((prev) => [
+        ...prev,
+        { id: `a-${Date.now()}`, role: "assistant", text: assistantText },
+      ]);
+    } catch (err) {
+      console.error("[Foodie] handleSendFoodieMessage failed:", err);
+      foodieChat.setMessages((prev) => [
+        ...prev,
+        {
+          id: `a-${Date.now()}`,
+          role: "assistant",
+          text: "Tuve un problema procesando tu mensaje. Inténtalo de nuevo.",
+        },
+      ]);
+    }
   };
 
   const clearSearchAndFilters = () => {
@@ -452,7 +494,7 @@ export default function HomeScreen() {
                     <View style={styles.searchResultRating}>
                       <Ionicons name="star" size={14} color={colors.primary} />
                       <Text style={styles.searchResultRatingText}>
-                        {item.restaurant.rating.toFixed(1)}
+                        {Number(item.restaurant?.rating ?? 0).toFixed(1)}
                       </Text>
                     </View>
                   </Pressable>
