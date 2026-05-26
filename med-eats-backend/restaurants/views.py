@@ -467,7 +467,15 @@ class PostListCreateAPIView(generics.ListCreateAPIView):
         return PostSerializer
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        # [P1-10] Procesar imagen: redimensionar a 1080x1080 y convertir a WebP
+        from .image_utils import process_image, MAX_POST_IMAGE_SIZE
+
+        image = self.request.FILES.get("image")
+        if image:
+            processed = process_image(image, MAX_POST_IMAGE_SIZE, prefix="post")
+            serializer.save(user=self.request.user, image=processed)
+        else:
+            serializer.save(user=self.request.user)
 
 
 class AnalyticsOverviewAPIView(APIView):

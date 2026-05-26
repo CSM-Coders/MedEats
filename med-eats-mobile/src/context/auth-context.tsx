@@ -29,6 +29,8 @@ type AuthContextValue = {
   isRegistering: boolean;
   refreshProfile: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
+  // [P2-4] fetch con auto-refresh transparente del token al recibir 401
+  authenticatedFetch: (url: string, options?: RequestInit) => Promise<Response>;
   login: (credentials: LoginCredentials) => Promise<void>;
   register: (credentials: RegisterCredentials) => Promise<void>;
   logout: () => Promise<void>;
@@ -168,6 +170,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return session.accessToken;
   }, []);
 
+  // [P2-4] fetch con auto-refresh: si el backend devuelve 401, intenta refrescar
+  // el access token UNA vez y reintenta la petición. Si el refresh falla, limpia
+  // la sesión y lanza error para que la UI redirija al login.
+  const authenticatedFetch = useCallback(
+    async (url: string, options: RequestInit = {}): Promise<Response> => {
+      const session = await readSession();
+      if (!session) {
+        throw new Error("No session");
+      }
+
+      const buildHeaders = (token: string) => ({
+        ...(options.headers as Record<string, string> | undefined),
+        Authorization: `Bearer ${token}`,
+      });
+
+      const response = await fetch(url, {
+        ...options,
+        headers: buildHeaders(session.accessToken),
+      });
+
+      if (response.status !== 401) {
+        return response;
+      }
+
+      // Token expirado: refrescar y reintentar exactamente una vez
+      try {
+        const newAccessToken = await refreshAccessToken(session.refreshToken);
+        const updatedSession: AuthSession = {
+          ...session,
+          accessToken: newAccessToken,
+        };
+        await saveSession(updatedSession);
+
+        return await fetch(url, {
+          ...options,
+          headers: buildHeaders(newAccessToken),
+        });
+      } catch {
+        await clearSession();
+        setUser(null);
+        throw new Error("Session expired. Please log in again.");
+      }
+    },
+    []
+  );
+
   const logout = useCallback(async () => {
     try {
       const session = await readSession();
@@ -191,6 +239,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isRegistering,
       refreshProfile,
       getAccessToken,
+      authenticatedFetch,
       login,
       register,
       logout,
@@ -202,6 +251,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isRegistering,
       refreshProfile,
       getAccessToken,
+      authenticatedFetch,
       login,
       register,
       logout,
