@@ -122,11 +122,18 @@ DATABASES = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": os.getenv("DB_NAME", "medeats"),
         "USER": os.getenv("DB_USER", "postgres"),
-        "PASSWORD": os.getenv(
-            "DB_PASSWORD", ""
-        ),  # Si no hay .env, usa vacío (como en Mac)
+        "PASSWORD": os.getenv("DB_PASSWORD", ""),
         "HOST": os.getenv("DB_HOST", "localhost"),
         "PORT": os.getenv("DB_PORT", "5432"),
+        # [P1-11] Connection pooling — keep connections alive 10 min por worker
+        "CONN_MAX_AGE": 600,
+        "OPTIONS": {
+            "connect_timeout": 10,
+            "options": "-c default_transaction_isolation=read committed",
+        },
+        "TEST": {
+            "NAME": "medeats_test",
+        },
     }
 }
 
@@ -166,10 +173,42 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = "static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 # Media files (Archivos subidos por los usuarios como fotos y videos)
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+
+# ============================================================
+# [P1-1] Redis: caché y sesiones
+# ============================================================
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": os.getenv("REDIS_URL", "redis://localhost:6379/0"),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "SOCKET_CONNECT_TIMEOUT": 5,
+            "SOCKET_TIMEOUT": 5,
+            "IGNORE_EXCEPTIONS": True,  # si Redis falla, la app sigue funcionando
+        },
+        "KEY_PREFIX": "medeats",
+        "TIMEOUT": 300,  # 5 minutos por defecto
+    }
+}
+
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_CACHE_ALIAS = "default"
+
+# ============================================================
+# [P1-2] Celery: tareas asíncronas (geocodificación, emails, etc.)
+# ============================================================
+CELERY_BROKER_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = "UTC"
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

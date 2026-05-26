@@ -9,5 +9,13 @@ sqlparse==0.5.5
 python-dotenv
 geopy==2.4.1
 
+# [P1-1] Caché Redis + Celery
+django-redis==5.4.0
+celery==5.4.0
+redis==5.2.1
+
+# [P3-1] Servidor WSGI de producción
+gunicorn==23.0.0
+
 black==24.8.0
 ruff
