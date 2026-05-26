@@ -25,6 +25,10 @@ from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
 
+# Load .env before reading any os.environ values
+BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(dotenv_path=BASE_DIR / ".env")
+
 
 def parse_bool_env(var_name: str, default: bool = False) -> bool:
     value = os.getenv(var_name)
@@ -42,22 +46,15 @@ def parse_list_env(var_name: str, default: list[str] | None = None) -> list[str]
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+# [P0-1] SECRET_KEY — crash intencional si no está en el entorno
+SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
 
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-)$=%+l*&&*%l3!hr_50jyz*^rm3bwae%nhg5v(iy-_*+=hg8o^"
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# [P0-2] DEBUG lee del entorno; por defecto False (seguro en producción)
+DEBUG = parse_bool_env("DJANGO_DEBUG", default=False)
 
 ALLOWED_HOSTS = parse_list_env(
     "ALLOWED_HOSTS",
-    default=["*"] if DEBUG else ["localhost", "127.0.0.1"],
+    default=["localhost", "127.0.0.1"] if DEBUG else [],
 )
 
 
@@ -120,10 +117,6 @@ WSGI_APPLICATION = "config.wsgi.application"
 # HOST: localhost porque corre en tu máquina
 # PORT: 5432 es el puerto por defecto de PostgreSQL
 
-# Load environment variables from backend .env file explicitly.
-# This avoids depending on the current working directory when starting Django.
-load_dotenv(dotenv_path=BASE_DIR / ".env")
-
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -184,33 +177,48 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # ============================================================
 # CORS: Permite que React Native se conecte al backend
 # ============================================================
-# En desarrollo permitimos todo. En producción, lista dominios específicos.
-CORS_ALLOW_ALL_ORIGINS = parse_bool_env("CORS_ALLOW_ALL_ORIGINS", default=DEBUG)
-CORS_ALLOWED_ORIGINS = parse_list_env("CORS_ALLOWED_ORIGINS", default=[])
+# [P0-4] Nunca permitir todos los orígenes; lista explícita siempre.
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOWED_ORIGINS = parse_list_env(
+    "CORS_ALLOWED_ORIGINS",
+    default=[
+        "http://localhost:8081",
+        "http://127.0.0.1:8081",
+    ] if DEBUG else [],
+)
 
 # ============================================================
 # Django REST Framework: Configuración de la API
 # ============================================================
+# [P0-3] Deny by default: cualquier vista nueva que olvide declarar
+# permission_classes requerirá autenticación en vez de ser pública.
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.AllowAny",
+        "rest_framework.permissions.IsAuthenticated",
     ],
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "100/day",
-        "user": "1000/day",
+        "anon": "1000/day",
+        "user": "10000/day",
+        "login": "10/minute",
+        "register": "5/hour",
+        "ai_chat": "20/hour",
     },
 }
 
+# [P0-5] JWT lifetimes reducidos + rotación de refresh tokens
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=8),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "UPDATE_LAST_LOGIN": True,
 }
 
 # ============================================================
