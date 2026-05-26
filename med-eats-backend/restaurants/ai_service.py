@@ -44,6 +44,98 @@ SEMANTIC_GROUPS = [
     ["cafe", "cafeteria", "bakery", "panaderia"],
 ]
 
+# Neighborhoods / municipios del Área Metropolitana de Medellín. Cuando el
+# usuario menciona uno de estos, tiene que aparecer en el `location` del
+# restaurante recomendado. Sino, el ranking lo penaliza fuertemente.
+LOCATION_TERMS = [
+    "envigado",
+    "el poblado",
+    "poblado",
+    "laureles",
+    "estadio",
+    "la 70",
+    "sabaneta",
+    "itagui",
+    "itagüí",
+    "bello",
+    "belen",
+    "belén",
+    "centro",
+    "buenos aires",
+    "manrique",
+    "robledo",
+    "castilla",
+    "aranjuez",
+    "san javier",
+    "guayabal",
+    "la america",
+    "la américa",
+    "carlos e restrepo",
+    "san antonio",
+    "ciudad del rio",
+    "ciudad del río",
+    "los colores",
+    "boston",
+    "prado",
+    "santa elena",
+]
+
+
+def _location_terms_in_message(message_norm: str) -> list[str]:
+    """Devuelve los nombres de barrio/municipio que aparecen en el mensaje."""
+    return [term for term in LOCATION_TERMS if term in message_norm]
+
+
+# Centroides aproximados de los barrios/municipios del Área Metropolitana.
+# Si los datos del restaurante no tienen el barrio en `location` (caso del
+# seed actual: todos dicen "Medellín, Colombia"), inferimos a partir de
+# las coordenadas: si el restaurante está dentro del radio del centroide,
+# se considera "del barrio".
+NEIGHBORHOOD_CENTROIDS: dict[str, tuple[float, float, float]] = {
+    # nombre normalizado -> (lat, lon, radio_km)
+    "envigado": (6.171, -75.585, 3.0),
+    "el poblado": (6.211, -75.571, 2.0),
+    "poblado": (6.211, -75.571, 2.0),
+    "laureles": (6.244, -75.591, 1.5),
+    "estadio": (6.252, -75.589, 1.0),
+    "la 70": (6.250, -75.590, 1.0),
+    "sabaneta": (6.151, -75.616, 2.0),
+    "itagui": (6.172, -75.611, 2.5),
+    "itagüí": (6.172, -75.611, 2.5),
+    "bello": (6.339, -75.557, 4.0),
+    "belen": (6.224, -75.598, 2.0),
+    "belén": (6.224, -75.598, 2.0),
+    "centro": (6.247, -75.570, 1.5),
+    "guayabal": (6.197, -75.602, 2.0),
+    "ciudad del rio": (6.225, -75.578, 1.0),
+    "ciudad del río": (6.225, -75.578, 1.0),
+}
+
+
+def _restaurant_in_neighborhood(
+    candidate: dict[str, Any], neighborhood_norm: str
+) -> bool:
+    """True si el restaurante está físicamente en el barrio mencionado.
+
+    Primero intenta match por texto (`location` contiene el nombre del barrio).
+    Si no, usa la distancia al centroide del barrio.
+    """
+    location = _normalize_text(candidate.get("location") or "")
+    if neighborhood_norm in location:
+        return True
+
+    centroid = NEIGHBORHOOD_CENTROIDS.get(neighborhood_norm)
+    if not centroid:
+        return False
+    try:
+        lat = float(candidate.get("latitude"))
+        lon = float(candidate.get("longitude"))
+    except (TypeError, ValueError):
+        return False
+
+    center_lat, center_lon, radius_km = centroid
+    return _haversine_km(lat, lon, center_lat, center_lon) <= radius_km
+
 DOMAIN_HINTS = [
     "restaurante",
     "restaurantes",
@@ -212,7 +304,21 @@ def _keyword_score(
     if not message_norm:
         return 0.0
 
-    score = 0.0
+    # FACTOR DOMINANTE: si el usuario menciona un barrio/municipio explícito,
+    # el restaurante DEBE estar en ese barrio. Como los datos del seed no
+    # incluyen el barrio en `location` (todos dicen "Medellín, Colombia"),
+    # usamos _restaurant_in_neighborhood que combina match por texto y por
+    # distancia al centroide del barrio.
+    location_terms = _location_terms_in_message(message_norm)
+    if location_terms:
+        candidate_matches_any = any(
+            _restaurant_in_neighborhood(candidate, term) for term in location_terms
+        )
+        location_bonus = 50.0 if candidate_matches_any else -50.0
+    else:
+        location_bonus = 0.0
+
+    score = location_bonus
     for token in set(message_norm.split(" ")):
         if len(token) < 3:
             continue
@@ -280,6 +386,7 @@ def _fallback_result(
     # Regla fuerte para consultas de cercanía: elegir por menor distancia real.
     if user_coords and _is_proximity_intent(message_norm):
         intent_terms = _intent_terms_from_message(message_norm)
+        location_terms = _location_terms_in_message(message_norm)
 
         def candidate_matches_intent(candidate: dict[str, Any]) -> bool:
             if not intent_terms:
@@ -295,10 +402,24 @@ def _fallback_result(
             )
             return any(term in text for term in intent_terms)
 
-        intent_pool = [
-            item for item in available_restaurants if candidate_matches_intent(item)
+        def candidate_matches_location(candidate: dict[str, Any]) -> bool:
+            if not location_terms:
+                return True
+            return any(
+                _restaurant_in_neighborhood(candidate, term) for term in location_terms
+            )
+
+        # Primero filtramos por barrio si el usuario lo mencionó.
+        location_pool = [
+            item for item in available_restaurants if candidate_matches_location(item)
         ]
-        pool = intent_pool if intent_pool else available_restaurants
+        pool_after_location = location_pool if location_pool else available_restaurants
+
+        # Luego por intención semántica.
+        intent_pool = [
+            item for item in pool_after_location if candidate_matches_intent(item)
+        ]
+        pool = intent_pool if intent_pool else pool_after_location
 
         def distance_for(item: dict[str, Any]) -> float:
             try:
@@ -409,13 +530,39 @@ def _call_gemini(
     if excluded_restaurant_id is not None:
         excluded_context = f"No recomiendes el restaurante con id {excluded_restaurant_id}; el usuario pidió otra opción distinta.\n\n"
 
+    # Si el usuario mencionó un barrio, pre-filtramos la lista por coordenadas
+    # ANTES de mandársela a Gemini. Como los datos no traen el barrio en
+    # `location`, este filtro es la única forma de que Gemini elija bien.
+    message_norm = _normalize_text(user_message)
+    location_terms = _location_terms_in_message(message_norm)
+    if location_terms:
+        in_neighborhood = [
+            r
+            for r in restaurants
+            if any(_restaurant_in_neighborhood(r, term) for term in location_terms)
+        ]
+        if in_neighborhood:
+            restaurants = in_neighborhood
+
     prompt = (
-        "Eres un asistente foodie de Medellin. Entiendes jerga local como 'antojito' y 'parche'. "
-        "Debes elegir el restaurante mas relevante para la intencion semantica del usuario. "
-        "Si el usuario pide algo cerca, privilegia el restaurante más cercano con buena coincidencia de intención. "
-        "Si el usuario pide otra opción o una alternativa, evita repetir el restaurante anterior. "
-        "Responde SOLO JSON valido con esta forma: "
-        '{"restaurant_id": <numero>, "explanation": "<texto breve en espanol>"}. '
+        "Eres un asistente foodie del Área Metropolitana de Medellín. "
+        "Entiendes jerga local como 'antojito' y 'parche'. "
+        "Tu tarea es elegir UN SOLO restaurante de la lista que se te entrega, "
+        "que sea el mejor match para la consulta del usuario.\n\n"
+        "REGLAS DE PRIORIZACIÓN (en este orden):\n"
+        "1. UBICACIÓN: Si el usuario menciona un barrio, comuna o municipio "
+        "(ej: 'envigado', 'el poblado', 'laureles', 'sabaneta', 'belén', "
+        "'estadio', 'la 70', 'itagüí', 'bello', 'centro'), DEBES escoger un "
+        "restaurante cuyo campo 'location' contenga ese lugar. No recomiendes "
+        "un restaurante en El Poblado si el usuario pidió algo en Envigado.\n"
+        "2. TIPO DE COMIDA: Match con 'category' o 'description' del restaurante "
+        "(hamburguesa→burger, sushi→japonesa, pizza→italiana, etc.).\n"
+        "3. PROXIMIDAD: Si el usuario dice 'cerca', 'cercano' o similar y "
+        "tenemos su ubicación, usa la distancia real.\n"
+        "4. NO REPETIR: Si te paso un excluded_restaurant_id, NO lo elijas.\n\n"
+        "Responde SOLO JSON válido con esta forma exacta:\n"
+        '{"restaurant_id": <numero>, "explanation": "<texto breve en español que mencione '
+        'por qué encaja con la consulta>"}. \n'
         "No inventes ids. Usa exactamente uno de los restaurantes listados.\n\n"
         f"{location_context}"
         f"{excluded_context}"
