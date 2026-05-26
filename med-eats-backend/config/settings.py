@@ -82,7 +82,11 @@ DEBUG = parse_bool_env("DJANGO_DEBUG", default=False)
 
 ALLOWED_HOSTS = parse_list_env(
     "ALLOWED_HOSTS",
-    default=["localhost", "127.0.0.1"] if DEBUG else [],
+    # En dev (DEBUG=True) permitimos cualquier host para no tener que
+    # actualizar la IP cada vez que se cambia de red WiFi al probar en
+    # un dispositivo físico. En producción (DEBUG=False) el default es
+    # lista vacía, forzando que ALLOWED_HOSTS venga explícito del entorno.
+    default=["*"] if DEBUG else [],
 )
 
 
