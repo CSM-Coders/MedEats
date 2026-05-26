@@ -326,6 +326,31 @@ SIMPLE_JWT = {
 }
 
 # ============================================================
+# Production-only security hardening
+# ------------------------------------------------------------
+# Solo se activan cuando DEBUG=False. Resuelven los 4 warnings de
+# `python manage.py check --deploy` (W004, W008, W012, W016).
+# ============================================================
+if not DEBUG:
+    # HSTS: forzar HTTPS por 1 año en todos los subdominios
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    # Redirigir HTTP → HTTPS (el load balancer debe pasar el header X-Forwarded-Proto)
+    SECURE_SSL_REDIRECT = True
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    # Cookies solo por HTTPS, no accesibles vía JS
+    SESSION_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+    CSRF_COOKIE_SECURE = True
+    CSRF_COOKIE_HTTPONLY = True
+    # Mitigar clickjacking y MIME sniffing
+    X_FRAME_OPTIONS = "DENY"
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = "same-origin"
+
+# ============================================================
 # Gemini (Foodie AI)
 # ============================================================
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
