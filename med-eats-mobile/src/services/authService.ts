@@ -1,5 +1,6 @@
 import { API_BASE_URL } from "@/src/config/api";
 import { AppUser } from "@/src/models/domain";
+import { apiRequest, ApiError } from "@/src/services/httpClient";
 
 export type LoginCredentials = {
   username: string;
@@ -185,32 +186,19 @@ export async function registerWithEmailAndPassword(
 }
 
 export async function fetchUserProfile(accessToken: string): Promise<AppUser> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/me/`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(SESSION_REFRESH_FAILED_ERROR);
+  try {
+    const payload = await apiRequest<ApiUser>("/api/v1/auth/me/", { accessToken });
+    return normalizeUser(payload);
+  } catch (err) {
+    if (err instanceof ApiError) {
+      throw new Error(SESSION_REFRESH_FAILED_ERROR);
+    }
+    throw err;
   }
-
-  const payload = (await response.json()) as ApiUser;
-  return normalizeUser(payload);
 }
 
 export async function fetchMyPublicProfile(accessToken: string): Promise<AppUser> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/profile/me/`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(SESSION_REFRESH_FAILED_ERROR);
-  }
-
-  const payload = (await response.json()) as {
+  type PublicProfilePayload = {
     user_id: string | number;
     username: string;
     name?: string;
@@ -227,6 +215,18 @@ export async function fetchMyPublicProfile(accessToken: string): Promise<AppUser
     saved_count?: number;
     visited_count?: number;
   };
+
+  let payload: PublicProfilePayload;
+  try {
+    payload = await apiRequest<PublicProfilePayload>("/api/v1/auth/profile/me/", {
+      accessToken,
+    });
+  } catch (err) {
+    if (err instanceof ApiError) {
+      throw new Error(SESSION_REFRESH_FAILED_ERROR);
+    }
+    throw err;
+  }
 
   return {
     id: String(payload.user_id),
@@ -340,34 +340,35 @@ export async function updateMyProfile(
 }
 
 export async function refreshAccessToken(refreshToken: string): Promise<string> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/refresh/`, {
-    method: "POST",
-    headers: AUTH_HEADERS,
-    body: JSON.stringify({ refresh: refreshToken }),
-  });
-
-  if (!response.ok) {
-    throw new Error(SESSION_REFRESH_FAILED_ERROR);
+  try {
+    const payload = await apiRequest<{ access?: string }>("/api/v1/auth/refresh/", {
+      method: "POST",
+      body: JSON.stringify({ refresh: refreshToken }),
+    });
+    if (!payload.access) {
+      throw new Error(SESSION_REFRESH_FAILED_ERROR);
+    }
+    return payload.access;
+  } catch (err) {
+    if (err instanceof ApiError) {
+      throw new Error(SESSION_REFRESH_FAILED_ERROR);
+    }
+    throw err;
   }
-
-  const payload = (await response.json()) as { access?: string };
-
-  if (!payload.access) {
-    throw new Error(SESSION_REFRESH_FAILED_ERROR);
-  }
-
-  return payload.access;
 }
 
 export async function logoutFromServer(refreshToken: string, accessToken: string): Promise<void> {
-  await fetch(`${API_BASE_URL}/api/v1/auth/logout/`, {
-    method: "POST",
-    headers: {
-      ...AUTH_HEADERS,
-      Authorization: `Bearer ${accessToken}`,
-    },
-    body: JSON.stringify({ refresh: refreshToken }),
-  });
+  // Fire-and-forget: ignoramos cualquier error porque el cliente ya
+  // está borrando su sesión local de todos modos.
+  try {
+    await apiRequest<void>("/api/v1/auth/logout/", {
+      method: "POST",
+      accessToken,
+      body: JSON.stringify({ refresh: refreshToken }),
+    });
+  } catch {
+    /* logout local prosigue */
+  }
 }
 
 function parseAuthResponse(response: Response, fallbackErrorMessage: string) {

@@ -1,5 +1,6 @@
 import { API_BASE_URL } from "@/src/config/api";
 import { AppUser } from "@/src/models/domain";
+import { apiRequest, ApiError } from "@/src/services/httpClient";
 
 type ApiProfile = {
   user_id: string | number;
@@ -42,31 +43,16 @@ function mapProfile(item: ApiProfile): AppUser & { isFollowing: boolean } {
   };
 }
 
-function createApiError(message: string, statusCode: number): Error & { statusCode: number } {
-  const error = new Error(message) as Error & { statusCode: number };
-  error.statusCode = statusCode;
-  return error;
-}
-
 export async function fetchUserProfileByUsername(
   accessToken: string,
   username: string
 ): Promise<AppUser & { isFollowing: boolean }> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/profile/${username}/`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw createApiError(
-      detail || "Unable to load user profile",
-      response.status
-    );
-  }
-
-  const payload = (await response.json()) as ApiProfile;
+  // Mantener compatibilidad: callers que dependen de `statusCode` reciben el
+  // ApiError con su `status` y mensaje original.
+  const payload = await apiRequest<ApiProfile>(
+    `/api/v1/auth/profile/${username}/`,
+    { accessToken }
+  );
   return mapProfile(payload);
 }
 
@@ -74,48 +60,30 @@ export async function searchUsersWithAuth(
   query: string,
   accessToken: string
 ): Promise<(AppUser & { isFollowing: boolean })[]> {
-  // Use backend search endpoint with auth token
-  const url = `${API_BASE_URL}/api/v1/auth/search/?search=${encodeURIComponent(query)}`;
   try {
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
-    if (response.ok) {
-      const payload = (await response.json()) as ApiProfile[];
-      return payload.map(mapProfile);
-    }
+    const payload = await apiRequest<ApiProfile[]>(
+      `/api/v1/auth/search/?search=${encodeURIComponent(query)}`,
+      { accessToken }
+    );
+    return payload.map(mapProfile);
   } catch (err) {
-    console.error("User search error:", err);
+    if (!(err instanceof ApiError)) console.error("User search error:", err);
+    return [];
   }
-  return [];
 }
 
 export async function followUser(accessToken: string, username: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/profile/${username}/follow/`, {
+  await apiRequest<void>(`/api/v1/auth/profile/${username}/follow/`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
+    accessToken,
   });
-
-  if (!response.ok) {
-    throw new Error("Unable to follow user");
-  }
 }
 
 export async function unfollowUser(accessToken: string, username: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/profile/${username}/follow/`, {
+  await apiRequest<void>(`/api/v1/auth/profile/${username}/follow/`, {
     method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
+    accessToken,
   });
-
-  if (!response.ok) {
-    throw new Error("Unable to unfollow user");
-  }
 }
 
 export type FollowRequestRecord = {
@@ -128,18 +96,10 @@ export type FollowRequestRecord = {
 };
 
 export async function fetchFollowRequests(accessToken: string): Promise<FollowRequestRecord[]> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/requests/`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
+  const data = await apiRequest<FollowRequestRecord[]>("/api/v1/auth/requests/", {
+    accessToken,
   });
 
-  if (!response.ok) {
-    throw new Error("Unable to fetch follow requests");
-  }
-
-  const data = (await response.json()) as FollowRequestRecord[];
-  
   return data.map((item) => {
     let avatarUrl = item.avatar_url;
     if (avatarUrl && !/^https?:\/\//i.test(avatarUrl)) {
@@ -153,27 +113,15 @@ export async function fetchFollowRequests(accessToken: string): Promise<FollowRe
 }
 
 export async function acceptFollowRequest(accessToken: string, requestId: number): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/requests/${requestId}/accept/`, {
+  await apiRequest<void>(`/api/v1/auth/requests/${requestId}/accept/`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
+    accessToken,
   });
-
-  if (!response.ok) {
-    throw new Error("Unable to accept follow request");
-  }
 }
 
 export async function rejectFollowRequest(accessToken: string, requestId: number): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/auth/requests/${requestId}/reject/`, {
+  await apiRequest<void>(`/api/v1/auth/requests/${requestId}/reject/`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
+    accessToken,
   });
-
-  if (!response.ok) {
-    throw new Error("Unable to reject follow request");
-  }
 }

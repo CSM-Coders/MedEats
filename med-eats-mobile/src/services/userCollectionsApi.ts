@@ -4,6 +4,7 @@ import {
   SavedRestaurantRecord,
   VisitedRestaurantRecord,
 } from "@/src/models/domain";
+import { apiRequest, ApiError } from "@/src/services/httpClient";
 
 type RestaurantApiItem = {
   id: number | string;
@@ -57,13 +58,6 @@ function mapRestaurant(item: RestaurantApiItem): Restaurant {
   };
 }
 
-function getAuthHeaders(accessToken: string) {
-  return {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${accessToken}`,
-  };
-}
-
 function mapSaved(item: SavedApiItem): SavedRestaurantRecord {
   return {
     id: String(item.id),
@@ -88,21 +82,11 @@ export async function fetchSavedRestaurants(
   accessToken: string,
   username?: string
 ): Promise<SavedRestaurantRecord[]> {
-  const url = username 
-    ? `${API_BASE_URL}/api/v1/user/restaurants/saved/?username=${username}`
-    : `${API_BASE_URL}/api/v1/user/restaurants/saved/`;
-    
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
+  const path = username
+    ? `/api/v1/user/restaurants/saved/?username=${encodeURIComponent(username)}`
+    : `/api/v1/user/restaurants/saved/`;
 
-  if (!response.ok) {
-    throw new Error("Unable to load saved restaurants");
-  }
-
-  const payload = (await response.json()) as SavedApiItem[];
+  const payload = await apiRequest<SavedApiItem[]>(path, { accessToken });
   return payload.map(mapSaved);
 }
 
@@ -110,21 +94,11 @@ export async function fetchVisitedRestaurants(
   accessToken: string,
   username?: string
 ): Promise<VisitedRestaurantRecord[]> {
-  const url = username 
-    ? `${API_BASE_URL}/api/v1/user/restaurants/visited/?username=${username}`
-    : `${API_BASE_URL}/api/v1/user/restaurants/visited/`;
+  const path = username
+    ? `/api/v1/user/restaurants/visited/?username=${encodeURIComponent(username)}`
+    : `/api/v1/user/restaurants/visited/`;
 
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error("Unable to load visited restaurants");
-  }
-
-  const payload = (await response.json()) as VisitedApiItem[];
+  const payload = await apiRequest<VisitedApiItem[]>(path, { accessToken });
   return payload.map(mapVisited);
 }
 
@@ -132,17 +106,11 @@ export async function saveRestaurant(
   accessToken: string,
   restaurantId: string
 ): Promise<SavedRestaurantRecord> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/user/restaurants/saved/`, {
+  const payload = await apiRequest<SavedApiItem>("/api/v1/user/restaurants/saved/", {
     method: "POST",
-    headers: getAuthHeaders(accessToken),
+    accessToken,
     body: JSON.stringify({ restaurant_id: Number(restaurantId) }),
   });
-
-  if (!response.ok) {
-    throw new Error("Unable to save restaurant");
-  }
-
-  const payload = (await response.json()) as SavedApiItem;
   return mapSaved(payload);
 }
 
@@ -150,18 +118,15 @@ export async function unsaveRestaurant(
   accessToken: string,
   restaurantId: string
 ): Promise<void> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/v1/user/restaurants/saved/${Number(restaurantId)}/`,
-    {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    }
-  );
-
-  if (!response.ok && response.status !== 404) {
-    throw new Error("Unable to remove saved restaurant");
+  // 404 al borrar es aceptable: significa que el restaurante ya no estaba guardado.
+  try {
+    await apiRequest<void>(
+      `/api/v1/user/restaurants/saved/${Number(restaurantId)}/`,
+      { method: "DELETE", accessToken }
+    );
+  } catch (err) {
+    if (err instanceof ApiError && err.isNotFound) return;
+    throw err;
   }
 }
 
@@ -169,20 +134,10 @@ export async function isRestaurantSaved(
   accessToken: string,
   restaurantId: string
 ): Promise<boolean> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/v1/user/restaurants/saved/${Number(restaurantId)}/`,
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    }
+  const payload = await apiRequest<{ is_saved?: boolean }>(
+    `/api/v1/user/restaurants/saved/${Number(restaurantId)}/`,
+    { accessToken }
   );
-
-  if (!response.ok) {
-    throw new Error("Unable to check saved state");
-  }
-
-  const payload = (await response.json()) as { is_saved?: boolean };
   return Boolean(payload.is_saved);
 }
 
@@ -190,20 +145,17 @@ export async function markRestaurantVisited(
   accessToken: string,
   input: { restaurantId: string; rating: number; note?: string }
 ): Promise<VisitedRestaurantRecord> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/user/restaurants/visited/`, {
-    method: "POST",
-    headers: getAuthHeaders(accessToken),
-    body: JSON.stringify({
-      restaurant_id: Number(input.restaurantId),
-      rating: input.rating,
-      note: input.note ?? "",
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error("Unable to mark restaurant as visited");
-  }
-
-  const payload = (await response.json()) as VisitedApiItem;
+  const payload = await apiRequest<VisitedApiItem>(
+    "/api/v1/user/restaurants/visited/",
+    {
+      method: "POST",
+      accessToken,
+      body: JSON.stringify({
+        restaurant_id: Number(input.restaurantId),
+        rating: input.rating,
+        note: input.note ?? "",
+      }),
+    }
+  );
   return mapVisited(payload);
 }

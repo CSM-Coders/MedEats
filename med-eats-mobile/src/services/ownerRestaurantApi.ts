@@ -5,6 +5,7 @@ import {
   RestaurantWriteInput,
   Review,
 } from "@/src/models/domain";
+import { apiRequest, ApiError } from "@/src/services/httpClient";
 
 type RestaurantBranchApiItem = {
   id: number | string;
@@ -55,58 +56,6 @@ type CategoryApiItem = {
   name: string;
 };
 
-function authHeaders(accessToken: string) {
-  return {
-    Authorization: `Bearer ${accessToken}`,
-  };
-}
-
-function extractFirstErrorMessage(payload: any): string | null {
-  if (!payload) return null;
-
-  if (typeof payload === "string") {
-    return payload.trim() || null;
-  }
-
-  if (Array.isArray(payload)) {
-    for (const item of payload) {
-      const nested = extractFirstErrorMessage(item);
-      if (nested) return nested;
-    }
-    return null;
-  }
-
-  if (typeof payload === "object") {
-    if (typeof payload.detail === "string" && payload.detail.trim()) return payload.detail.trim();
-    if (typeof payload.message === "string" && payload.message.trim()) return payload.message.trim();
-
-    for (const value of Object.values(payload)) {
-      const nested = extractFirstErrorMessage(value);
-      if (nested) return nested;
-    }
-  }
-
-  return null;
-}
-
-async function parseApiError(response: Response, fallbackMessage: string): Promise<string> {
-  const textBody = await response.text().catch(() => "");
-
-  if (textBody) {
-    try {
-      const json = JSON.parse(textBody);
-      const parsed = extractFirstErrorMessage(json);
-      if (parsed) return parsed;
-      return `${fallbackMessage} (HTTP ${response.status})`;
-    } catch {
-      const compact = textBody.replace(/\s+/g, " ").trim();
-      if (compact) return `${fallbackMessage} (HTTP ${response.status}): ${compact.slice(0, 180)}`;
-    }
-  }
-
-  return `${fallbackMessage} (HTTP ${response.status})`;
-}
-
 function mapBranch(item: RestaurantBranchApiItem): RestaurantBranch {
   return {
     id: String(item.id),
@@ -119,7 +68,6 @@ function mapBranch(item: RestaurantBranchApiItem): RestaurantBranch {
 }
 
 function mapRestaurant(item: RestaurantApiItem): Restaurant {
-  // Normalize image and branch coordinates similarly to public restaurant API
   let imageUrl = item.image ?? "";
   if (imageUrl && !/^https?:\/\//i.test(imageUrl)) {
     imageUrl = imageUrl.startsWith("/") ? imageUrl : `/${imageUrl}`;
@@ -194,27 +142,41 @@ function toRestaurantWritePayload(input: RestaurantWriteInput) {
   };
 }
 
-export async function fetchMyRestaurants(accessToken: string): Promise<Restaurant[]> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/owner/restaurants/`, {
-    headers: authHeaders(accessToken),
-  });
-
-  if (!response.ok) {
-    throw new Error("Unable to load your restaurants");
+// Envuelve apiRequest reemplazando el mensaje del ApiError por uno con contexto
+// específico de la operación (p.ej. "Unable to create restaurant").
+async function ownerApiRequest<T>(
+  path: string,
+  fallbackMessage: string,
+  options: Parameters<typeof apiRequest>[1] = {}
+): Promise<T> {
+  try {
+    return await apiRequest<T>(path, options);
+  } catch (err) {
+    if (err instanceof ApiError) {
+      const detail = err.message && err.message !== `HTTP ${err.status}` ? err.message : "";
+      const combined = detail
+        ? `${fallbackMessage} (HTTP ${err.status}): ${detail}`
+        : `${fallbackMessage} (HTTP ${err.status})`;
+      throw new Error(combined);
+    }
+    throw err;
   }
+}
 
-  const payload = (await response.json()) as RestaurantApiItem[];
+export async function fetchMyRestaurants(accessToken: string): Promise<Restaurant[]> {
+  const payload = await ownerApiRequest<RestaurantApiItem[]>(
+    "/api/v1/owner/restaurants/",
+    "Unable to load your restaurants",
+    { accessToken }
+  );
   return payload.map(mapRestaurant);
 }
 
 export async function fetchFoodCategories(): Promise<FoodCategory[]> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/categories/`);
-
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, "Unable to load categories"));
-  }
-
-  const payload = (await response.json()) as CategoryApiItem[];
+  const payload = await ownerApiRequest<CategoryApiItem[]>(
+    "/api/v1/categories/",
+    "Unable to load categories"
+  );
   return payload.map((item) => ({
     id: Number(item.id),
     name: item.name,
@@ -225,21 +187,16 @@ export async function createMyRestaurant(
   accessToken: string,
   input: RestaurantWriteInput | FormData
 ): Promise<Restaurant> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/owner/restaurants/`, {
-    method: "POST",
-    headers: {
-      ...authHeaders(accessToken),
-      ...(input instanceof FormData ? {} : { "Content-Type": "application/json" }),
-    },
-    body: input instanceof FormData ? input : JSON.stringify(toRestaurantWritePayload(input as RestaurantWriteInput)),
-  });
+  const body =
+    input instanceof FormData
+      ? input
+      : JSON.stringify(toRestaurantWritePayload(input as RestaurantWriteInput));
 
-  if (!response.ok) {
-    const message = await parseApiError(response, "Unable to create restaurant");
-    throw new Error(message);
-  }
-
-  const payload = (await response.json()) as RestaurantApiItem;
+  const payload = await ownerApiRequest<RestaurantApiItem>(
+    "/api/v1/owner/restaurants/",
+    "Unable to create restaurant",
+    { method: "POST", accessToken, body }
+  );
   return mapRestaurant(payload);
 }
 
@@ -248,24 +205,16 @@ export async function updateMyRestaurant(
   restaurantId: string,
   input: Partial<RestaurantWriteInput> | FormData
 ): Promise<Restaurant> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/v1/owner/restaurants/${Number(restaurantId)}/`,
-    {
-      method: "PATCH",
-      headers: {
-        ...authHeaders(accessToken),
-        ...(input instanceof FormData ? {} : { "Content-Type": "application/json" }),
-      },
-      body: input instanceof FormData ? input : JSON.stringify(toRestaurantWritePayload(input as RestaurantWriteInput)),
-    }
+  const body =
+    input instanceof FormData
+      ? input
+      : JSON.stringify(toRestaurantWritePayload(input as RestaurantWriteInput));
+
+  const payload = await ownerApiRequest<RestaurantApiItem>(
+    `/api/v1/owner/restaurants/${Number(restaurantId)}/`,
+    "Unable to update restaurant",
+    { method: "PATCH", accessToken, body }
   );
-
-  if (!response.ok) {
-    const message = await parseApiError(response, "Unable to update restaurant");
-    throw new Error(message);
-  }
-
-  const payload = (await response.json()) as RestaurantApiItem;
   return mapRestaurant(payload);
 }
 
@@ -279,14 +228,12 @@ export async function addRestaurantBranch(
     longitude?: number;
   }
 ): Promise<RestaurantBranch> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/v1/owner/restaurants/${Number(restaurantId)}/branches/`,
+  const payload = await ownerApiRequest<RestaurantBranchApiItem>(
+    `/api/v1/owner/restaurants/${Number(restaurantId)}/branches/`,
+    "Unable to create branch",
     {
       method: "POST",
-      headers: {
-        ...authHeaders(accessToken),
-        "Content-Type": "application/json",
-      },
+      accessToken,
       body: JSON.stringify({
         address: input.address,
         is_primary: Boolean(input.isPrimary),
@@ -295,12 +242,6 @@ export async function addRestaurantBranch(
       }),
     }
   );
-
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, "Unable to create branch"));
-  }
-
-  const payload = (await response.json()) as RestaurantBranchApiItem;
   return mapBranch(payload);
 }
 
@@ -308,17 +249,11 @@ export async function deleteRestaurantBranch(
   accessToken: string,
   branchId: string | number
 ): Promise<void> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/v1/owner/branches/${Number(branchId)}/`,
-    {
-      method: "DELETE",
-      headers: authHeaders(accessToken),
-    }
+  await ownerApiRequest<void>(
+    `/api/v1/owner/branches/${Number(branchId)}/`,
+    "Unable to delete branch",
+    { method: "DELETE", accessToken }
   );
-
-  if (!response.ok) {
-    throw new Error("Unable to delete branch");
-  }
 }
 
 export async function uploadRestaurantMenuPdf(
@@ -334,22 +269,11 @@ export async function uploadRestaurantMenuPdf(
     type: file.mimeType || "application/pdf",
   } as any);
 
-  const response = await fetch(
-    `${API_BASE_URL}/api/v1/owner/restaurants/${Number(restaurantId)}/menu/`,
-    {
-      method: "PATCH",
-      headers: {
-        ...authHeaders(accessToken),
-      },
-      body,
-    }
+  const payload = await ownerApiRequest<RestaurantApiItem>(
+    `/api/v1/owner/restaurants/${Number(restaurantId)}/menu/`,
+    "Unable to upload menu PDF",
+    { method: "PATCH", accessToken, body }
   );
-
-  if (!response.ok) {
-    throw new Error(await parseApiError(response, "Unable to upload menu PDF"));
-  }
-
-  const payload = (await response.json()) as RestaurantApiItem;
   return mapRestaurant(payload);
 }
 
@@ -357,15 +281,14 @@ export async function fetchOwnerReviews(
   accessToken: string,
   restaurantId?: string
 ): Promise<Review[]> {
-  const query = restaurantId ? `?restaurant=${encodeURIComponent(restaurantId)}` : "";
-  const response = await fetch(`${API_BASE_URL}/api/v1/owner/reviews/${query}`, {
-    headers: authHeaders(accessToken),
-  });
+  const path = restaurantId
+    ? `/api/v1/owner/reviews/?restaurant=${encodeURIComponent(restaurantId)}`
+    : "/api/v1/owner/reviews/";
 
-  if (!response.ok) {
-    throw new Error("Unable to load owner reviews");
-  }
-
-  const payload = (await response.json()) as ReviewApiItem[];
+  const payload = await ownerApiRequest<ReviewApiItem[]>(
+    path,
+    "Unable to load owner reviews",
+    { accessToken }
+  );
   return payload.map(mapReview);
 }

@@ -1,5 +1,6 @@
 import { API_BASE_URL } from "@/src/config/api";
 import { Post, PostComment } from "@/src/models/domain";
+import { apiRequest } from "@/src/services/httpClient";
 
 type PostApiItem = {
   id: number | string;
@@ -50,13 +51,6 @@ function mapPost(item: PostApiItem): Post {
   };
 }
 
-function getAuthHeaders(accessToken: string) {
-  return {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${accessToken}`,
-  };
-}
-
 type PaginatedPostsResponse = {
   results: PostApiItem[];
   next: string | null;
@@ -78,19 +72,11 @@ export async function fetchPosts(
   accessToken: string,
   cursor?: string
 ): Promise<{ posts: Post[]; nextCursor: string | null }> {
-  const url = cursor
-    ? `${API_BASE_URL}/api/v1/posts/?cursor=${encodeURIComponent(cursor)}`
-    : `${API_BASE_URL}/api/v1/posts/`;
+  const path = cursor
+    ? `/api/v1/posts/?cursor=${encodeURIComponent(cursor)}`
+    : `/api/v1/posts/`;
 
-  const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-
-  if (!response.ok) {
-    throw new Error("Unable to load posts");
-  }
-
-  const payload = (await response.json()) as PaginatedPostsResponse;
+  const payload = await apiRequest<PaginatedPostsResponse>(path, { accessToken });
   return {
     posts: payload.results.map(mapPost),
     nextCursor: extractCursor(payload.next),
@@ -98,32 +84,18 @@ export async function fetchPosts(
 }
 
 export async function fetchPostById(accessToken: string, postId: string): Promise<Post> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/posts/${postId}/`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
+  const payload = await apiRequest<PostApiItem>(`/api/v1/posts/${postId}/`, {
+    accessToken,
   });
-
-  if (!response.ok) {
-    throw new Error("Unable to load post details");
-  }
-
-  const payload = (await response.json()) as PostApiItem;
   return mapPost(payload);
 }
 
 // [P2-7] fetchUserPosts también maneja respuesta paginada
 export async function fetchUserPosts(accessToken: string, username: string): Promise<Post[]> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/v1/posts/?username=${encodeURIComponent(username)}`,
-    { headers: { Authorization: `Bearer ${accessToken}` } }
+  const payload = await apiRequest<PaginatedPostsResponse>(
+    `/api/v1/posts/?username=${encodeURIComponent(username)}`,
+    { accessToken }
   );
-
-  if (!response.ok) {
-    throw new Error("Unable to load user posts");
-  }
-
-  const payload = (await response.json()) as PaginatedPostsResponse;
   return payload.results.map(mapPost);
 }
 
@@ -148,52 +120,30 @@ export async function createPostApi(
       type,
     } as any);
   } else {
-    // Fallback if it's somehow just a string URL
     formData.append("image", input.image);
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/v1/posts/`, {
+  const payload = await apiRequest<PostApiItem>("/api/v1/posts/", {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      // Fetch will automatically add the multipart boundary header
-    },
+    accessToken,
     body: formData,
   });
-
-  if (!response.ok) {
-    throw new Error("Unable to create post");
-  }
-
-  const payload = (await response.json()) as PostApiItem;
   return mapPost(payload);
 }
 
 export async function likePost(accessToken: string, postId: string): Promise<Post> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/posts/${postId}/like/`, {
+  const payload = await apiRequest<PostApiItem>(`/api/v1/posts/${postId}/like/`, {
     method: "POST",
-    headers: getAuthHeaders(accessToken),
+    accessToken,
   });
-
-  if (!response.ok) {
-    throw new Error("Unable to like post");
-  }
-
-  const payload = (await response.json()) as PostApiItem;
   return mapPost(payload);
 }
 
 export async function unlikePost(accessToken: string, postId: string): Promise<Post> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/posts/${postId}/like/`, {
+  const payload = await apiRequest<PostApiItem>(`/api/v1/posts/${postId}/like/`, {
     method: "DELETE",
-    headers: getAuthHeaders(accessToken),
+    accessToken,
   });
-
-  if (!response.ok) {
-    throw new Error("Unable to unlike post");
-  }
-
-  const payload = (await response.json()) as PostApiItem;
   return mapPost(payload);
 }
 
@@ -201,17 +151,18 @@ export async function fetchPostComments(
   accessToken: string,
   postId: string
 ): Promise<PostComment[]> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/posts/${postId}/comments/`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
+  type ApiComment = {
+    id: number | string;
+    username: string;
+    user_avatar?: string;
+    content: string;
+    created_at?: string;
+  };
 
-  if (!response.ok) {
-    throw new Error("Unable to load comments");
-  }
-
-  const payload = (await response.json()) as any[];
+  const payload = await apiRequest<ApiComment[]>(
+    `/api/v1/posts/${postId}/comments/`,
+    { accessToken }
+  );
   return payload.map((item) => ({
     id: String(item.id),
     username: item.username,
@@ -226,17 +177,19 @@ export async function addCommentApi(
   postId: string,
   content: string
 ): Promise<PostComment> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/posts/${postId}/comments/`, {
+  type ApiComment = {
+    id: number | string;
+    username: string;
+    user_avatar?: string;
+    content: string;
+    created_at?: string;
+  };
+
+  const item = await apiRequest<ApiComment>(`/api/v1/posts/${postId}/comments/`, {
     method: "POST",
-    headers: getAuthHeaders(accessToken),
+    accessToken,
     body: JSON.stringify({ content }),
   });
-
-  if (!response.ok) {
-    throw new Error("Unable to add comment");
-  }
-
-  const item = await response.json();
   return {
     id: String(item.id),
     username: item.username,
@@ -247,12 +200,8 @@ export async function addCommentApi(
 }
 
 export async function deletePost(accessToken: string, postId: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/posts/${postId}/`, {
+  await apiRequest<void>(`/api/v1/posts/${postId}/`, {
     method: "DELETE",
-    headers: getAuthHeaders(accessToken),
+    accessToken,
   });
-
-  if (!response.ok) {
-    throw new Error("Unable to delete post");
-  }
 }

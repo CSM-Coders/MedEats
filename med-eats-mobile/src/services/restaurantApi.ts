@@ -1,5 +1,6 @@
 import { API_BASE_URL } from "@/src/config/api";
 import { Restaurant } from "@/src/models/domain";
+import { apiRequest } from "@/src/services/httpClient";
 
 type RestaurantBranchApiItem = {
   id: number | string;
@@ -83,62 +84,33 @@ function mapRestaurant(item: RestaurantApiItem): Restaurant {
 }
 
 export async function fetchRestaurants(): Promise<Restaurant[]> {
-  const url = `${API_BASE_URL}/api/v1/restaurants/`;
-  let response: Response;
-  try {
-    response = await fetch(url);
-  } catch (err) {
-    throw new Error(`Network error when fetching restaurants from ${url}: ${String(err)}`);
-  }
-
-  if (!response.ok) {
-    const text = await response.text().catch(() => "<no body>");
-    throw new Error(`Unable to load restaurants from ${url} (status ${response.status}): ${text}`);
-  }
-
-  const payload = (await response.json()) as RestaurantApiItem[];
+  const payload = await apiRequest<RestaurantApiItem[]>("/api/v1/restaurants/");
   return payload.map(mapRestaurant);
 }
 
 export async function fetchRestaurantById(id: string): Promise<Restaurant> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/restaurants/${id}/`);
-
-  if (!response.ok) {
-    throw new Error("Unable to load restaurant");
-  }
-
-  const payload = (await response.json()) as RestaurantApiItem;
+  const payload = await apiRequest<RestaurantApiItem>(`/api/v1/restaurants/${id}/`);
   return mapRestaurant(payload);
 }
 
 export async function fetchSavedRestaurants(accessToken: string, username?: string): Promise<Restaurant[]> {
-  const url = username 
-    ? `${API_BASE_URL}/api/v1/user/restaurants/saved/?username=${username}`
-    : `${API_BASE_URL}/api/v1/user/restaurants/saved/`;
-    
-  const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+  const path = username
+    ? `/api/v1/user/restaurants/saved/?username=${encodeURIComponent(username)}`
+    : `/api/v1/user/restaurants/saved/`;
+
+  const payload = await apiRequest<{ restaurant: RestaurantApiItem }[]>(path, {
+    accessToken,
   });
-
-  if (!response.ok) throw new Error("Unable to load saved restaurants");
-
-  const payload = (await response.json()) as any[];
-  // El backend devuelve { id, restaurant, ... }
-  return payload.map(item => mapRestaurant(item.restaurant));
+  return payload.map((item) => mapRestaurant(item.restaurant));
 }
 
 export async function fetchVisitedRestaurants(accessToken: string, username?: string): Promise<Restaurant[]> {
-  const url = username 
-    ? `${API_BASE_URL}/api/v1/user/restaurants/visited/?username=${username}`
-    : `${API_BASE_URL}/api/v1/user/restaurants/visited/`;
-    
-  const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+  const path = username
+    ? `/api/v1/user/restaurants/visited/?username=${encodeURIComponent(username)}`
+    : `/api/v1/user/restaurants/visited/`;
+
+  const payload = await apiRequest<{ restaurant: RestaurantApiItem }[]>(path, {
+    accessToken,
   });
-
-  if (!response.ok) throw new Error("Unable to load visited restaurants");
-
-  const payload = (await response.json()) as any[];
-  // El backend devuelve { id, restaurant, ... }
-  return payload.map(item => mapRestaurant(item.restaurant));
+  return payload.map((item) => mapRestaurant(item.restaurant));
 }

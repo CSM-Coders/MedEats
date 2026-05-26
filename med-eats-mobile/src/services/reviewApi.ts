@@ -1,5 +1,6 @@
 import { API_BASE_URL } from "@/src/config/api";
 import { Review } from "@/src/models/domain";
+import { apiRequest } from "@/src/services/httpClient";
 
 type ReviewApiItem = {
   id: number | string;
@@ -35,15 +36,9 @@ function mapReview(item: ReviewApiItem, restaurantId: string): Review {
 export async function fetchReviewsByRestaurantId(
   restaurantId: string
 ): Promise<Review[]> {
-  const response = await fetch(
-    `${API_BASE_URL}/api/v1/reviews/?restaurant=${encodeURIComponent(restaurantId)}`
+  const payload = await apiRequest<ReviewApiItem[]>(
+    `/api/v1/reviews/?restaurant=${encodeURIComponent(restaurantId)}`
   );
-
-  if (!response.ok) {
-    throw new Error("Unable to load reviews");
-  }
-
-  const payload = (await response.json()) as ReviewApiItem[];
   return payload.map((item) => mapReview(item, restaurantId));
 }
 
@@ -51,24 +46,15 @@ export async function createReview(
   accessToken: string,
   input: { restaurantId: string; rating: number; comment: string }
 ): Promise<Review> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/reviews/`, {
+  const payload = await apiRequest<ReviewApiItem>("/api/v1/reviews/", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
+    accessToken,
     body: JSON.stringify({
       restaurant_id: Number(input.restaurantId),
       rating: input.rating,
       comment: input.comment,
     }),
   });
-
-  if (!response.ok) {
-    throw new Error("Unable to create review");
-  }
-
-  const payload = (await response.json()) as ReviewApiItem;
   return mapReview(payload, input.restaurantId);
 }
 
@@ -77,38 +63,23 @@ export async function updateReview(
   reviewId: string,
   input: { rating: number; comment: string }
 ): Promise<Review> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/reviews/${reviewId}/`, {
+  const payload = await apiRequest<ReviewApiItem>(`/api/v1/reviews/${reviewId}/`, {
     method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
+    accessToken,
     body: JSON.stringify({
       rating: input.rating,
       comment: input.comment,
     }),
   });
-
-  if (!response.ok) {
-    throw new Error("Unable to update review");
-  }
-
-  const payload = (await response.json()) as ReviewApiItem;
-  return mapReview(payload, ""); // restaurantId not strictly needed for UI sync here
+  return mapReview(payload, "");
 }
 
 export async function deleteReview(
   accessToken: string,
   reviewId: string
 ): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/reviews/${reviewId}/`, {
+  await apiRequest<void>(`/api/v1/reviews/${reviewId}/`, {
     method: "DELETE",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
+    accessToken,
   });
-
-  if (!response.ok) {
-    throw new Error("Unable to delete review");
-  }
 }
