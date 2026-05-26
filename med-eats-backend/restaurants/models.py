@@ -426,7 +426,9 @@ class PlatformAnalytics(models.Model):
     total_users = models.IntegerField(default=0, verbose_name="Total de usuarios")
     new_users = models.IntegerField(default=0, verbose_name="Nuevos usuarios")
     active_users = models.IntegerField(default=0, verbose_name="Usuarios activos")
-    total_restaurants = models.IntegerField(default=0, verbose_name="Total de restaurantes")
+    total_restaurants = models.IntegerField(
+        default=0, verbose_name="Total de restaurantes"
+    )
     new_restaurants = models.IntegerField(default=0, verbose_name="Nuevos restaurantes")
     total_posts = models.IntegerField(default=0, verbose_name="Total de posts")
     new_posts = models.IntegerField(default=0, verbose_name="Nuevos posts")
@@ -434,7 +436,9 @@ class PlatformAnalytics(models.Model):
     new_reviews = models.IntegerField(default=0, verbose_name="Nuevas reseñas")
     total_likes = models.IntegerField(default=0, verbose_name="Total de likes")
     total_comments = models.IntegerField(default=0, verbose_name="Total de comentarios")
-    content_reports = models.IntegerField(default=0, verbose_name="Reportes de contenido")
+    content_reports = models.IntegerField(
+        default=0, verbose_name="Reportes de contenido"
+    )
     posts_removed = models.IntegerField(default=0, verbose_name="Posts removidos")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -477,7 +481,9 @@ class PostModeration(models.Model):
         related_name="moderated_posts",
         verbose_name="Moderador",
     )
-    action = models.CharField(max_length=20, choices=ACTION_CHOICES, verbose_name="Acción")
+    action = models.CharField(
+        max_length=20, choices=ACTION_CHOICES, verbose_name="Acción"
+    )
     reason = models.CharField(
         max_length=50, choices=REASON_CHOICES, verbose_name="Razón de moderación"
     )
@@ -513,13 +519,17 @@ class AdminAuditLog(models.Model):
         related_name="admin_audit_logs",
         verbose_name="Usuario administrador",
     )
-    action = models.CharField(max_length=20, choices=ACTION_CHOICES, verbose_name="Acción")
+    action = models.CharField(
+        max_length=20, choices=ACTION_CHOICES, verbose_name="Acción"
+    )
     model_type = models.CharField(
         max_length=20, choices=MODEL_TYPE_CHOICES, verbose_name="Tipo de modelo"
     )
     object_id = models.PositiveIntegerField(verbose_name="ID del objeto")
     object_name = models.CharField(max_length=255, verbose_name="Nombre del objeto")
-    changes = models.JSONField(default=dict, blank=True, verbose_name="Cambios realizados")
+    changes = models.JSONField(
+        default=dict, blank=True, verbose_name="Cambios realizados"
+    )
     ip_address = models.GenericIPAddressField(
         null=True, blank=True, verbose_name="Dirección IP"
     )

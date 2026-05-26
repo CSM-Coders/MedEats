@@ -277,10 +277,14 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = parse_list_env(
     "CORS_ALLOWED_ORIGINS",
-    default=[
-        "http://localhost:8081",
-        "http://127.0.0.1:8081",
-    ] if DEBUG else [],
+    default=(
+        [
+            "http://localhost:8081",
+            "http://127.0.0.1:8081",
+        ]
+        if DEBUG
+        else []
+    ),
 )
 
 # ============================================================
@@ -324,25 +328,64 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 
 # ============================================================
-# LOGGING: Trazabilidad de errores en producción
+# [P3-4] LOGGING — texto legible en dev, JSON estructurado en prod
 # ============================================================
+# En producción usamos pythonjsonlogger.JsonFormatter para que Cloud
+# log aggregators (Datadog, CloudWatch, GCP Logging) parseen los
+# campos automáticamente.
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
         "verbose": {
+            "format": "{levelname} {asctime} {module} {process:d} {thread:d} {message}",
+            "style": "{",
+        },
+        "simple": {
             "format": "{levelname} {asctime} {module} {message}",
             "style": "{",
+        },
+        "json": (
+            {
+                "()": "pythonjsonlogger.jsonlogger.JsonFormatter",
+                "format": "%(asctime)s %(levelname)s %(name)s %(message)s",
+            }
+            if not DEBUG
+            else {
+                "format": "{levelname} {asctime} {module} {message}",
+                "style": "{",
+            }
+        ),
+    },
+    "filters": {
+        "require_debug_false": {
+            "()": "django.utils.log.RequireDebugFalse",
         },
     },
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",
-            "formatter": "verbose",
+            "formatter": "simple" if DEBUG else "json",
         },
     },
     "root": {
         "handlers": ["console"],
-        "level": "INFO",
+        "level": "DEBUG" if DEBUG else "INFO",
+    },
+    "loggers": {
+        "django.security": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "django.request": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+        "celery": {
+            "handlers": ["console"],
+            "level": "INFO",
+        },
     },
 }

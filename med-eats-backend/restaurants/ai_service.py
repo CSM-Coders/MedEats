@@ -9,7 +9,6 @@ from urllib import error, request
 
 from django.conf import settings
 
-
 logger = logging.getLogger(__name__)
 
 

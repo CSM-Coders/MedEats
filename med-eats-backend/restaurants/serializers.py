@@ -159,7 +159,7 @@ class RestaurantOwnerWriteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("El PDF no puede superar 10MB.")
 
         try:
-            import magic  # python-magic
+            import magic  # noqa: F401 — solo para detectar disponibilidad
 
             header = value.read(8)
             value.seek(0)
@@ -251,7 +251,9 @@ class RestaurantOwnerWriteSerializer(serializers.ModelSerializer):
 
         new_location = validated_data.get("location", instance.location)
         location_changed = new_location != instance.location
-        has_new_coords = validated_data.get("latitude") and validated_data.get("longitude")
+        has_new_coords = validated_data.get("latitude") and validated_data.get(
+            "longitude"
+        )
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)

@@ -670,3 +670,152 @@ class InferredUserStoriesTests(APITestCase):
                 resp.status_code,
                 [status.HTTP_403_FORBIDDEN, status.HTTP_400_BAD_REQUEST],
             )
+
+
+# ============================================================
+# [P4-1] TESTS EXPANDIDOS — verifican comportamiento real, no solo HTTP codes
+# ============================================================
+
+
+class PostFeedPaginationTests(APITestCase):
+    """Valida que P1-7 (paginación cursor-based) funciona correctamente."""
+
+    def setUp(self):
+        from restaurants.models import Post, Restaurant
+
+        self.user = User.objects.create_user(
+            username="paginator",
+            email="paginator@test.com",
+            password="StrongPass123!",
+        )
+        self.client.force_authenticate(user=self.user)
+
+        restaurant = Restaurant.objects.create(
+            name="Test Restaurant Pagination",
+            latitude=6.2,
+            longitude=-75.5,
+            location="Test",
+            description="Test",
+        )
+        # 25 posts > page_size (20) para forzar segunda página
+        for i in range(25):
+            Post.objects.create(
+                user=self.user,
+                restaurant=restaurant,
+                rating=4,
+                caption=f"Post {i}",
+                image="posts/test.jpg",
+            )
+
+    def test_feed_is_paginated_with_cursor_format(self):
+        """El feed devuelve {results, next, previous} y limita a PAGE_SIZE=20."""
+        response = self.client.get(reverse("post-list-create"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("results", response.data)
+        self.assertIn("next", response.data)
+        self.assertIn("previous", response.data)
+        self.assertEqual(len(response.data["results"]), 20)
+        # Hay 25 posts, así que next NO debe ser None
+        self.assertIsNotNone(response.data["next"])
+
+    def test_feed_second_page_with_cursor(self):
+        """Usando el cursor de next, la segunda página trae los 5 restantes."""
+        first = self.client.get(reverse("post-list-create"))
+        next_url = first.data["next"]
+        self.assertIsNotNone(next_url)
+
+        # extraer ?cursor=XYZ del next URL
+        from urllib.parse import urlparse, parse_qs
+
+        cursor = parse_qs(urlparse(next_url).query).get("cursor", [None])[0]
+        self.assertIsNotNone(cursor)
+
+        second = self.client.get(reverse("post-list-create"), {"cursor": cursor})
+        self.assertEqual(second.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(second.data["results"]), 5)
+
+
+class AuthenticationDenyByDefaultTests(APITestCase):
+    """Valida P0-3: endpoints privados devuelven 401 sin token."""
+
+    def test_feed_requires_authentication(self):
+        response = self.client.get(reverse("post-list-create"))
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_saved_restaurants_requires_authentication(self):
+        response = self.client.get(reverse("saved-restaurant-list-create"))
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_public_restaurant_list_does_not_require_auth(self):
+        """Sanity: las vistas con AllowAny siguen siendo públicas."""
+        response = self.client.get(reverse("restaurant-list"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+
+class PrivateProfilePostsTests(APITestCase):
+    """Valida que un usuario no ve posts de un perfil privado que no sigue."""
+
+    def setUp(self):
+        from accounts.models import UserProfile
+        from restaurants.models import Post, Restaurant
+
+        self.viewer = User.objects.create_user(
+            username="viewer", email="v@test.com", password="Pass123!"
+        )
+        self.private_owner = User.objects.create_user(
+            username="private_owner",
+            email="po@test.com",
+            password="Pass123!",
+        )
+        # Marcar como privado
+        profile = (
+            self.private_owner.profile
+            if hasattr(self.private_owner, "profile")
+            else None
+        )
+        if profile is None:
+            profile = UserProfile.objects.create(user=self.private_owner)
+        profile.is_public = False
+        profile.save()
+
+        restaurant = Restaurant.objects.create(
+            name="Private Test",
+            latitude=6.2,
+            longitude=-75.5,
+            location="Test",
+            description="Test",
+        )
+        Post.objects.create(
+            user=self.private_owner,
+            restaurant=restaurant,
+            rating=5,
+            caption="Privado",
+            image="posts/test.jpg",
+        )
+
+    def test_viewer_cannot_see_private_users_posts_in_feed(self):
+        self.client.force_authenticate(user=self.viewer)
+        response = self.client.get(reverse("post-list-create"))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Ningún post del usuario privado debe estar en results
+        usernames = [p.get("username") for p in response.data.get("results", [])]
+        self.assertNotIn("private_owner", usernames)
+
+    def test_viewer_gets_403_when_querying_private_profile_directly(self):
+        self.client.force_authenticate(user=self.viewer)
+        response = self.client.get(
+            reverse("post-list-create"), {"username": "private_owner"}
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class HealthCheckEndpointTests(APITestCase):
+    """Valida P1-13: /health/ devuelve estado de db y cache."""
+
+    def test_health_check_returns_200_when_db_ok(self):
+        response = self.client.get("/health/")
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("status", response.json())
+        self.assertIn("db", response.json())
+        self.assertEqual(response.json()["db"], "ok")

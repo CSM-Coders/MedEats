@@ -66,6 +66,7 @@ User = get_user_model()
 # [P1-6] Helpers de querysets con annotate() para eliminar N+1
 # ============================================================
 
+
 def get_annotated_restaurant_queryset():
     """Queryset de restaurantes con rating y conteo calculados en SQL."""
     return (
@@ -88,9 +89,7 @@ def get_annotated_post_queryset(user=None):
         qs = qs.annotate(
             likes_count_db=Count("likes", distinct=True),
             comments_count_db=Count("comments", distinct=True),
-            is_liked_db=Exists(
-                PostLike.objects.filter(post=OuterRef("pk"), user=user)
-            ),
+            is_liked_db=Exists(PostLike.objects.filter(post=OuterRef("pk"), user=user)),
         )
     else:
         qs = qs.annotate(

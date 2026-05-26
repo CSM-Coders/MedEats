@@ -44,6 +44,7 @@ def health_check(request):
 
     return JsonResponse(checks, status=200 if checks["status"] == "ok" else 503)
 
+
 # ============================================================
 # RUTAS BACKEND PRINCIPALES (El índice base)
 # ------------------------------------------------------------
