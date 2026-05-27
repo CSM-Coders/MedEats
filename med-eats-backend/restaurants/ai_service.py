@@ -136,6 +136,7 @@ def _restaurant_in_neighborhood(
     center_lat, center_lon, radius_km = centroid
     return _haversine_km(lat, lon, center_lat, center_lon) <= radius_km
 
+
 DOMAIN_HINTS = [
     "restaurante",
     "restaurantes",
