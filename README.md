@@ -78,6 +78,6 @@ Proyecto académico, Universidad EAFIT (2026-1).
 |---|---|
 | Camilo Álvarez Villegas | Desarrollador backend y de la app móvil, análisis de requisitos, documentación técnica |
 | Matías Monsalve Ruiz | Desarrollador, CI |
-| Samuel Calderón Duque | Diseño UI/UX, búsqueda con IA |
+| Samuel Calderón Duque | Panel de administración del dueño de restaurante, barra de búsqueda, chat interactivo, búsqueda en lenguaje natural con Gemini y diseño UI/UX |
 
 Requisitos, historias de usuario y planeación de sprints: [Wiki](https://github.com/CSM-Coders/MedEats/wiki).
