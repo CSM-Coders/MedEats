@@ -24,6 +24,7 @@ import os
 from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
+from django.core.exceptions import ImproperlyConfigured
 
 
 def parse_bool_env(var_name: str, default: bool = False) -> bool:
@@ -46,14 +47,26 @@ def parse_list_env(var_name: str, default: list[str] | None = None) -> list[str]
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
+# Load environment variables from backend .env file explicitly.
+# This avoids depending on the current working directory when starting Django.
+# Se carga aquí, antes de SECRET_KEY y DEBUG, para que también se lean del .env.
+load_dotenv(dotenv_path=BASE_DIR / ".env")
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-)$=%+l*&&*%l3!hr_50jyz*^rm3bwae%nhg5v(iy-_*+=hg8o^"
+# DEBUG se controla con la variable DJANGO_DEBUG.
+# Por defecto queda en True para que el entorno local funcione igual que antes;
+# en producción se define DJANGO_DEBUG=False.
+DEBUG = parse_bool_env("DJANGO_DEBUG", default=True)
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# La clave secreta se lee de DJANGO_SECRET_KEY.
+# Solo en desarrollo (DEBUG=True) se usa una clave de respaldo no secreta.
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "")
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = "django-insecure-solo-para-desarrollo-local"
+    else:
+        raise ImproperlyConfigured(
+            "Define DJANGO_SECRET_KEY cuando DJANGO_DEBUG=False."
+        )
 
 ALLOWED_HOSTS = parse_list_env(
     "ALLOWED_HOSTS",
@@ -119,10 +132,6 @@ WSGI_APPLICATION = "config.wsgi.application"
 # USER: tu usuario de macOS (PostgreSQL lo crea automáticamente)
 # HOST: localhost porque corre en tu máquina
 # PORT: 5432 es el puerto por defecto de PostgreSQL
-
-# Load environment variables from backend .env file explicitly.
-# This avoids depending on the current working directory when starting Django.
-load_dotenv(dotenv_path=BASE_DIR / ".env")
 
 DATABASES = {
     "default": {
